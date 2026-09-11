@@ -84,33 +84,36 @@ final class ScreenGrownUps extends Screen {
 
     private void drawRow(Canvas c, RectF row, RectF clip, BuddyTheme theme, int index) {
         if (row.bottom < clip.top || row.top > clip.bottom) return;
-        scratch.set(row);
-        scratch.offset(0f, row.height() * 0.04f * view.pressOn(R_ROW, index));
-        Theme.card(c, scratch, scratch.height() * 0.26f, 0xFFFFFFFF);
+        // One press offset for the whole row, so nothing on it moves independently.
+        float sink = row.height() * 0.04f * view.pressOn(R_ROW, index);
+        float middle = row.centerY() + sink;
 
-        float pad = scratch.height() * 0.18f;
-        float bead = scratch.height() - pad * 2f;
-        float bx = scratch.left + pad + bead * 0.5f;
+        scratch.set(row.left, row.top + sink, row.right, row.bottom + sink);
+        Theme.card(c, scratch, row.height() * 0.26f, 0xFFFFFFFF);
+
+        float pad = row.height() * 0.18f;
+        float bead = row.height() - pad * 2f;
+        float bx = row.left + pad + bead * 0.5f;
         Paint fill = Theme.FILL;
         fill.setShader(null);
         fill.setColor(Theme.mix(theme.light, 0xFFFFFFFF, 0.2f));
-        c.drawCircle(bx, scratch.centerY(), bead * 0.5f, fill);
-        Icons.glyph(c, GLYPHS[index], bx, scratch.centerY(), bead * 0.54f, theme.ink);
+        c.drawCircle(bx, middle, bead * 0.5f, fill);
+        Icons.glyph(c, GLYPHS[index], bx, middle, bead * 0.54f, theme.ink);
 
         String value = valueFor(index);
-        float chevron = scratch.height() * 0.26f;
+        float chevron = row.height() * 0.26f;
         float valueWidth = value == null ? 0f : Theme.measure(value, Theme.B1, true) + 18f;
-        scratch.set(bx + bead * 0.5f + pad, row.top,
-                    row.right - pad - chevron - valueWidth, row.bottom);
+        scratch.set(bx + bead * 0.5f + pad, row.top + sink,
+                    row.right - pad - chevron - valueWidth, row.bottom + sink);
         Theme.fitText(c, LABELS[index], scratch, Theme.T2, 16f, Theme.INK,
                       Paint.Align.LEFT, true);
         if (value != null) {
-            Theme.textCentered(c, value, row.right - pad - chevron - 12f, row.centerY(),
+            Theme.textCentered(c, value, row.right - pad - chevron - 12f, middle,
                                Theme.B1, valueIsOn(index) ? Theme.SUCCESS_DEEP : Theme.INK_MUTED,
                                Paint.Align.RIGHT, true);
         }
         Icons.glyph(c, Art.GLYPH_CHEVRON_RIGHT, row.right - pad - chevron * 0.5f,
-                    row.centerY(), chevron, Theme.INK_FAINT);
+                    middle, chevron, Theme.INK_FAINT);
     }
 
     private String valueFor(int index) {

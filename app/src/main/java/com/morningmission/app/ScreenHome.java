@@ -196,31 +196,37 @@ final class ScreenHome extends Screen {
             boolean active = i == engine.activeIndex() && !done;
             int face = done ? 0xFFEAF9EA : active ? 0xFFFFF3C9 : 0xF9FFFFFF;
 
-            scratch.set(row);
-            scratch.offset(0f, row.height() * 0.04f * view.pressOn(R_TASK, i));
-            Theme.card(c, scratch, scratch.height() * 0.28f, face);
+            // One press offset applied to the whole row, so the card, its icon, its
+            // text and its checkbox all move together.
+            float sink = row.height() * 0.04f * view.pressOn(R_TASK, i);
+            float top = row.top + sink;
+            float bottom = row.bottom + sink;
+            float middle = row.centerY() + sink;
 
-            float pad = scratch.height() * 0.14f;
-            float iconSize = scratch.height() - pad * 2f;
-            Icons.activityChip(c, Art.activityKind(engine.taskKey(i)), theme,
-                               scratch.left + pad + iconSize * 0.5f, scratch.centerY(),
-                               iconSize, done);
+            scratch.set(row.left, top, row.right, bottom);
+            Theme.card(c, scratch, row.height() * 0.28f, face);
 
-            float textLeft = scratch.left + pad * 2f + iconSize;
-            float checkSize = scratch.height() * 0.42f;
-            float textRight = scratch.right - pad * 1.4f - checkSize;
-            scratch.set(textLeft, scratch.top, textRight, scratch.centerY());
+            float pad = row.height() * 0.14f;
+            float iconSize = row.height() - pad * 2f;
+            int kind = Art.activityKind(engine.taskKey(i));
+            Icons.activityChip(c, kind, theme,
+                               row.left + pad + iconSize * 0.5f, middle, iconSize, done);
+
+            float checkSize = row.height() * 0.42f;
+            float textLeft = row.left + pad * 2f + iconSize;
+            float textRight = row.right - pad * 1.4f - checkSize;
+
+            scratch.set(textLeft, top + pad * 0.5f, textRight, middle);
             Theme.fitText(c, engine.taskName(i), scratch, Theme.T1, 18f,
                           done ? 0xFF4A6B57 : Theme.INK, Paint.Align.LEFT, true);
-            scratch.set(textLeft, row.centerY() + row.height() * 0.04f,
-                        textRight, row.bottom - row.height() * 0.16f);
-            Theme.fitText(c, done ? "Done!" : Art.ACTIVITY_SUBTITLES[
-                              Art.activityKind(engine.taskKey(i))],
+            scratch.set(textLeft, middle + row.height() * 0.03f,
+                        textRight, bottom - pad * 0.6f);
+            Theme.fitText(c, done ? "Done!" : Art.ACTIVITY_SUBTITLES[kind],
                           scratch, Theme.B2, 14f,
                           done ? Theme.SUCCESS_DEEP : Theme.INK_MUTED,
                           Paint.Align.LEFT, false);
 
-            drawCheckCircle(c, row.right - pad - checkSize * 0.5f, row.centerY(),
+            drawCheckCircle(c, row.right - pad - checkSize * 0.5f, middle,
                             checkSize, done, active);
         }
         c.restore();

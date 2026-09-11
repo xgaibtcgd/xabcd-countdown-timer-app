@@ -79,7 +79,14 @@ java -cp tools/.cache/android-all.jar:tools/.cache/classes \
      com.morningmission.app.ExportArt tools/preview/art.json
 ```
 
-## Art
+## Art and type
+
+The app bundles Nunito as `res/font/mm_round` and `mm_round_bold`. The previous
+version asked for `sans-serif-rounded`, which is a system family alias: it exists
+on Pixel and AOSP but silently falls back to plain Roboto on many manufacturers'
+builds, so the rounded lettering the design depends on was never guaranteed on a
+customer's device. Nunito is under the SIL Open Font License; the licence is in
+`licenses/nunito-OFL.txt` and must stay with the fonts.
 
 `app/src/main/res/drawable-nodpi/buddy_*.png` are the seven characters. They are
 720x720 cutouts with real alpha, and six of the seven share the vertical band

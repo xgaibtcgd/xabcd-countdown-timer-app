@@ -116,32 +116,36 @@ final class ScreenEditRoutine extends Screen {
     private void drawRow(Canvas c, RectF row, RectF clip, BuddyTheme theme, int index) {
         if (row.bottom < clip.top - row.height() || row.top > clip.bottom + row.height()) return;
         boolean lifted = index == draggingRow;
-        scratch.set(row);
-        if (!lifted) scratch.offset(0f, row.height() * 0.03f * view.pressOn(R_ROW, index));
-        Theme.card(c, scratch, scratch.height() * 0.26f,
+        float sink = lifted ? 0f : row.height() * 0.03f * view.pressOn(R_ROW, index);
+        float top = row.top + sink;
+        float bottom = row.bottom + sink;
+        float middle = row.centerY() + sink;
+
+        scratch.set(row.left, top, row.right, bottom);
+        Theme.card(c, scratch, row.height() * 0.26f,
                    lifted ? Theme.mix(theme.light, 0xFFFFFFFF, 0.1f) : 0xFFFFFFFF);
 
-        float pad = scratch.height() * 0.18f;
-        float handle = scratch.height() * 0.30f;
-        Icons.glyph(c, Art.GLYPH_DRAG, scratch.left + pad + handle * 0.5f,
-                    scratch.centerY(), handle, Theme.INK_FAINT);
+        float pad = row.height() * 0.18f;
+        float handle = row.height() * 0.30f;
+        Icons.glyph(c, Art.GLYPH_DRAG, row.left + pad + handle * 0.5f,
+                    middle, handle, Theme.INK_FAINT);
 
-        float icon = scratch.height() - pad * 2f;
-        float ix = scratch.left + pad * 2f + handle + icon * 0.5f;
-        Icons.activityChip(c, Art.activityKind(keys.get(index)), theme,
-                           ix, scratch.centerY(), icon, false);
+        float icon = row.height() - pad * 2f;
+        float ix = row.left + pad * 2f + handle + icon * 0.5f;
+        int kind = Art.activityKind(keys.get(index));
+        Icons.activityChip(c, kind, theme, ix, middle, icon, false);
 
-        float chevron = scratch.height() * 0.24f;
-        scratch.set(ix + icon * 0.5f + pad, row.top + pad * 0.4f,
-                    row.right - pad - chevron, row.centerY() + row.height() * 0.04f);
+        float chevron = row.height() * 0.24f;
+        scratch.set(ix + icon * 0.5f + pad, top + pad * 0.4f,
+                    row.right - pad - chevron, middle + row.height() * 0.02f);
         Theme.fitText(c, names.get(index), scratch, Theme.T2, 16f, Theme.INK,
                       Paint.Align.LEFT, true);
-        scratch.set(ix + icon * 0.5f + pad, row.centerY() + row.height() * 0.06f,
-                    row.right - pad - chevron, row.bottom - pad * 0.4f);
-        Theme.fitText(c, Art.ACTIVITY_SUBTITLES[Art.activityKind(keys.get(index))],
+        scratch.set(ix + icon * 0.5f + pad, middle + row.height() * 0.04f,
+                    row.right - pad - chevron, bottom - pad * 0.4f);
+        Theme.fitText(c, Art.ACTIVITY_SUBTITLES[kind],
                       scratch, Theme.B2, 13f, Theme.INK_MUTED, Paint.Align.LEFT, false);
         Icons.glyph(c, Art.GLYPH_CHEVRON_RIGHT, row.right - pad - chevron * 0.5f,
-                    row.centerY(), chevron, Theme.INK_FAINT);
+                    middle, chevron, Theme.INK_FAINT);
     }
 
     @Override boolean onPressDown(int id, int data, float x, float y) {

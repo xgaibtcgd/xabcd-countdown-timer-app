@@ -93,11 +93,15 @@ final class Theme {
     /**
      * Resolves typefaces once. Call from the View constructor.
      *
-     * <p>"sans-serif-rounded" is a system family alias: it exists on Pixel and AOSP but
-     * silently falls back to plain Roboto on many OEM builds, so the storybook look was
-     * never guaranteed on a customer's device. If a font is bundled at
-     * {@code res/font/mm_round.ttf} it is preferred; {@code Resources.getFont} is API 26,
-     * exactly this app's minSdk.
+     * <p>The app bundles Nunito (Regular and ExtraBold) as {@code res/font/mm_round}.
+     * The old build asked for "sans-serif-rounded", which is a system family alias: it
+     * exists on Pixel and AOSP but silently falls back to plain Roboto on many
+     * manufacturers' builds, so the rounded storybook lettering was never actually
+     * guaranteed on a customer's device. {@code Resources.getFont} is API 26, exactly
+     * this app's minSdk. The alias remains as a fallback if the resource cannot be
+     * loaded for any reason.
+     *
+     * <p>Nunito is licensed under the SIL Open Font License; see licenses/nunito-OFL.txt.
      */
     static void init(Context context) {
         FILL.setStyle(Paint.Style.FILL);
@@ -106,17 +110,12 @@ final class Theme {
         STROKE.setStrokeJoin(Paint.Join.ROUND);
         TEXT.setStyle(Paint.Style.FILL);
 
-        int regular = context.getResources().getIdentifier("mm_round", "font", context.getPackageName());
-        int bold = context.getResources().getIdentifier("mm_round_bold", "font", context.getPackageName());
-        if (regular != 0) {
-            try {
-                ROUND = context.getResources().getFont(regular);
-                ROUND_BOLD = bold != 0 ? context.getResources().getFont(bold)
-                                       : Typeface.create(ROUND, Typeface.BOLD);
-                bundledFont = true;
-            } catch (Exception ignored) {
-                // Fall through to the system alias below.
-            }
+        try {
+            ROUND = context.getResources().getFont(R.font.mm_round);
+            ROUND_BOLD = context.getResources().getFont(R.font.mm_round_bold);
+            bundledFont = ROUND != null && ROUND_BOLD != null;
+        } catch (Exception ignored) {
+            // Fall through to the system alias below.
         }
         if (!bundledFont) {
             ROUND = Typeface.create("sans-serif-rounded", Typeface.NORMAL);
