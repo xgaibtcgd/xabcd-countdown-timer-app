@@ -27,6 +27,7 @@ public final class SelfTest {
         engineContract();
         timeFormatting();
         artGeometry();
+        animation();
 
         System.out.println("==> SelfTest: " + checks + " checks, " + failures + " failures");
         if (failures > 0) System.exit(1);
@@ -383,6 +384,95 @@ public final class SelfTest {
         return hueGap(x[0], y[0]) >= 6f
             || Math.abs(x[1] - y[1]) >= 0.10f
             || Math.abs(x[2] - y[2]) >= 0.10f;
+    }
+
+    // ------------------------------------------------------------------ animation
+
+    /**
+     * Every state moves, stays within sane bounds, and -- the point of the rewrite --
+     * differs from every other state. In the old build five task states shared one
+     * identical branch and seven more had no branch at all.
+     */
+    private static void animation() {
+        Anim.Transform tr = new Anim.Transform();
+
+        for (int state = 0; state < Anim.STATE_COUNT; state++) {
+            boolean moved = false;
+            for (float t = 0f; t < 6f; t += 0.05f) {
+                Anim.solve(state, t, tr);
+                check(finite(tr), "state " + state + " produced a non-finite transform at t=" + t);
+                check(Math.abs(tr.dx) <= 60f && Math.abs(tr.dy) <= 60f,
+                      "state " + state + " translates too far at t=" + t
+                      + ": " + tr.dx + "," + tr.dy);
+                check(Math.abs(tr.rotation) <= 361f,
+                      "state " + state + " rotates too far at t=" + t + ": " + tr.rotation);
+                check(tr.scaleX > 0.6f && tr.scaleX < 1.5f
+                      && tr.scaleY > 0.6f && tr.scaleY < 1.5f,
+                      "state " + state + " scales out of range at t=" + t);
+                if (Math.abs(tr.dx) > 1f || Math.abs(tr.dy) > 1f
+                    || Math.abs(tr.rotation) > 1f
+                    || Math.abs(tr.scaleY - 1f) > 0.01f) moved = true;
+            }
+            check(moved, "state " + state + " never actually moves");
+        }
+
+        // No two states may be interchangeable. Sample a signature over several seconds
+        // and require a meaningful difference.
+        for (int a = 0; a < Anim.STATE_COUNT; a++) {
+            for (int b = a + 1; b < Anim.STATE_COUNT; b++) {
+                check(motionDistance(a, b) > 1.5f,
+                      "states " + a + " and " + b + " move identically; every task is"
+                      + " supposed to have its own motion");
+            }
+        }
+
+        // Task keys must each reach their own motion.
+        for (int i = 0; i < Art.ACT_COUNT; i++) {
+            check(Art.activityKind(Art.ACTIVITY_KEYS[i]) < Anim.STATE_COUNT,
+                  "task " + Art.ACTIVITY_KEYS[i] + " maps outside the motion table");
+        }
+
+        // Blending must settle, and must not overshoot on a long frame.
+        Anim.Blend blend = new Anim.Blend();
+        blend.snap(Anim.IDLE);
+        blend.set(Anim.DANCE);
+        for (int i = 0; i < 40; i++) {
+            blend.update(1f / 60f);
+            blend.solve(i / 60f, 1f / 60f, tr);
+            check(finite(tr), "blending produced a non-finite transform");
+        }
+        check(blend.state() == Anim.DANCE, "a blend should end on its target state");
+
+        blend.snap(Anim.IDLE);
+        blend.set(Anim.HURRY);
+        blend.update(5f);                       // one absurdly long frame
+        blend.solve(5f, 5f, tr);
+        check(finite(tr), "a long frame must not produce a non-finite transform");
+        check(tr.scaleY > 0.6f && tr.scaleY < 1.5f,
+              "squash and stretch must stay bounded after a long frame: " + tr.scaleY);
+    }
+
+    private static boolean finite(Anim.Transform tr) {
+        return !Float.isNaN(tr.dx) && !Float.isNaN(tr.dy) && !Float.isNaN(tr.rotation)
+            && !Float.isNaN(tr.scaleX) && !Float.isNaN(tr.scaleY)
+            && !Float.isInfinite(tr.dx) && !Float.isInfinite(tr.dy);
+    }
+
+    /** Mean absolute difference between two states sampled over time. */
+    private static float motionDistance(int a, int b) {
+        Anim.Transform ta = new Anim.Transform();
+        Anim.Transform tb = new Anim.Transform();
+        float total = 0f;
+        int samples = 0;
+        for (float t = 0f; t < 8f; t += 0.04f) {
+            Anim.solve(a, t, ta);
+            Anim.solve(b, t, tb);
+            total += Math.abs(ta.dx - tb.dx) + Math.abs(ta.dy - tb.dy)
+                   + Math.abs(ta.rotation - tb.rotation) * 0.8f
+                   + Math.abs(ta.scaleY - tb.scaleY) * 120f;
+            samples++;
+        }
+        return samples == 0 ? 0f : total / samples;
     }
 
     // ------------------------------------------------------------------- geometry

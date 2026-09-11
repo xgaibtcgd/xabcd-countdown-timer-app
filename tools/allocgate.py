@@ -25,9 +25,13 @@ ARRAY = re.compile(r'\bnew\s+(float|int|long|double|boolean|String|Object)\s*\['
 SIG = re.compile(r'^\s{0,8}(?:(?:public|private|protected|static|final|'
                  r'synchronized|abstract|native|strictfp)\s+)*'
                  r'(?:[\w\.\<\>\[\]\?, ]+\s+)?(\w+)\s*\([^;]*\)\s*(?:throws [\w, \.]+)?\s*\{')
-SETUP = {"layout", "rebuild", "measure", "build", "init", "prepare", "load",
-         "onSizeChanged", "onAttachedToWindow", "reset", "configure", "make",
-         "compile", "cache", "warm", "of", "create", "main"}
+# A method whose name starts with one of these is setup, not a frame path.
+SETUP_PREFIXES = ("layout", "rebuild", "measure", "build", "init", "prepare", "load",
+                  "compile", "cache", "warm", "create", "configure", "make")
+SETUP = {"onSizeChanged", "onAttachedToWindow", "reset", "of", "main"}
+
+def is_setup(name):
+    return name in SETUP or name.startswith(SETUP_PREFIXES)
 # Control-flow keywords also match SIG; they are blocks, not method bodies.
 KEYWORDS = {"if", "for", "while", "switch", "catch", "try", "else", "do",
             "synchronized", "return", "new", "case", "default"}
@@ -48,7 +52,7 @@ def check(path):
                   or (i >= 2 and "allocgate: ok" in src[i - 2]))
         if (ALLOC.search(code) or ARRAY.search(code)) and not exempt:
             method = stack[-1][0] if stack else None
-            in_setup = method is None or method in SETUP or method[0].isupper()
+            in_setup = method is None or is_setup(method) or method[0].isupper()
             is_field = not stack and depth <= 1
             is_static_init = "static" in line and "{" in line
             if not (in_setup or is_field or is_static_init):
