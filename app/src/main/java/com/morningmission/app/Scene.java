@@ -1,5 +1,6 @@
 package com.morningmission.app;
 
+import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.LinearGradient;
 import android.graphics.Paint;
@@ -62,6 +63,20 @@ final class Scene {
     static final float[] HORIZON  = {0.60f,      0.58f,      0.56f,      0.70f,      0.58f,      0.66f,      0.58f};
     static final int[] SCRIM      = {0x33,       0x33,       0x33,       0x4D,       0x33,       0x2E,       0x33};
 
+    /**
+     * The illustrated background for this scene, or null to draw one.
+     *
+     * <p>These are the artwork that shipped with the project. They are 9:16, and the
+     * reason they were dropped was that a modern 20:9 phone had to crop a fifth of their
+     * width away. {@link #layoutBackdrop} solves that differently: the image is drawn at
+     * full width and anchored to the bottom, so the ground and everything standing on it
+     * is preserved exactly, and the band left above it is filled with the image's own sky
+     * colour. Nothing is cropped, and the join falls in flat sky where it cannot be seen.
+     */
+    private Bitmap backdrop;
+    private int backdropSky = 0xFFFFFFFF;
+    private final RectF backdropDst = new RectF();
+
     private int environment = -1;
     private int mode = -1;
     /** The active buddy's light tint, kept for the celebration sky. */
@@ -96,8 +111,9 @@ final class Scene {
     private static float hash(int seed, int salt) { return hash(seed * 73856093 ^ salt * 19349663); }
 
     /** Recomputes the scene for a new size, buddy or mode. Call from onSizeChanged. */
-    void rebuild(RectF bounds, BuddyTheme theme, int newMode) {
+    void rebuild(RectF bounds, BuddyTheme theme, int newMode, Bitmap illustration) {
         area.set(bounds);
+        backdrop = illustration;
         environment = theme.index;
         mode = newMode;
         tint = theme.light;
@@ -108,9 +124,47 @@ final class Scene {
 
         cachedScrim = null;
         cachedScrimStrength = -1;
+        layoutBackdrop();
         buildSky();
         buildRidges();
         buildRay();
+    }
+
+    /**
+     * Places the illustration at full width against the bottom of the area, and samples
+     * the colour to extend it with. Falls back to filling by height, centred, on a screen
+     * squarer than the artwork.
+     */
+    private void layoutBackdrop() {
+        if (backdrop == null || backdrop.isRecycled()) return;
+        float width = area.width();
+        float height = width * backdrop.getHeight() / (float) backdrop.getWidth();
+        if (height >= area.height()) {
+            // Wider than the art: scale to the height and take the width loss, which is
+            // only reachable on a screen squarer than 9:16.
+            float scaled = area.height() * backdrop.getWidth() / (float) backdrop.getHeight();
+            backdropDst.set(area.centerX() - scaled * 0.5f, area.top,
+                            area.centerX() + scaled * 0.5f, area.bottom);
+        } else {
+            backdropDst.set(area.left, area.bottom - height, area.right, area.bottom);
+        }
+        backdropSky = sampleTopRow(backdrop);
+    }
+
+    /** Mean colour of the artwork's top row, for extending its sky upward. */
+    private static int sampleTopRow(Bitmap bitmap) {
+        int width = bitmap.getWidth();
+        long r = 0, g = 0, b = 0;
+        int samples = 0;
+        for (int x = 0; x < width; x += Math.max(1, width / 16)) {
+            int pixel = bitmap.getPixel(x, 0);
+            r += (pixel >> 16) & 0xFF;
+            g += (pixel >> 8) & 0xFF;
+            b += pixel & 0xFF;
+            samples++;
+        }
+        if (samples == 0) return 0xFFFFFFFF;
+        return 0xFF000000 | ((int) (r / samples) << 16) | ((int) (g / samples) << 8) | (int) (b / samples);
     }
 
     private void buildSky() {
@@ -183,6 +237,11 @@ final class Scene {
         Paint fill = Theme.FILL;
         fill.setStyle(Paint.Style.FILL);
 
+        if (backdrop != null && !backdrop.isRecycled()) {
+            drawIllustrated(c, t);
+            return;
+        }
+
         fill.setShader(skyShader);
         c.drawRect(area, fill);
         fill.setShader(null);
@@ -200,11 +259,41 @@ final class Scene {
         } else {
             fill.setColor(Theme.mix(GROUND_FAR[environment], SKY_LOW[environment], 0.38f));
             c.drawPath(farRidge, fill);
-            drawMidProps(c, theme, t);
+            // The ground goes down before the things standing on it. Drawing the props
+            // first painted the flower field, the picnic blanket, the park path and the
+            // coral, and then buried all of them under the ground band -- which is why
+            // five of the seven environments were reduced to the same hills and trees.
             fill.setShader(groundShader);
             c.drawPath(ground, fill);
             fill.setShader(null);
             drawGroundDetail(c, theme, t);
+            drawMidProps(c, theme, t);
+        }
+    }
+
+    /**
+     * The illustrated route: the artwork, plus the few things code does better than a
+     * still image -- shafts of light through water, and a wash that lifts the home screen
+     * enough for the interface to read over it.
+     */
+    private void drawIllustrated(Canvas c, float t) {
+        Paint fill = Theme.FILL;
+        fill.setShader(null);
+
+        if (backdropDst.top > area.top + 0.5f) {
+            fill.setColor(backdropSky);
+            c.drawRect(area.left, area.top, area.right, backdropDst.top + 1f, fill);
+        }
+        Theme.BMP.setAlpha(255);
+        c.drawBitmap(backdrop, null, backdropDst, Theme.BMP);
+
+        if (environment == REEF) drawGodRays(c, t);
+
+        if (mode == MODE_HOME) {
+            // The artwork is busy and the home screen has a wordmark, cards and a task
+            // list over it. This is what the procedural sky did by lightening its stops.
+            fill.setColor(0x3DFFFFFF);
+            c.drawRect(area, fill);
         }
     }
 

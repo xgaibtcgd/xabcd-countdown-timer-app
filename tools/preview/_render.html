@@ -1,0 +1,22 @@
+<meta charset="utf-8">
+<body style="margin:0;background:#222">
+<script src="data.js"></script>
+<script src="screens-engine.js"></script>
+<script src="screens-draw.js"></script>
+<script>
+window.RENDER = (buddyIndex, mode) => {
+  const c = document.createElement('canvas');
+  c.width = 1080; c.height = 1920;
+  c.id = 'out';
+  document.body.innerHTML = '';
+  document.body.appendChild(c);
+  const ctx = c.getContext('2d');
+  const area = [0, 0, 1080, 1920];
+  const buddy = DATA.buddies[buddyIndex];
+  const scene = buildScene(area, buddyIndex, mode, buddy.light);
+  drawSceneBackground(ctx, scene, buddy, 6.0);
+  drawSceneForeground(ctx, scene, 6.0, false);
+  return true;
+};
+</script>
+</body>

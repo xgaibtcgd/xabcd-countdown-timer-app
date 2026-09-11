@@ -139,7 +139,7 @@ function drawBuddy(ctx, index, cx, feetY, height, bob = 0) {
 /* ====================================================================== HOME */
 
 function screenHome(ctx, L, buddy, t) {
-  const scene = buildScene(L.play, buddy.index, M_HOME, buddy.light);
+  const scene = buildScene(L.play, buddy.index, M_HOME, buddy.light, BACKDROPS.home);
   drawSceneBackground(ctx, scene, buddy, t);
 
   // wordmark
@@ -271,7 +271,7 @@ function screenHome(ctx, L, buddy, t) {
 /* ================================================================= ADVENTURE */
 
 function screenAdventure(ctx, L, buddy, t) {
-  const scene = buildScene(L.play, buddy.index, M_ADVENTURE, buddy.light);
+  const scene = buildScene(L.play, buddy.index, M_ADVENTURE, buddy.light, BACKDROPS.adventure[buddy.index]);
   drawSceneBackground(ctx, scene, buddy, t);
 
   const goalBox = L.advGoal;
@@ -454,7 +454,7 @@ function drawConfetti(ctx, area, buddy, t) {
 /* ============================================================== BUDDY PICKER */
 
 function screenBuddyPicker(ctx, L, buddy, t) {
-  const scene = buildScene(L.play, buddy.index, M_HOME, buddy.light);
+  const scene = buildScene(L.play, buddy.index, M_HOME, buddy.light, BACKDROPS.home);
   drawSceneBackground(ctx, scene, buddy, t);
   drawSceneForeground(ctx, scene, t, false);
   ctx.fillStyle = DATA.tokens.scrim;
@@ -511,7 +511,7 @@ function screenBuddyPicker(ctx, L, buddy, t) {
 /* =============================================================== TIME PICKER */
 
 function screenTimePicker(ctx, L, buddy, t) {
-  const scene = buildScene(L.play, buddy.index, M_HOME, buddy.light);
+  const scene = buildScene(L.play, buddy.index, M_HOME, buddy.light, BACKDROPS.home);
   drawSceneBackground(ctx, scene, buddy, t);
   drawSceneForeground(ctx, scene, t, false);
   ctx.fillStyle = DATA.tokens.scrim;
@@ -570,7 +570,7 @@ function screenTimePicker(ctx, L, buddy, t) {
 /* ================================================================= GROWN-UPS */
 
 function screenGrownUps(ctx, L, buddy, t) {
-  const scene = buildScene(L.play, buddy.index, M_HOME, buddy.light);
+  const scene = buildScene(L.play, buddy.index, M_HOME, buddy.light, BACKDROPS.home);
   drawSceneBackground(ctx, scene, buddy, t);
   drawSceneForeground(ctx, scene, t, false);
   ctx.fillStyle = 'rgba(244,248,253,.91)';
@@ -633,7 +633,7 @@ function screenGrownUps(ctx, L, buddy, t) {
 /* ============================================================= EDIT  ROUTINE */
 
 function screenEditRoutine(ctx, L, buddy, t) {
-  const scene = buildScene(L.play, buddy.index, M_HOME, buddy.light);
+  const scene = buildScene(L.play, buddy.index, M_HOME, buddy.light, BACKDROPS.home);
   drawSceneBackground(ctx, scene, buddy, t);
   drawSceneForeground(ctx, scene, t, false);
   ctx.fillStyle = 'rgba(244,248,253,.91)';

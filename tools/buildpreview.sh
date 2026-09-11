@@ -22,14 +22,36 @@ javac --release 17 -classpath "$JAR:$OUT" -implicit:none -nowarn -d "$OUT" \
 java -cp "$JAR:$OUT" com.morningmission.app.ExportArt "$PREVIEW/art.json" | grep -v '^Picked up'
 java -cp "$JAR:$OUT" com.morningmission.app.ExportScreens "$PREVIEW/screens.json" | grep -v '^Picked up'
 
-python3 - "$PREVIEW" <<'PYEOF'
+python3 - "$PREVIEW" "$ROOT" <<'PYEOF'
 import json, sys, os
-preview = sys.argv[1]
+preview, root = sys.argv[1], sys.argv[2]
 art = json.load(open(os.path.join(preview, "art.json")))
 screens = json.load(open(os.path.join(preview, "screens.json")))
 merged = dict(screens)
 merged["art"] = art
 merged["buddies"] = art["buddies"]
+
+# The colour each illustrated background is extended upward with. Scene samples the
+# artwork's top row at runtime; computing it here keeps the preview identical without
+# reading pixels in the browser, which a file:// page is not allowed to do.
+try:
+    from PIL import Image
+
+    def top_row(path):
+        im = Image.open(path).convert("RGB")
+        w = im.width
+        step = max(1, w // 16)
+        px = [im.getpixel((x, 0)) for x in range(0, w, step)]
+        return "#%02X%02X%02X" % tuple(sum(c[i] for c in px) // len(px) for i in range(3))
+
+    drawable = os.path.join(root, "app/src/main/res/drawable-nodpi")
+    merged["homeBackdropSky"] = top_row(os.path.join(drawable, "bg_home_storybook.png"))
+    for i, b in enumerate(merged["buddies"]):
+        merged["environments"][i]["backdropSky"] = top_row(
+            os.path.join(drawable, "bg_adventure_%s.png" % b["key"]))
+except Exception as exc:                       # a preview without it still renders
+    print("buildpreview: could not sample backdrop skies (%s)" % exc)
+
 assert all("index" in b for b in merged["buddies"]), "buddy index missing from the art export"
 assert len(merged["environments"]) == len(merged["buddies"]), "an environment per buddy"
 with open(os.path.join(preview, "data.js"), "w") as fh:

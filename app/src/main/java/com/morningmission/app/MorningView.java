@@ -73,6 +73,13 @@ final class MorningView extends View implements Choreographer.FrameCallback, Eng
     private final Bitmap[] art = new Bitmap[BuddyTheme.COUNT];
     private final int[] artSample = new int[BuddyTheme.COUNT];
 
+    // Backgrounds are large, and at most two are ever wanted at once: the storybook
+    // meadow every non-adventure screen sits on, and the current buddy's world.
+    private static final int BACKDROP_CACHE = 2;
+    private final int[] backdropRes = new int[BACKDROP_CACHE];
+    private final Bitmap[] backdropBitmap = new Bitmap[BACKDROP_CACHE];
+    private int backdropNext;
+
     private boolean measured;
     private boolean attached;
     private long lastFrameNanos;
@@ -202,7 +209,22 @@ final class MorningView extends View implements Choreographer.FrameCallback, Eng
         int mode = current == SCREEN_COMPLETE ? Scene.MODE_CELEBRATE
                  : current == SCREEN_ADVENTURE ? Scene.MODE_ADVENTURE
                  : Scene.MODE_HOME;
-        scene.rebuild(layout.play, buddy(), mode);
+        scene.rebuild(layout.play, buddy(), mode, backdropFor(mode));
+    }
+
+    /**
+     * The illustrated background for a mode, or null to let {@link Scene} draw one.
+     *
+     * <p>The adventure happens in the buddy's own world; everything else sits on the
+     * storybook meadow, as the mockups show. The celebration has no artwork of its own,
+     * so it keeps the drawn golden burst.
+     */
+    private Bitmap backdropFor(int mode) {
+        if (mode == Scene.MODE_CELEBRATE) return null;
+        int res = mode == Scene.MODE_ADVENTURE
+                ? buddy().backdropRes
+                : R.drawable.bg_home_storybook;
+        return backdrop(res);
     }
 
     @Override protected void onSizeChanged(int w, int h, int oldW, int oldH) {
@@ -380,11 +402,46 @@ final class MorningView extends View implements Choreographer.FrameCallback, Eng
         return decoded;
     }
 
+    /** Decodes an illustrated background, keeping the last two. */
+    private Bitmap backdrop(int res) {
+        if (res == 0) return null;
+        for (int i = 0; i < BACKDROP_CACHE; i++) {
+            if (backdropRes[i] == res && backdropBitmap[i] != null && !backdropBitmap[i].isRecycled()) {
+                return backdropBitmap[i];
+            }
+        }
+        Bitmap decoded;
+        try {
+            // allocgate: ok - decode path, reached only on a size or screen change
+            BitmapFactory.Options options = new BitmapFactory.Options();
+            options.inPreferredConfig = Bitmap.Config.RGB_565;   // no alpha in these
+            decoded = BitmapFactory.decodeResource(getResources(), res, options);
+        } catch (OutOfMemoryError | Exception e) {
+            return null;                        // Scene falls back to drawing the scenery
+        }
+        if (decoded == null) return null;
+        int slot = backdropNext;
+        backdropNext = (backdropNext + 1) % BACKDROP_CACHE;
+        if (backdropBitmap[slot] != null && !backdropBitmap[slot].isRecycled()) {
+            backdropBitmap[slot].recycle();
+        }
+        backdropRes[slot] = res;
+        backdropBitmap[slot] = decoded;
+        return decoded;
+    }
+
     private void releaseArt() {
         for (int i = 0; i < art.length; i++) {
             if (art[i] != null && !art[i].isRecycled()) art[i].recycle();
             art[i] = null;
             artSample[i] = 0;
+        }
+        for (int i = 0; i < BACKDROP_CACHE; i++) {
+            if (backdropBitmap[i] != null && !backdropBitmap[i].isRecycled()) {
+                backdropBitmap[i].recycle();
+            }
+            backdropBitmap[i] = null;
+            backdropRes[i] = 0;
         }
     }
 

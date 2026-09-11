@@ -103,8 +103,14 @@ customer's device. Nunito is under the SIL Open Font License; the licence is in
 `y[50..669]` — that shared baseline is what makes them swappable, so do not crop
 them individually.
 
-Everything else is drawn in code. The background PNGs that used to ship were
-flat placeholder fills and have been removed.
+`bg_home_storybook.png` and the seven `bg_adventure_*.png` are the illustrated
+worlds. They are 9:16; `Scene.layoutBackdrop` draws them at full width anchored
+to the bottom and extends the sky above with the artwork's own top-row colour, so
+a 20:9 phone crops nothing. Everything drawn over them -- light shafts, bubbles,
+petals, falling leaves, drifting clouds -- is code, as is every icon,
+collectible, goal and glyph. `Scene` still contains a complete procedural
+environment per buddy, used when no artwork is present and for the celebration,
+which has none.
 
 ## Reference
 

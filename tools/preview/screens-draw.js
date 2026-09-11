@@ -5,7 +5,7 @@ const REEF = 3, JUNGLE = 4, SKY_ENV = 5, BLOSSOM = 6, HIVE = 1, PARK = 2, PICNIC
 
 /* ------------------------------------------------------------------- scenery */
 
-function buildScene(area, envIndex, mode, tint) {
+function buildScene(area, envIndex, mode, tint, backdrop) {
   const env = DATA.environments[envIndex];
   let frac = env.horizon;
   if (mode === M_HOME) frac = Math.min(0.74, frac + 0.14);
@@ -14,10 +14,26 @@ function buildScene(area, envIndex, mode, tint) {
   const amp = h * 0.045;
   return {
     area, envIndex, env, mode, horizon, tint: tint || '#ffffff',
+    backdrop: backdrop || null, backdropDst: backdrop ? placeBackdrop(area, backdrop) : null,
     far: wave(area, horizon - amp * 2.1, amp * 1.3, 3, 11),
     mid: wave(area, horizon - amp * 0.5, amp * 1.0, 4, 29),
     ground: wave(area, horizon + amp * 0.6, amp * 0.5, 5, 47),
   };
+}
+
+/**
+ * Scene.layoutBackdrop: full width, anchored to the bottom, so nothing is cropped. The
+ * band left above is filled with the artwork's own sky colour.
+ */
+function placeBackdrop(area, img) {
+  const width = area[2] - area[0];
+  const height = width * img.naturalHeight / img.naturalWidth;
+  if (height >= area[3] - area[1]) {
+    const scaled = (area[3] - area[1]) * img.naturalWidth / img.naturalHeight;
+    const cx = (area[0] + area[2]) / 2;
+    return [cx - scaled / 2, area[1], cx + scaled / 2, area[3]];
+  }
+  return [area[0], area[3] - height, area[2], area[3]];
 }
 
 /** Scene.wave: a closed wavy band running down to the bottom of the area. */
@@ -51,6 +67,25 @@ function skyColours(scene) {
 
 function drawSceneBackground(ctx, scene, buddy, t) {
   const a = scene.area, h = a[3] - a[1], w = a[2] - a[0];
+
+  if (scene.backdrop) {
+    const d = scene.backdropDst;
+    if (d[1] > a[1] + 0.5) {
+      // Sampled from the artwork's top row at build time; see tools/buildpreview.sh.
+      ctx.fillStyle = scene.mode === M_HOME
+        ? (DATA.homeBackdropSky || '#BAE8F6')
+        : (scene.env.backdropSky || scene.env.skyTop);
+      ctx.fillRect(a[0], a[1], w, d[1] - a[1] + 1);
+    }
+    ctx.drawImage(scene.backdrop, d[0], d[1], d[2] - d[0], d[3] - d[1]);
+    if (scene.envIndex === REEF) drawGodRays(ctx, scene, t);
+    if (scene.mode === M_HOME) {
+      ctx.fillStyle = 'rgba(255,255,255,.24)';
+      ctx.fillRect(a[0], a[1], w, h);
+    }
+    return;
+  }
+
   const [top, mid, low] = skyColours(scene);
 
   const sky = ctx.createLinearGradient(0, a[1], 0, scene.horizon + h * 0.12);
@@ -69,7 +104,6 @@ function drawSceneBackground(ctx, scene, buddy, t) {
 
   ctx.fillStyle = mix(scene.env.groundFar, scene.env.skyLow, 0.38);
   ctx.fill(scene.far);
-  drawMidProps(ctx, scene, t);
 
   const ground = ctx.createLinearGradient(0, scene.horizon, 0, a[3]);
   ground.addColorStop(0, lighten(scene.env.groundNear, 0.06));
@@ -77,6 +111,7 @@ function drawSceneBackground(ctx, scene, buddy, t) {
   ctx.fillStyle = ground;
   ctx.fill(scene.ground);
   drawGroundDetail(ctx, scene);
+  drawMidProps(ctx, scene, t);
 }
 
 function drawSun(ctx, scene, t) {

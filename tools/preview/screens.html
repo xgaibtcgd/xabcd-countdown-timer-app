@@ -145,8 +145,9 @@
     <p class="lede">The layout here is not a mockup. Every rectangle is exported straight from
     the app's own layout solver, so each element sits <strong>exactly where the built APK puts
     it</strong> &mdash; including on the tall phone that the previous version got wrong. The
-    icons, palettes and scenery colours come from the same source files the app compiles.
-    Pick a buddy or a device shape and the whole set re-solves.</p>
+    icons and palettes come from the same source files the app compiles, and the scenery is
+    the artwork that shipped with the project, with the light shafts, bubbles and drifting
+    petals drawn over it. Pick a buddy or a device shape and the whole set re-solves.</p>
   </header>
 </div>
 
@@ -182,7 +183,8 @@
   <footer>
     Layout from <span class="mono">tools/ExportScreens.java</span>, geometry from
     <span class="mono">tools/ExportArt.java</span>, both run against the app's own classes.
-    The drawing is a faithful port of <span class="mono">Clay.java</span>,
+    Backgrounds are the project's own <span class="mono">bg_*.png</span>, shown here at
+    half resolution. The drawing is a faithful port of <span class="mono">Clay.java</span>,
     <span class="mono">Scene.java</span> and the <span class="mono">Screen</span> classes
     &mdash; close, but not the app running. Build the APK to see the real thing.
   </footer>
@@ -194,6 +196,7 @@
 <script src="screens-ui.js"></script>
 <script>
 const BUDDY_IMAGES = [];
+const BACKDROPS = { home: null, adventure: [] };
 let currentBuddy = 3;      // Splash Buddy, the default on a new install
 let currentDevice = 0;
 let showBands = false;
@@ -393,13 +396,25 @@ document.getElementById('motionToggle').addEventListener('click', function () {
 
 /* ------------------------------------------------------------------- start */
 const KEYS = ['burger', 'bee', 'pug', 'shark', 'dino', 'cloud', 'kitty'];
-let pending = KEYS.length;
+let pending = KEYS.length * 2 + 1;
+const done = () => { if (--pending === 0) start(); };
+
 KEYS.forEach((key, i) => {
-  const img = new Image();
-  img.onload = img.onerror = () => { if (--pending === 0) start(); };
-  img.src = 'buddies/' + key + '.png';
-  BUDDY_IMAGES[i] = img;
+  const buddy = new Image();
+  buddy.onload = buddy.onerror = done;
+  buddy.src = 'buddies/' + key + '.png';
+  BUDDY_IMAGES[i] = buddy;
+
+  const scene = new Image();
+  scene.onload = scene.onerror = done;
+  scene.src = 'backdrops/adventure_' + key + '.jpg';
+  BACKDROPS.adventure[i] = scene;
 });
+
+const home = new Image();
+home.onload = home.onerror = done;
+home.src = 'backdrops/home_storybook.jpg';
+BACKDROPS.home = home;
 
 function start() {
   buildSheet();
