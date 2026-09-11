@@ -1,67 +1,95 @@
-# Morning Mission v0.6 — Mockup-Fidelity Adventure Build
+# Morning Mission
 
-This build specifically fixes the v0.5 mismatch between the approved mockup and the running Buddy Adventure screen.
+A morning-routine countdown timer for children. Pick a buddy and a length, press
+Start Morning, and work through the routine while an animated buddy travels
+through its world collecting things on the way to a goal.
 
-## v0.6 visual changes
-- Buddy Adventure is now edge-to-edge instead of inside a giant white panel.
-- Large animated buddy centered in the illustrated world.
-- Collectibles appear in a floating ribbon near the top, like the approved mockup.
-- Large goal/reward integrated at the right side of the scene.
-- Floating current-task card and large green I DID IT button at the bottom.
-- Large rounded countdown card and playful Buddy Adventure title.
-- Timer still freezes the instant the final task is completed.
-- All seven buddies, backgrounds, sounds, PIN/Kid Lock, task editor and custom timer remain bundled locally.
+Everything runs on the device. No account, no server, no internet permission.
 
-## Build
-Open `MorningMission-v0.6` in Android Studio and choose **Build > Build App Bundle(s) or APK(s) > Build APK(s)**.
+## Building
 
-APK: `app/build/outputs/apk/debug/app-debug.apk`
+Open the project in Android Studio and choose **Build > Build App Bundle(s) or
+APK(s) > Build APK(s)**. The APK lands in `app/build/outputs/apk/debug/`.
 
-# Morning Mission v0.6 — Visual Fidelity + Buddy Adventure
+AGP 9.4.0, Gradle 9.6.0, compileSdk 36, minSdk 26, Java 17. The project has **no
+dependencies at all** — not AndroidX, not Material, not Compose. Everything is
+drawn with `android.graphics`. Please keep it that way unless there is a
+concrete reason not to.
 
-This is the visual rebuild based on the approved Morning Mission mockups. It keeps the working timer/PIN/Kid Lock behavior but replaces the sparse prototype presentation with illustrated scenery, rounded storybook typography, compact cards, and a full-screen Buddy Adventure during the countdown.
+## How it is put together
 
-## Main experience
-- Setup screen uses bundled storybook sky/meadow artwork instead of a flat background.
-- Rounded outlined Morning Mission title treatment, polished buddy artwork, minute bubbles, shadowed timer/routine cards, Start Morning button, and app navigation area.
-- Tapping the buddy opens the animated buddy selector.
-- Tapping the timer opens an in-app graphical time screen with 1/2/5/10/15/30/60 presets plus a 1–120 minute slider.
-- Editable routine presets remain in Grown-Ups.
+The whole interface is drawn by one custom `View`. There is one XML layout: none.
 
-## Active Buddy Adventure
-Pressing Start Morning changes to a dedicated adventure screen. The selected buddy is large and continuously animated, moves along the collectible trail as time passes, and reacts to task completion and low time.
+| | |
+|---|---|
+| `MainActivity` | Lifecycle, preferences, sound, kid lock, and the few system dialogs |
+| `MorningView` | The frame clock, screen routing, touch dispatch, bitmap lifecycle |
+| `Layout` | Where everything goes, on any shape of screen |
+| `HitMap` | What is tappable, registered from the same rectangles that are drawn |
+| `Engine` | The routine and the countdown, including the completion freeze |
+| `Scene` | The illustrated world, drawn in code |
+| `Clay` / `Art` / `Icons` | The material language and every graphic that is not a buddy |
+| `Anim` / `Particles` | Buddy motion and the celebration |
+| `Screen*` | One class per screen |
+| `Theme` / `BuddyTheme` | Colour roles, type scale, and the seven buddies |
 
-Buddy themes:
-- Burger Buddy → mini burgers → picnic
-- Queen Bee → honey drops → golden hive
-- Pug Pal → pup treats → doghouse
-- Splash Buddy → fish → treasure chest
-- Sprout Dino → leaves → dino nest
-- Cloud Pup → stars → rainbow/cloud goal
-- Sweet Kitty → fish treats → gift
+Two conventions are worth knowing before changing anything.
 
-Seven themed illustrated backgrounds are bundled under `app/src/main/res/drawable-nodpi/`. All buddy art, backgrounds, sound cues and victory music are local—no Internet permission is needed.
+**Geometry is data.** Icons live in `Art` as `float[]` command arrays in a
+100x100 box, compiled to `Path` objects once. `android.graphics.Path` is
+native-backed and throws off the device, so authoring shapes as data is what
+makes them checkable without an emulator — and it is how the design preview
+renders the same numbers the app does.
 
-The current task remains visible during the adventure. Completing it triggers a cheer/sound and advances to the next task. Low time changes the animation into the hurry state.
+**Draw and touch read the same rectangles.** A screen places its controls in
+`layout()` and registers them with the `HitMap` there, never in `draw()`. The
+previous version kept two independent copies of every coordinate, and they had
+drifted: task rows were drawn at a pitch of 115 and hit-tested at 120, half the
+Edit button was unreachable, and the pause button had no touch region at all.
 
-## Completion behavior
-**The countdown freezes the instant the final task is completed.** If the child finishes with `3:42`, `3:42` stays displayed while the buddy dances and the victory music/confetti run. Finishing does not unlock Kid Mode; Parent Unlock still requires the PIN.
+## Checks
 
-## Build
-1. Extract this ZIP into a new folder.
-2. Open the `MorningMission-v0.6` folder in Android Studio.
-3. Project: AGP 9.4.0, Gradle 9.6.0, compileSdk 36, minSdk 26, Java 17.
-4. If Android Studio asks for a Gradle version, choose **9.6.0**.
-5. Build with **Build > Build App Bundle(s) or APK(s) > Build APK(s)**.
-6. APK: `app/build/outputs/apk/debug/app-debug.apk`.
+```
+tools/check.sh
+```
 
-The applicationId remains `com.morningmission.app`, so your locally built debug APK should update the previous debug install when signed with the same Android Studio debug key.
+There is no Android SDK in every environment this is worked on, so the script
+compiles against `org.robolectric:android-all` — a real Android 36 framework jar
+from Maven Central — plus a generated `R` stub. That type-checks every framework
+call without an SDK or an emulator. It then runs:
 
-## Visual assets
-- `buddy_*.png` — seven polished character assets
-- `bg_home_storybook.png` — home scenery
-- `bg_adventure_*.png` — seven themed adventure environments
-- `res/raw/buddy_*_sound.wav` — character sound personalities
-- `res/raw/victory.wav` — completion music
+- **`tools/SelfTest.java`** — the layout across eight screen shapes, four inset
+  combinations, one to twelve tasks and three scroll positions; the countdown's
+  freeze contract against a fake clock; every shape's bounds; and that all
+  sixteen animation states are distinguishable. Around 410,000 assertions.
+- **`tools/regioncheck.py`** — every control is both registered and handled.
+- **`tools/allocgate.py`** — nothing allocates in a method that runs per frame.
 
-The `design/` folder contains the approved visual references for comparison.
+None of this renders a pixel or links resources. **Build the APK in Android
+Studio before shipping.**
+
+## Design preview
+
+`tools/preview/` renders every icon, collectible, goal and glyph in a browser,
+re-tintable across all seven buddies, from the geometry exported by
+`tools/ExportArt.java`. Regenerate with:
+
+```
+java -cp tools/.cache/android-all.jar:tools/.cache/classes \
+     com.morningmission.app.ExportArt tools/preview/art.json
+```
+
+## Art
+
+`app/src/main/res/drawable-nodpi/buddy_*.png` are the seven characters. They are
+720x720 cutouts with real alpha, and six of the seven share the vertical band
+`y[50..669]` — that shared baseline is what makes them swappable, so do not crop
+them individually.
+
+Everything else is drawn in code. The background PNGs that used to ship were
+flat placeholder fills and have been removed.
+
+## Reference
+
+`design/` holds the approved mockups. `v0_6_visual_target.png` is the current
+target.

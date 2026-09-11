@@ -93,6 +93,8 @@ final class Scene {
         if (mode == MODE_HOME) frac = Math.min(0.74f, frac + 0.14f);
         horizon = area.top + area.height() * frac;
 
+        cachedScrim = null;
+        cachedScrimStrength = -1;
         buildSky();
         buildRidges();
         buildRay();
@@ -162,6 +164,7 @@ final class Scene {
      * @param t seconds since the view started, for drift and sway
      */
     void drawBackground(Canvas c, BuddyTheme theme, float t) {
+        if (skyShader == null) return;          // not built yet; the first measure follows
         Paint fill = Theme.FILL;
         fill.setStyle(Paint.Style.FILL);
 
@@ -542,6 +545,7 @@ final class Scene {
      * given moment.
      */
     void drawForeground(Canvas c, BuddyTheme theme, float t, boolean scrimTop) {
+        if (skyShader == null) return;
         Paint fill = Theme.FILL;
         fill.setShader(null);
 

@@ -1,1 +1,21 @@
-<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle"><solid android:color="#E8F8FF"/></shape>
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The sky the Splash Buddy swims under. Adaptive icon backgrounds must fill the whole
+     108dp canvas; the launcher masks it to whatever shape the device uses. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path android:pathData="M0,0h108v108h-108z">
+        <aapt:attr xmlns:aapt="http://schemas.android.com/aapt" name="android:fillColor">
+            <gradient
+                android:startX="0" android:startY="0"
+                android:endX="0" android:endY="108"
+                android:type="linear">
+                <item android:offset="0" android:color="#FF7FD3FA"/>
+                <item android:offset="0.55" android:color="#FF2BB3F0"/>
+                <item android:offset="1" android:color="#FF1785D4"/>
+            </gradient>
+        </aapt:attr>
+    </path>
+</vector>

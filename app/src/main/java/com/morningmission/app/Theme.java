@@ -297,6 +297,33 @@ final class Theme {
         TEXT.clearShadowLayer();
     }
 
+    /**
+     * The wordmark with each letter in its own colour, as the Morning Mission logo does.
+     * Letters are placed by walking their advances, so the spacing is the font's own.
+     */
+    static void wordmarkLetters(Canvas c, String s, float cx, float cy,
+                                float size, int[] colors) {
+        prepare(size, Color.WHITE, Paint.Align.LEFT, true);
+        float total = TEXT.measureText(s);
+        float baseline = baselineCenter(TEXT, cy);
+        float x = cx - total * 0.5f;
+
+        TEXT.setStyle(Paint.Style.STROKE);
+        TEXT.setStrokeWidth(size * 0.21f);
+        TEXT.setStrokeJoin(Paint.Join.ROUND);
+        c.drawText(s, x, baseline, TEXT);
+
+        TEXT.setStyle(Paint.Style.FILL);
+        TEXT.setShadowLayer(7f, 0f, 5f, 0x30000000);
+        float cursor = x;
+        for (int i = 0; i < s.length(); i++) {
+            TEXT.setColor(colors[i % colors.length]);
+            c.drawText(s, i, i + 1, cursor, baseline, TEXT);
+            cursor += TEXT.measureText(s, i, i + 1);
+        }
+        TEXT.clearShadowLayer();
+    }
+
     // ------------------------------------------------------------- time formatting
 
     /** Draws a countdown without allocating. See {@link TimeText}. */

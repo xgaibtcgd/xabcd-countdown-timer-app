@@ -76,6 +76,9 @@ if [ -f "$ROOT/tools/SelfTest.java" ]; then
   java -cp "$JAR:$OUT" com.morningmission.app.SelfTest 2>&1 | grep -v '^Picked up'
 fi
 
+# ------------------------------------------------ region reachability gate
+python3 "$ROOT/tools/regioncheck.py" "$PKG"/Screen*.java
+
 # ------------------------------------------------- per-frame allocation gate
 python3 "$ROOT/tools/allocgate.py" \
   "$PKG"/Screen*.java "$PKG"/Scene.java "$PKG"/Icons.java "$PKG"/Glyphs.java \

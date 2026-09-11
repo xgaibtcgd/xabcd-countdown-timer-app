@@ -1,3 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Only the handful of colours the platform needs before any drawing happens. The
+     palette the app draws with lives in Theme and BuddyTheme, where it can be derived
+     from the buddy artwork. -->
 <resources>
     <color name="transparent">#00000000</color>
+    <color name="brand">#FF7C43</color>
+    <color name="ink">#17345F</color>
+    <color name="surface">#FFFFFFFF</color>
+    <color name="system_bar">#E8F8FF</color>
 </resources>
