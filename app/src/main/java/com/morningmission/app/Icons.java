@@ -23,7 +23,8 @@ final class Icons {
     private Icons() {}
 
     private static final Path[][] ACTIVITY = new Path[Art.ACT_COUNT][];
-    private static final Path[][] COLLECTIBLE = new Path[BuddyTheme.COUNT][];
+    /** [buddy][bites taken 0..2][part] -- the bitten variants are compiled once here. */
+    private static final Path[][][] COLLECTIBLE = new Path[BuddyTheme.COUNT][][];
     private static final Path[][] GOAL = new Path[BuddyTheme.COUNT][];
     private static final Path[] GLYPH = new Path[Art.GLYPH_COUNT];
     /** Where each goal's lid hinges, in unit coordinates. */
@@ -38,7 +39,7 @@ final class Icons {
             ACTIVITY[i] = Clay.compileAll(Art.ACTIVITY_SHAPES[i]);
         }
         for (int i = 0; i < BuddyTheme.COUNT; i++) {
-            COLLECTIBLE[i] = Clay.compileAll(Art.COLLECTIBLE_SHAPES[i]);
+            COLLECTIBLE[i] = biteVariants(Art.COLLECTIBLE_SHAPES[i]);
             GOAL[i] = Clay.compileAll(Art.GOAL_SHAPES[i]);
             int lid = Art.GOAL_LID[i];
             if (lid >= 0 && lid < GOAL[i].length) {
@@ -50,6 +51,36 @@ final class Icons {
         for (int i = 0; i < Art.GLYPH_COUNT; i++) {
             GLYPH[i] = Clay.compile(Art.GLYPHS[i]);
         }
+    }
+
+    /**
+     * The whole item plus one part-eaten variant per bite, compiled once.
+     *
+     * <p>A real boolean difference, not a counter-wound subpath: a bite circle straddles
+     * the item's outline, and the piece of it lying outside would otherwise fill rather
+     * than cut. {@code Path.op} does the geometry properly and the result is an ordinary
+     * path, so it antialiases like everything else, Clay's rim light traces the new edge
+     * as depth, and there is nothing to pay for it per frame.
+     */
+    private static Path[][] biteVariants(float[][] shapes) {
+        Path[][] out = new Path[Art.BITE_COUNT][];        // allocgate: ok - class initialisation
+        float[] bounds = new float[4];                    // allocgate: ok - class initialisation
+        float[] circle = new float[3];                    // allocgate: ok - class initialisation
+        Art.shapeBounds(shapes, bounds);
+        for (int bites = 0; bites < Art.BITE_COUNT; bites++) {
+            out[bites] = Clay.compileAll(shapes);
+            if (bites == 0) continue;
+            // One circle, not the union of every bite so far: each cut's region contains
+            // the one before it, and keeping the removed area a single convex piece is
+            // what stops the item breaking into crumbs. See Art.biteCircle.
+            Path cut = new Path();                        // allocgate: ok - class initialisation
+            Art.biteCircle(bounds, bites - 1, circle);
+            cut.addCircle(circle[0], circle[1], circle[2], Path.Direction.CW);
+            for (Path part : out[bites]) {
+                part.op(cut, Path.Op.DIFFERENCE);
+            }
+        }
+        return out;
     }
 
     /** Resolves a part colour: a palette role below 16, otherwise a literal ARGB value. */
@@ -118,7 +149,7 @@ final class Icons {
      */
     static void collectible(Canvas c, int buddy, float cx, float cy, float size,
                             boolean collected, float pop) {
-        collectible(c, buddy, cx, cy, size, collected, pop, collected);
+        collectible(c, buddy, cx, cy, size, collected, pop, collected, 0);
     }
 
     /**
@@ -131,10 +162,21 @@ final class Icons {
      */
     static void collectible(Canvas c, int buddy, float cx, float cy, float size,
                             boolean collected, float pop, boolean badged) {
-        if (size <= 0.5f) return;
+        collectible(c, buddy, cx, cy, size, collected, pop, badged, 0);
+    }
+
+    /**
+     * The same, part-eaten.
+     *
+     * @param bites 0 for whole, 1 or 2 for a bite or two taken out of it; at
+     *              {@link Art#BITE_COUNT} there is nothing left to draw
+     */
+    static void collectible(Canvas c, int buddy, float cx, float cy, float size,
+                            boolean collected, float pop, boolean badged, int bites) {
+        if (size <= 0.5f || bites >= Art.BITE_COUNT) return;
         BuddyTheme theme = BuddyTheme.of(buddy);
         int index = theme.index;
-        Path[] paths = COLLECTIBLE[index];
+        Path[] paths = COLLECTIBLE[index][bites < 0 ? 0 : bites];
         int[] colors = Art.COLLECTIBLE_COLORS[index];
         int[] flags = Art.COLLECTIBLE_FLAGS[index];
 

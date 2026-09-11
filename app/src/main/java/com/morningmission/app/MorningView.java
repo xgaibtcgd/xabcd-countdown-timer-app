@@ -350,6 +350,12 @@ final class MorningView extends View implements Choreographer.FrameCallback, Eng
      */
     void drawBuddy(Canvas c, int buddyIndex, float cx, float feetY, float height,
                    boolean withShadow, int feastKind, float feastBeat) {
+        drawBuddy(c, buddyIndex, cx, feetY, height, withShadow, feastKind, feastBeat, 1f);
+    }
+
+    /** The same, with the action scaled -- see {@link Anim#feast(int, float, float, Anim.Transform)}. */
+    void drawBuddy(Canvas c, int buddyIndex, float cx, float feetY, float height,
+                   boolean withShadow, int feastKind, float feastBeat, float feastStrength) {
         Bitmap bitmap = art(buddyIndex, buddyIndex == buddy().index);
         if (bitmap == null || bitmap.isRecycled()) return;
 
@@ -358,7 +364,7 @@ final class MorningView extends View implements Choreographer.FrameCallback, Eng
         // seven dancing buddies in the picker cannot disturb it.
         blend.solve(time, lastDelta, motion);
         if (feastKind >= 0 && feastBeat >= 0f && feastBeat < 1f) {
-            Anim.feast(feastKind, feastBeat, feastMotion);
+            Anim.feast(feastKind, feastBeat, feastStrength, feastMotion);
             motion.dx += feastMotion.dx;
             motion.dy += feastMotion.dy;
             motion.rotation += feastMotion.rotation;

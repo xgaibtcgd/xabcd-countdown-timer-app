@@ -38,8 +38,11 @@ final class Engine {
     static final int MIN_COLLECTIBLES = 3;
     static final int MAX_COLLECTIBLES = 18;
 
-    /** The beat of one collectible action, in seconds: wind-up, contact, recovery. */
-    static final float FEAST_SECONDS = 1.4f;
+    /**
+     * The beat of one collectible action, in seconds: wind-up, three bites, recovery.
+     * Long enough that each bite is legible as a separate go at the thing.
+     */
+    static final float FEAST_SECONDS = 2.0f;
     /** How much of that beat happens before the buddy reaches the item. */
     static final float FEAST_LEAD = 0.45f;
 

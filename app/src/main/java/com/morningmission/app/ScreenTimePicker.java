@@ -21,6 +21,8 @@ final class ScreenTimePicker extends Screen {
     private static final int MAX_MINUTES = 120;
 
     private final RectF scratch = new RectF();
+    /** Reused for the presets' idle float; see Anim.drift. */
+    private final Anim.Transform drift = new Anim.Transform();
     private int pending = 15;
 
     ScreenTimePicker(MorningView view) {
@@ -79,7 +81,7 @@ final class ScreenTimePicker extends Screen {
         stepper(c, layout.timePlus, Art.GLYPH_PLUS, theme, view.pressOn(R_PLUS),
                 pending < MAX_MINUTES);
 
-        drawPresets(c, layout, theme);
+        drawPresets(c, layout, theme, t);
         drawSlider(c, layout, theme);
 
         RectF set = layout.timeSet;
@@ -99,7 +101,7 @@ final class ScreenTimePicker extends Screen {
                         enabled ? theme.primary : Theme.INK_FAINT, press);
     }
 
-    private void drawPresets(Canvas c, Layout layout, BuddyTheme theme) {
+    private void drawPresets(Canvas c, Layout layout, BuddyTheme theme, float t) {
         Paint fill = Theme.FILL;
         fill.setShader(null);
         for (int i = 0; i < PRESETS.length; i++) {
@@ -108,12 +110,16 @@ final class ScreenTimePicker extends Screen {
             float scale = 0.62f + 0.38f * (i / (float) (PRESETS.length - 1));
             float radius = Math.min(box.width(), box.height()) * 0.5f * scale;
             radius *= 1f - 0.08f * view.pressOn(R_PRESET, i);
-            Clay.contactShadow(c, box.centerX(), box.centerY() + radius * 0.85f,
+            // The same idle float as the minute bubbles on Home; they are one component.
+            Anim.drift(i, t, ScreenHome.driftLimit(box, radius), drift);
+            radius *= drift.scaleY;
+            float cx = box.centerX() + drift.dx, cy = box.centerY() + drift.dy;
+            Clay.contactShadow(c, cx, cy + radius * 0.85f,
                                radius * 0.8f, radius * 0.28f, 0.85f);
             fill.setColor(on ? theme.primary : Theme.mix(theme.light, 0xFFFFFFFF, 0.25f));
-            c.drawCircle(box.centerX(), box.centerY(), radius, fill);
-            Theme.glossCircle(c, box.centerX(), box.centerY(), radius, 1f);
-            Theme.label(c, Integer.toString(PRESETS[i]), box.centerX(), box.centerY(),
+            c.drawCircle(cx, cy, radius, fill);
+            Theme.glossCircle(c, cx, cy, radius, 1f);
+            Theme.label(c, Integer.toString(PRESETS[i]), cx, cy,
                         Math.max(19f, radius * 0.76f),
                         on ? 0xFFFFFFFF : theme.ink, Paint.Align.CENTER);
         }

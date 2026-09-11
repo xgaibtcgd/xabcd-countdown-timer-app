@@ -12,7 +12,15 @@ const BUBBLE = ['#EAF5FF', '#D9F8F2', '#FFF0A9', '#E8DDFF', '#FF8657', '#B7D9FF'
 const LOGO = ['#E8533F', '#F2A02C', '#F6C844', '#3FA96A', '#2879ED', '#7B5BD6', '#EC4777'];
 const NAV = ['Today', 'Rewards', 'Routine', 'Grown-Ups'];
 /** Engine.FEAST_SECONDS and Engine.FEAST_LEAD, the beat of one collectible action. */
-const FEAST_SECONDS = 1.4, FEAST_LEAD = 0.45;
+const FEAST_SECONDS = 2.0, FEAST_LEAD = 0.45;
+/** ScreenAdventure.EAT_START / EAT_END and Art.BITE_COUNT. */
+const EAT_START = 0.12, EAT_END = 0.82, BITE_COUNT = 3;
+const eatPhase = beat => (beat - EAT_START) / (EAT_END - EAT_START) * BITE_COUNT;
+const biteAt = beat => {
+  if (beat < 0) return BITE_COUNT;
+  const eaten = eatPhase(beat);
+  return eaten <= 0 ? 0 : Math.min(Math.floor(eaten), BITE_COUNT);
+};
 const NAV_GLYPH = ['home', 'star', 'list', 'people'];
 
 const glyphCache = {};
@@ -68,11 +76,23 @@ function activityChip(ctx, kind, buddy, cx, cy, size, done) {
   drawActivity(ctx, kind, buddy, cx, cy, size * 0.70);
 }
 
-function drawCollectible(ctx, index, cx, cy, size, collected, pop = 0, badged = collected) {
-  if (size <= 0.5) return;
+function drawCollectible(ctx, index, cx, cy, size, collected, pop = 0, badged = collected,
+                         bites = 0) {
+  const item = DATA.art.collectibles[index];
+  if (size <= 0.5 || bites >= item.bites.length + 1) return;
   const buddy = DATA.buddies[index];
   unitBox(ctx, cx, cy, size * (1 + 0.35 * clamp(pop, 0, 1)));
-  const parts = DATA.art.collectibles[index].parts;
+  // Icons.biteVariants does this with a real boolean difference on the compiled path;
+  // Canvas2D has no path ops, so clip the bites out instead -- same circles, from Art.
+  if (bites > 0) {
+    const cut = new Path2D();
+    cut.rect(-200, -200, 500, 500);
+    const [bx, by, br] = item.bites[Math.min(bites, item.bites.length) - 1];
+    cut.moveTo(bx + br, by);
+    cut.arc(bx, by, br, 0, Math.PI * 2);
+    ctx.clip(cut, 'evenodd');
+  }
+  const parts = item.parts;
   for (const part of parts) {
     let colour = resolvePart(part, buddy);
     if (!collected) colour = desaturate(colour, 0.78);
@@ -152,7 +172,7 @@ function drawBuddy(ctx, index, cx, feetY, height, bob = 0, rotation = 0) {
  * Anim.feast, enough of it to show the pose. The preview draws a still, so only the
  * offsets and the rotation matter -- the squash is velocity-driven in the app.
  */
-function feastTransform(kind, p) {
+function feastTransform(kind, p, strength = 1) {
   const out = { dx: 0, dy: 0, rotation: 0 };
   if (p <= 0 || p >= 1) return out;
   const contact = 0.34;
@@ -199,6 +219,8 @@ function feastTransform(kind, p) {
       out.dx = 46 * lean; out.rotation = 9 * lean; break;
     }
   }
+  const k = clamp(strength, 0, 1);
+  out.dx *= k; out.dy *= k; out.rotation *= k;
   return out;
 }
 
@@ -231,8 +253,10 @@ function screenHome(ctx, L, buddy, t) {
     const box = L.minuteBubble[i];
     const on = MINUTES[i] === 15;
     const scale = 0.60 + 0.40 * (i / 6);
-    const radius = Math.min(rw(box), rh(box)) * 0.5 * scale;
-    const cx = rcx(box), cy = rcy(box);
+    let radius = Math.min(rw(box), rh(box)) * 0.5 * scale;
+    const dr = drift(i, t, driftLimit(box, radius));
+    radius *= dr.scale;
+    const cx = rcx(box) + dr.dx, cy = rcy(box) + dr.dy;
     contactShadow(ctx, cx, cy + radius * 0.85, radius * 0.8, radius * 0.28, 0.9);
     ctx.fillStyle = on ? buddy.primary : BUBBLE[i];
     ctx.beginPath(); ctx.arc(cx, cy, radius, 0, Math.PI * 2); ctx.fill();
@@ -296,10 +320,11 @@ function screenHome(ctx, L, buddy, t) {
     const textLeft = row[0] + pad * 2 + iconSize;
     const textRight = row[2] - pad * 1.4 - checkSize;
     fitText(ctx, task.name, [textLeft, row[1] + pad * 0.5, textRight, rcy(row)],
-            DATA.type.t1, 18, done ? '#4A6B57' : DATA.tokens.ink, 'left', true);
+            rowTitleSize(row), 25, done ? '#4A6B57' : DATA.tokens.ink, 'left', true);
     fitText(ctx, done ? 'Done!' : task.subtitle,
             [textLeft, rcy(row) + rh(row) * 0.03, textRight, row[3] - pad * 0.6],
-            DATA.type.b2, 14, done ? DATA.tokens.successDeep : DATA.tokens.inkMuted, 'left', false);
+            rowSubtitleSize(row), 17, done ? DATA.tokens.successDeep : DATA.tokens.inkMuted,
+            'left', false);
     const ccx = row[2] - pad - checkSize / 2;
     if (done) {
       ctx.fillStyle = DATA.tokens.success;
@@ -354,26 +379,21 @@ function screenAdventure(ctx, L, buddy, t) {
   const beat = until <= FEAST_LEAD ? (FEAST_LEAD - until) / FEAST_SECONDS
              : (since + FEAST_LEAD) / FEAST_SECONDS < 1
                ? (since + FEAST_LEAD) / FEAST_SECONDS : -1;
-  const progress = 0.20 + 0.55 * fraction * 0.3 + 0.08 * (collected - 5);
+  const progress = 0.20 + 0.14 * (collected - 5 + fraction);   // monotonic across the loop
   const walkX = trail[0] + rw(trail) * progress;
   const height = Math.min(rh(L.advScene) * 0.46, DATA.metrics.designWidth * 0.42);
 
   const cSize = Math.min(rh(L.advScene) * 0.20, DATA.metrics.designWidth * 0.19);
   const spacing = cSize * 1.35;
-  const ground = rcy(trail) - height * 0.32;
-  for (let k = 0; k <= 4; k++) {
+  const ground = rcy(trail) - height * 0.38;
+  const itemBase = walkX + height * 0.30;
+  const itemY = index => ground + Math.sin(t * 1.6 + index) * cSize * 0.06;
+  for (let k = 1; k <= 4; k++) {
     const index = collected + k;
     if (index < 1 || index > total) continue;
-    const x = walkX + (k - fraction) * spacing;
+    const x = itemBase + (k - fraction) * spacing;
     if (x < -cSize || x > trail[2] + cSize * 0.35) continue;
-    const y = ground + Math.sin(t * 1.6 + index) * cSize * 0.06;
-    if (k === 0) {
-      const pop = beat < 0 ? 0 : Math.max(0, 1 - Math.abs(beat - 0.34) * 5);
-      drawCollectible(ctx, buddy.index, x, y, cSize * Math.max(0, 1 - fraction * 4.5),
-                      true, pop, false);
-    } else {
-      drawCollectible(ctx, buddy.index, x, y, cSize, true, 0, false);
-    }
+    drawCollectible(ctx, buddy.index, x, itemY(index), cSize, true, 0, false);
   }
 
   const goalBox = L.advGoal;
@@ -385,7 +405,16 @@ function screenAdventure(ctx, L, buddy, t) {
   ctx.beginPath(); ctx.arc(rcx(goalBox), lockY, lock, 0, Math.PI * 2); ctx.fill();
   drawGlyph(ctx, 'lock', rcx(goalBox), lockY, goalSize * 0.26, '#ffffff');
 
-  const feast = feastTransform(buddy.feastKind, beat);
+  // Three goes at the item, each less committed than the last.
+  let chompP = -1, chompStrength = 1;
+  if (beat >= 0) {
+    const eaten = eatPhase(beat);
+    if (eaten > 0 && eaten < BITE_COUNT) {
+      chompP = eaten - Math.floor(eaten);
+      chompStrength = 1 - 0.21 * Math.min(Math.floor(eaten), BITE_COUNT - 1);
+    }
+  }
+  const feast = feastTransform(buddy.feastKind, chompP, chompStrength);
   const bx = walkX + Math.sin(t * 1.5) * rw(L.advScene) * 0.016 + feast.dx;
   drawBuddy(ctx, buddy.index, bx, rcy(trail), height,
             Math.sin(t * 2.6) * 8 + feast.dy, feast.rotation);
@@ -400,6 +429,19 @@ function screenAdventure(ctx, L, buddy, t) {
     }
     card(ctx, bub, rh(bub) * 0.42, 'rgba(255,255,255,.97)');
     fitText(ctx, buddy.munchWord, bub, DATA.type.t2, 14, buddy.ink, 'center', true);
+  }
+
+  // The item in the buddy's mouth, drawn over it: the bites come out of the side the
+  // buddy is standing on, so behind it nothing missing would ever show.
+  if (collected >= 1 && collected <= total) {
+    const bites = biteAt(beat);
+    if (bites < BITE_COUNT) {
+      const lane = beat >= 0 ? 0 : -fraction;
+      const eaten = eatPhase(beat);
+      const pop = beat < 0 ? 0 : Math.max(0, 1 - Math.abs(eaten - bites) * 6);
+      drawCollectible(ctx, buddy.index, itemBase + lane * spacing, itemY(collected),
+                      cSize, true, pop, false, bites);
+    }
   }
 
   drawSceneForeground(ctx, scene, t, true);
@@ -451,12 +493,15 @@ function screenAdventure(ctx, L, buddy, t) {
   const task = DATA.defaultRoutine[2];
   activityChip(ctx, task.kind, buddy, tcard[0] + pad + iconSize / 2, rcy(tcard), iconSize, false);
   const textLeft = tcard[0] + pad * 2 + iconSize;
-  const counterWidth = DATA.metrics.designWidth * 0.11;
+  const counter = '3 of 5';
+  const counterSize = rowSubtitleSize(tcard);
+  setFont(ctx, counterSize, true);
+  const counterWidth = ctx.measureText(counter).width + pad;
   fitText(ctx, task.name, [textLeft, tcard[1] + pad * 0.5, tcard[2] - pad - counterWidth, rcy(tcard) + rh(tcard) * 0.04],
-          DATA.type.t1, 18, DATA.tokens.ink, 'left', true);
+          rowTitleSize(tcard), 22, DATA.tokens.ink, 'left', true);
   fitText(ctx, task.subtitle, [textLeft, rcy(tcard) + rh(tcard) * 0.06, tcard[2] - pad - counterWidth, tcard[3] - pad * 0.5],
-          DATA.type.b2, 14, DATA.tokens.inkMuted, 'left', false);
-  text(ctx, '3 of 5', tcard[2] - pad, rcy(tcard), DATA.type.b1, buddy.ink, 'right', true);
+          rowSubtitleSize(tcard), 16, DATA.tokens.inkMuted, 'left', false);
+  text(ctx, counter, tcard[2] - pad, rcy(tcard), counterSize, buddy.ink, 'right', true);
 
   // action
   const act = L.advAction;
@@ -649,12 +694,15 @@ function screenTimePicker(ctx, L, buddy, t) {
     const box = L.presetBubble[i];
     const on = MINUTES[i] === 30;
     const scale = 0.62 + 0.38 * (i / 6);
-    const radius = Math.min(rw(box), rh(box)) * 0.5 * scale;
-    contactShadow(ctx, rcx(box), rcy(box) + radius * 0.85, radius * 0.8, radius * 0.28, 0.85);
+    let radius = Math.min(rw(box), rh(box)) * 0.5 * scale;
+    const dr = drift(i, t, driftLimit(box, radius));
+    radius *= dr.scale;
+    const px = rcx(box) + dr.dx, py = rcy(box) + dr.dy;
+    contactShadow(ctx, px, py + radius * 0.85, radius * 0.8, radius * 0.28, 0.85);
     ctx.fillStyle = on ? buddy.primary : mix(buddy.light, '#ffffff', 0.25);
-    ctx.beginPath(); ctx.arc(rcx(box), rcy(box), radius, 0, Math.PI * 2); ctx.fill();
-    glossCircle(ctx, rcx(box), rcy(box), radius, 1);
-    label(ctx, String(MINUTES[i]), rcx(box), rcy(box), Math.max(19, radius * 0.76),
+    ctx.beginPath(); ctx.arc(px, py, radius, 0, Math.PI * 2); ctx.fill();
+    glossCircle(ctx, px, py, radius, 1);
+    label(ctx, String(MINUTES[i]), px, py, Math.max(19, radius * 0.76),
           on ? '#ffffff' : buddy.ink, 'center');
   }
 
@@ -715,13 +763,14 @@ function screenGrownUps(ctx, L, buddy, t) {
     if (value === '@buddy') value = buddy.name;
     if (value === '@minutes') value = '15 min';
     const chevron = rh(row) * 0.26;
-    setFont(ctx, DATA.type.b1, true);
+    const valueSize = rowSubtitleSize(row);
+    setFont(ctx, valueSize, true);
     const valueWidth = value ? ctx.measureText(value).width + 18 : 0;
     fitText(ctx, spec.label, [bx + bead / 2 + pad, row[1], row[2] - pad - chevron - valueWidth, row[3]],
-            DATA.type.t2, 16, DATA.tokens.ink, 'left', true);
+            rowTitleSize(row), 24, DATA.tokens.ink, 'left', true);
     if (value) {
       const on = value === 'On';
-      text(ctx, value, row[2] - pad - chevron - 12, rcy(row), DATA.type.b1,
+      text(ctx, value, row[2] - pad - chevron - 12, rcy(row), valueSize,
            on ? DATA.tokens.successDeep : DATA.tokens.inkMuted, 'right', true);
     }
     drawGlyph(ctx, 'chevron-right', row[2] - pad - chevron / 2, rcy(row), chevron, DATA.tokens.inkFaint);
@@ -778,9 +827,9 @@ function screenEditRoutine(ctx, L, buddy, t) {
     activityChip(ctx, task.kind, buddy, ix, rcy(r), icon, false);
     const chevron = rh(r) * 0.24;
     fitText(ctx, task.name, [ix + icon / 2 + pad, r[1] + pad * 0.4, r[2] - pad - chevron, rcy(r) + rh(r) * 0.02],
-            DATA.type.t2, 16, DATA.tokens.ink, 'left', true);
+            rowTitleSize(r), 25, DATA.tokens.ink, 'left', true);
     fitText(ctx, task.subtitle, [ix + icon / 2 + pad, rcy(r) + rh(r) * 0.04, r[2] - pad - chevron, r[3] - pad * 0.4],
-            DATA.type.b2, 13, DATA.tokens.inkMuted, 'left', false);
+            rowSubtitleSize(r), 17, DATA.tokens.inkMuted, 'left', false);
     drawGlyph(ctx, 'chevron-right', r[2] - pad - chevron / 2, rcy(r), chevron, DATA.tokens.inkFaint);
   }
   ctx.restore();

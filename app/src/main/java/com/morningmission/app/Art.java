@@ -48,6 +48,106 @@ final class Art {
         }
     }
 
+    // ------------------------------------------------------------------------ bites
+    //
+    // A collectible is eaten in three goes, and the middle two have to look like
+    // something is missing. Rather than authoring bitten copies of all seven items by
+    // hand, a bite is a circle placed so it STRADDLES the item's outline; subtracting it
+    // leaves a crescent notch out of the edge.
+    //
+    // The subtraction itself cannot be done here. The HOLE opcode counter-winds a circle
+    // so the non-zero fill rule cancels it, which is right for a ring -- winding +1 and
+    // -1 sum to zero -- but wrong for a bite: the part of the circle lying OUTSIDE the
+    // item has winding -1, which is non-zero, so it fills instead of cutting, and the
+    // bite comes out as an opaque disc stuck on the side. Icons therefore does the real
+    // boolean difference on the compiled paths. What lives here is the geometry, which
+    // is pure float work and so gets checked off-device by tools/SelfTest.java --
+    // including the one property everything rests on, that each circle really does
+    // straddle the outline.
+
+    /** The most bites an item can show before it is gone. */
+    static final int BITE_COUNT = 3;
+
+    /**
+     * Bite {@code k} is taken from the left, the side the buddy walks in from.
+     *
+     * <p>Both centres sit well out toward the edge on purpose. Placed further in they
+     * bore through the middle instead of scalloping the rim, and the second bite leaves
+     * a handful of disconnected fragments rather than a smaller, still-recognisable
+     * piece of food.
+     *
+     */
+    private static final float BITE_X = 0.06f, BITE_Y = 0.26f, BITE_R = 0.32f;
+
+    /**
+     * How far across the item the last bite cuts, and how flat that cut is.
+     *
+     * <p>The radius is deliberately enormous: a circle that big is, over the width of one
+     * collectible, very nearly a straight edge with a slight bow to it. That is the only
+     * shape that cannot orphan anything. A tighter arc kept letting whatever poked
+     * furthest left -- a star's point, the corner of a bun -- slip past it and float
+     * clear of the piece still in hand.
+     */
+    private static final float SWEEP_REACH = 0.47f, SWEEP_R = 2.6f;
+
+    /**
+     * Conservative bounds of a set of parts, from the command operands. Control points
+     * bound their curves, so this over-estimates slightly, which is what we want when
+     * placing a bite near an edge.
+     *
+     * @param out receives left, top, right, bottom
+     */
+    static void shapeBounds(float[][] parts, float[] out) {
+        float minX = Float.MAX_VALUE, minY = Float.MAX_VALUE;
+        float maxX = -Float.MAX_VALUE, maxY = -Float.MAX_VALUE;
+        for (float[] part : parts) {
+            int i = 0;
+            while (i < part.length) {
+                int op = (int) part[i];
+                int operands = operandCount(op);
+                if (operands < 0 || i + 1 + operands > part.length) break;
+                if (op == CIRCLE || op == HOLE) {
+                    float cx = part[i + 1], cy = part[i + 2], r = Math.abs(part[i + 3]);
+                    minX = Math.min(minX, cx - r); maxX = Math.max(maxX, cx + r);
+                    minY = Math.min(minY, cy - r); maxY = Math.max(maxY, cy + r);
+                } else {
+                    for (int k = 0; k + 1 < operands; k += 2) {
+                        float x = part[i + 1 + k], y = part[i + 2 + k];
+                        minX = Math.min(minX, x); maxX = Math.max(maxX, x);
+                        minY = Math.min(minY, y); maxY = Math.max(maxY, y);
+                    }
+                }
+                i += 1 + operands;
+            }
+        }
+        if (minX > maxX) { minX = 0f; minY = 0f; maxX = 100f; maxY = 100f; }
+        out[0] = minX; out[1] = minY; out[2] = maxX; out[3] = maxY;
+    }
+
+    /**
+     * Where bite {@code index} (0-based) sits, given bounds; receives cx, cy, radius.
+     *
+     * <p>The first bite is a scallop out of the upper-left rim. The last is a sweep, and
+     * it REPLACES the scallop rather than joining it: the region it removes is a superset
+     * of the scallop's, and keeping the cut to one convex piece is what stops the item
+     * shattering into crumbs. A second scallop, or a sweep tight enough to curve, left
+     * the item's own protrusions -- a star's point, a fish's nose, a bone's knuckle --
+     * floating clear of the piece still being held.
+     */
+    static void biteCircle(float[] bounds, int index, float[] out) {
+        float w = bounds[2] - bounds[0], h = bounds[3] - bounds[1];
+        if (index <= 0) {
+            out[0] = bounds[0] + w * BITE_X;
+            out[1] = bounds[1] + h * BITE_Y;
+            out[2] = Math.min(w, h) * BITE_R;
+            return;
+        }
+        float r = Math.max(w, h) * SWEEP_R;
+        out[0] = bounds[0] + w * SWEEP_REACH - r;
+        out[1] = (bounds[1] + bounds[3]) * 0.5f;
+        out[2] = r;
+    }
+
     // ------------------------------------------------------------- colour encoding
     //
     // A part's colour is either a literal ARGB value or, when it is below 16, an index

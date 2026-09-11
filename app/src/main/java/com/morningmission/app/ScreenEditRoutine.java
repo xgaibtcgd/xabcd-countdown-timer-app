@@ -141,12 +141,13 @@ final class ScreenEditRoutine extends Screen {
         float chevron = row.height() * 0.24f;
         scratch.set(ix + icon * 0.5f + pad, top + pad * 0.4f,
                     row.right - pad - chevron, middle + row.height() * 0.02f);
-        Theme.fitText(c, names.get(index), scratch, Theme.T2, 16f, Theme.INK,
-                      Paint.Align.LEFT, true);
+        Theme.fitText(c, names.get(index), scratch, Theme.rowTitleSize(row), 25f,
+                      Theme.INK, Paint.Align.LEFT, true);
         scratch.set(ix + icon * 0.5f + pad, middle + row.height() * 0.04f,
                     row.right - pad - chevron, bottom - pad * 0.4f);
-        Theme.fitText(c, Art.ACTIVITY_SUBTITLES[kind],
-                      scratch, Theme.B2, 13f, Theme.INK_MUTED, Paint.Align.LEFT, false);
+        Theme.fitText(c, Art.ACTIVITY_SUBTITLES[kind], scratch,
+                      Theme.rowSubtitleSize(row), 17f,
+                      Theme.INK_MUTED, Paint.Align.LEFT, false);
         Icons.glyph(c, Art.GLYPH_CHEVRON_RIGHT, row.right - pad - chevron * 0.5f,
                     middle, chevron, Theme.INK_FAINT);
     }

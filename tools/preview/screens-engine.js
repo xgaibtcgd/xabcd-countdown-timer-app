@@ -266,6 +266,36 @@ function labelRoom(r, taken) {
   return (r[2] - r[0]) - (r[3] - r[1]) * 0.5 - taken;
 }
 
+/** Theme.rowTitleSize / Theme.rowSubtitleSize. */
+function rowTitleSize(r)    { return clamp((r[3] - r[1]) * 0.25,  20, 48); }
+function rowSubtitleSize(r) { return clamp((r[3] - r[1]) * 0.165, 14, 32); }
+
+/**
+ * Anim.drift: a bounded idle float for a round control. Same hash as the app, so the
+ * bubbles stagger identically here.
+ */
+function drift(seed, t, limit) {
+  const out = { dx: 0, dy: 0, scale: 1 };
+  if (limit <= 0) return out;
+  const phase = hash(seed) * 6.2831855;
+  const breathPhase = hash(seed + 977) * 6.2831855;
+  out.dx = Math.sin(t * 0.43 + phase) * limit * 0.62;
+  out.dy = (Math.sin(t * 0.61 + phase * 1.7) * 0.7
+            + Math.sin(t * 1.13 + phase) * 0.3) * limit;
+  const envelope = Math.max(0, Math.sin(t * 0.37 + breathPhase));
+  const swell = envelope * envelope * envelope;
+  out.scale = 1 + 0.03 * swell - 0.008 * (1 - swell);
+  out.dx = clamp(out.dx, -limit, limit);
+  out.dy = clamp(out.dy, -limit, limit);
+  return out;
+}
+
+/** ScreenHome.driftLimit. */
+function driftLimit(r, radius) {
+  const slack = Math.max(0, Math.min(r[2] - r[0], r[3] - r[1]) * 0.5 - radius);
+  return Math.min(radius * 0.09, Math.max(2, slack + 4));
+}
+
 /** Theme.label. */
 function label(ctx, s, x, cy, size, colour, align = 'left') {
   setDisplay(ctx, size);

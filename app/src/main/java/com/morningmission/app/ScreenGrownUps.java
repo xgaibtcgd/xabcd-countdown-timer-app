@@ -101,14 +101,18 @@ final class ScreenGrownUps extends Screen {
 
         String value = valueFor(index);
         float chevron = row.height() * 0.26f;
-        float valueWidth = value == null ? 0f : Theme.measure(value, Theme.B1, true) + 18f;
+        // The value's width is what the label box stops short of, so it has to be
+        // measured at the size the value is actually drawn at -- these two move together
+        // or the label runs under the value.
+        float valueSize = Theme.rowSubtitleSize(row);
+        float valueWidth = value == null ? 0f : Theme.measure(value, valueSize, true) + 18f;
         scratch.set(bx + bead * 0.5f + pad, row.top + sink,
                     row.right - pad - chevron - valueWidth, row.bottom + sink);
-        Theme.fitText(c, LABELS[index], scratch, Theme.T2, 16f, Theme.INK,
+        Theme.fitText(c, LABELS[index], scratch, Theme.rowTitleSize(row), 24f, Theme.INK,
                       Paint.Align.LEFT, true);
         if (value != null) {
             Theme.textCentered(c, value, row.right - pad - chevron - 12f, middle,
-                               Theme.B1, valueIsOn(index) ? Theme.SUCCESS_DEEP : Theme.INK_MUTED,
+                               valueSize, valueIsOn(index) ? Theme.SUCCESS_DEEP : Theme.INK_MUTED,
                                Paint.Align.RIGHT, true);
         }
         Icons.glyph(c, Art.GLYPH_CHEVRON_RIGHT, row.right - pad - chevron * 0.5f,

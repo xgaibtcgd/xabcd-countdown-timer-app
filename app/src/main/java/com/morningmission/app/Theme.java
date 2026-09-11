@@ -445,6 +445,25 @@ final class Theme {
     }
 
     /**
+     * The type size for the primary line of a list row or card.
+     *
+     * <p>Same defect as the button labels, on the surfaces that were not buttons: a task
+     * name was set at the fixed {@link #T1}, which is 18% of a 168-unit row and sat
+     * beside a 121-unit icon. Rows happen to be a fixed height today
+     * ({@link Layout#TASK_ROW_H}; the bands around them are what scroll), so this is
+     * really a ratio fix -- but deriving it from the rect means the cards whose height
+     * genuinely does vary, like the adventure task card, get the right size for free.
+     */
+    static float rowTitleSize(RectF row) {
+        return clamp(row.height() * 0.25f, 20f, 48f);
+    }
+
+    /** The secondary line under {@link #rowTitleSize}: a subtitle, or a row's value. */
+    static float rowSubtitleSize(RectF row) {
+        return clamp(row.height() * 0.165f, 14f, 32f);
+    }
+
+    /**
      * Horizontal room a label has inside a pill button: the full width less a pill's
      * worth of end padding, and less {@code taken} for anything sharing the line.
      */

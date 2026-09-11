@@ -428,6 +428,8 @@ public final class SelfTest {
             check(moved, "state " + state + " never actually moves");
         }
 
+        drift();
+
         // No two states may be interchangeable. Sample a signature over several seconds
         // and require a meaningful difference.
         for (int a = 0; a < Anim.STATE_COUNT; a++) {
@@ -462,6 +464,52 @@ public final class SelfTest {
         check(finite(tr), "a long frame must not produce a non-finite transform");
         check(tr.scaleY > 0.6f && tr.scaleY < 1.5f,
               "squash and stretch must stay bounded after a long frame: " + tr.scaleY);
+    }
+
+    /**
+     * The idle float on the minute bubbles and the time presets. The bubbles sit a few
+     * units apart, so "within limits" is a real constraint and not a figure of speech:
+     * the caller passes the gap it has and the drift must never exceed it.
+     */
+    private static void drift() {
+        Anim.Transform tr = new Anim.Transform();
+        for (int seed = 0; seed < 12; seed++) {
+            for (float limit : new float[]{0f, 2f, 6.5f, 40f}) {
+                boolean moved = false;
+                float minX = Float.MAX_VALUE, maxX = -Float.MAX_VALUE;
+                for (float t = 0f; t < 45f; t += 0.05f) {
+                    Anim.drift(seed, t, limit, tr);
+                    check(finite(tr), "drift " + seed + " went non-finite at t=" + t);
+                    check(Math.abs(tr.dx) <= limit + 0.001f
+                          && Math.abs(tr.dy) <= limit + 0.001f,
+                          "drift " + seed + " left its limit " + limit + " at t=" + t
+                          + ": " + tr.dx + "," + tr.dy);
+                    check(tr.scaleX >= 0.97f && tr.scaleX <= 1.03f
+                          && tr.scaleY >= 0.97f && tr.scaleY <= 1.03f,
+                          "drift " + seed + " scaled out of range at t=" + t);
+                    if (Math.abs(tr.dx) > limit * 0.2f) moved = true;
+                    minX = Math.min(minX, tr.dx);
+                    maxX = Math.max(maxX, tr.dx);
+                }
+                check(limit == 0f || moved, "drift " + seed + " never moves at limit " + limit);
+                check(limit == 0f || maxX - minX > limit * 0.5f,
+                      "drift " + seed + " barely uses its limit " + limit);
+            }
+        }
+
+        // Two controls must not float in lockstep, or a row of them reads as one object.
+        Anim.Transform a = new Anim.Transform();
+        Anim.Transform b = new Anim.Transform();
+        for (int seed = 0; seed < 11; seed++) {
+            float apart = 0f;
+            for (float t = 0f; t < 20f; t += 0.1f) {
+                Anim.drift(seed, t, 10f, a);
+                Anim.drift(seed + 1, t, 10f, b);
+                apart += Math.abs(a.dx - b.dx) + Math.abs(a.dy - b.dy);
+            }
+            check(apart > 100f, "drift seeds " + seed + " and " + (seed + 1)
+                  + " move together; the bubbles are supposed to be out of phase");
+        }
     }
 
     private static boolean finite(Anim.Transform tr) {
@@ -555,6 +603,8 @@ public final class SelfTest {
         }
         check(Art.GOAL_NAMES.length == BuddyTheme.COUNT, "goal name list is the wrong length");
 
+        bites();
+
         for (int g = 0; g < Art.GLYPH_COUNT; g++) {
             check(Art.GLYPHS[g] != null && Art.GLYPHS[g].length > 0,
                   "UI glyph " + g + " is missing");
@@ -563,6 +613,93 @@ public final class SelfTest {
     }
 
     /** Validates the command stream and the bounding box of one shape. */
+    /**
+     * The part-eaten collectibles.
+     *
+     * <p>The whole mechanism rests on one property: a bite circle has to STRADDLE the
+     * item's outline. A circle that sits wholly inside punches a donut hole in the middle
+     * of the food, and a circle that misses entirely does nothing at all -- both compile
+     * and draw perfectly happily, so nothing but this check would catch them.
+     */
+    private static void bites() {
+        float[] bounds = new float[4];
+        float[] circle = new float[3];
+
+        for (int buddy = 0; buddy < BuddyTheme.COUNT; buddy++) {
+            String name = BuddyTheme.ALL[buddy].key;
+            float[][] whole = Art.COLLECTIBLE_SHAPES[buddy];
+            Art.shapeBounds(whole, bounds);
+            check(bounds[2] > bounds[0] && bounds[3] > bounds[1],
+                  name + " collectible has empty bounds");
+            check(bounds[0] >= -1f && bounds[1] >= -1f
+                  && bounds[2] <= 101f && bounds[3] <= 101f,
+                  name + " collectible bounds leave the 100-unit box: "
+                  + bounds[0] + "," + bounds[1] + " to " + bounds[2] + "," + bounds[3]);
+
+            for (int b = 0; b < Art.BITE_COUNT - 1; b++) {
+                Art.biteCircle(bounds, b, circle);
+                float cx = circle[0], cy = circle[1], r = circle[2];
+                check(r > 0f, name + " bite " + b + " has no radius");
+                // A bite straddles the outline: it reaches past the left edge, it
+                // overlaps the item at all, and it does not swallow the whole thing.
+                check(cx - r < bounds[0],
+                      name + " bite " + b + " does not reach the outline; it would punch"
+                      + " a hole in the middle of the item");
+                check(cx + r > bounds[0] + (bounds[2] - bounds[0]) * 0.2f,
+                      name + " bite " + b + " barely touches the item");
+                check(cx + r < bounds[0] + (bounds[2] - bounds[0]) * 0.75f,
+                      name + " bite " + b + " takes too much of the item at once");
+            }
+
+            // The LAST bite is a sweep, and what matters is not that its circle spans the
+            // item -- that was the first attempt and it was not enough -- but that the
+            // ARC is flat enough over the item's height that nothing sticking out to the
+            // left can slip past it. Measure the bow directly: how much further right the
+            // cut sits at the item's middle than at its top and bottom.
+            Art.biteCircle(bounds, Art.BITE_COUNT - 2, circle);
+            float half = (bounds[3] - bounds[1]) * 0.5f;
+            check(circle[2] > half,
+                  name + " last bite is too small to reach across the item");
+            float atMiddle = circle[0] + circle[2];
+            float atEdge = circle[0] + (float) Math.sqrt(circle[2] * circle[2] - half * half);
+            check(atMiddle - atEdge < (bounds[2] - bounds[0]) * 0.08f,
+                  name + " last bite bows by " + (atMiddle - atEdge)
+                  + " units across the item; a cut that curved can orphan a fragment");
+
+            // Two bites must not be the same bite, or the middle state would look
+            // identical to the last one.
+            float[] first = new float[3];
+            Art.biteCircle(bounds, 0, first);
+            check(circle[0] + circle[2] > first[0] + first[2] + (bounds[2] - bounds[0]) * 0.04f,
+                  name + " takes its second bite from behind the first, so nothing"
+                  + " more appears to be missing");
+        }
+
+        // The engine's beat has to pass through every bite count and end with the item
+        // gone, or a bite would be skipped on screen.
+        FakeClock clock = new FakeClock();
+        Engine e = new Engine(clock);
+        e.setRoutine(tasks(3), keys(3));
+        e.start(10);
+        boolean[] seen = new boolean[Art.BITE_COUNT + 1];
+        long segment = 10 * 60_000L / e.collectibleCount();
+        long step = 20L;
+        for (long at = segment - (long) (Engine.FEAST_LEAD * 1000f) - 100L;
+             at < segment + (long) (Engine.FEAST_SECONDS * 1000f) + 200L; at += step) {
+            e.reset();
+            e.start(10);
+            clock.advance(at);
+            float beat = e.feastBeat();
+            if (beat < 0f) continue;
+            float eaten = (beat - 0.12f) / (0.82f - 0.12f) * Art.BITE_COUNT;
+            int taken = eaten <= 0f ? 0 : Math.min((int) eaten, Art.BITE_COUNT);
+            seen[taken] = true;
+        }
+        for (int b = 0; b <= Art.BITE_COUNT; b++) {
+            check(seen[b], "the action beat never shows " + b + " bites taken");
+        }
+    }
+
     private static void checkShape(float[] shape, String what) {
         check(shape != null && shape.length > 0, what + " is empty");
         if (shape == null || shape.length == 0) return;
@@ -589,8 +726,13 @@ public final class SelfTest {
                 float cx = shape[i + 1], cy = shape[i + 2], r = Math.abs(shape[i + 3]);
                 check(!Float.isNaN(cx) && !Float.isNaN(cy) && !Float.isNaN(r),
                       what + " has a non-finite circle at " + i);
-                minX = Math.min(minX, cx - r); maxX = Math.max(maxX, cx + r);
-                minY = Math.min(minY, cy - r); maxY = Math.max(maxY, cy + r);
+                // A HOLE only ever removes, so it lays no ink and is allowed to reach
+                // outside the box -- a bite has to, since it straddles the outline.
+                // The box check below is about where ink lands.
+                if (op == Art.CIRCLE) {
+                    minX = Math.min(minX, cx - r); maxX = Math.max(maxX, cx + r);
+                    minY = Math.min(minY, cy - r); maxY = Math.max(maxY, cy + r);
+                }
             } else {
                 for (int k = 0; k < operands; k++) {
                     float v = shape[i + 1 + k];

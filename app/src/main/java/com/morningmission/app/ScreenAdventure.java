@@ -24,6 +24,16 @@ final class ScreenAdventure extends Screen {
      */
     private static final int LOOKAHEAD = 4;
 
+    /**
+     * The stretch of the action beat spent eating, as a fraction of it.
+     *
+     * <p>The engine counts an item collected the instant the buddy reaches it, which is
+     * {@code FEAST_LEAD / FEAST_SECONDS} into the beat. Eating opens a little before
+     * that so the first chomp's wind-up happens on the approach, and closes before the
+     * beat ends so the buddy has a moment to walk on with nothing in its mouth.
+     */
+    private static final float EAT_START = 0.12f, EAT_END = 0.82f;
+
     /** Fires the pickup burst once per item rather than on every frame of the window. */
     private int burstedThrough = 0;
     private final int[] burstPalette = new int[4];
@@ -49,9 +59,13 @@ final class ScreenAdventure extends Screen {
         view.scene.drawBackground(c, theme, t);
         // Trail first: the goal stands at the end of the lane, so items still to be
         // reached slide out from behind it rather than floating across its lid.
-        drawTrail(c, layout, theme, engine, t);
+        drawTrail(c, layout, theme, engine, t, false);
         drawGoal(c, layout, theme, engine);
         drawBuddy(c, layout, theme, engine, t);
+        // The one in the buddy's mouth goes on top of it. The bites come out of the
+        // item's left side, which is the side the buddy is standing on, so drawn behind
+        // it the only part ever missing was the part already hidden.
+        drawTrail(c, layout, theme, engine, t, true);
         view.scene.drawForeground(c, theme, t, true);
 
         drawTopBar(c, layout, theme);
@@ -80,7 +94,19 @@ final class ScreenAdventure extends Screen {
         float feet = trail.centerY();
         float height = buddyHeight(layout);
         float beat = engine.feastBeat();
-        view.drawBuddy(c, theme.index, x, feet, height, true, theme.feastKind, beat);
+        // Three goes at it rather than one: the same character move run three times
+        // across the beat, each less committed than the last, so it reads as a chomp and
+        // two follow-ups. Each contact is what takes the next bite out of the item.
+        float chomp = -1f, strength = 1f;
+        int bite = biteAt(beat);
+        if (beat >= 0f) {
+            float eaten = eatPhase(beat);
+            chomp = eaten - (float) Math.floor(eaten);
+            if (eaten >= Art.BITE_COUNT || eaten < 0f) chomp = -1f;
+            strength = 1f - 0.21f * Math.min(bite, Art.BITE_COUNT - 1);
+        }
+        view.drawBuddy(c, theme.index, x, feet, height, true, theme.feastKind,
+                       chomp, strength);
 
         // The reaction runs off the same beat as the motion, so the word lands with the
         // bite rather than on a fraction of a segment that stretches with the timer.
@@ -95,6 +121,20 @@ final class ScreenAdventure extends Screen {
             Theme.fitText(c, theme.munchWord, scratch, Theme.T2, 14f,
                           theme.ink, Paint.Align.CENTER, true);
         }
+    }
+
+    /** How far through the eating window the beat is, 0..BITE_COUNT. */
+    private static float eatPhase(float beat) {
+        return (beat - EAT_START) / (EAT_END - EAT_START) * Art.BITE_COUNT;
+    }
+
+    /** How many bites have been taken out of the item at this point in the beat. */
+    private static int biteAt(float beat) {
+        if (beat < 0f) return Art.BITE_COUNT;          // the beat is over; it is gone
+        float eaten = eatPhase(beat);
+        if (eaten <= 0f) return 0;
+        int taken = (int) eaten;
+        return taken > Art.BITE_COUNT ? Art.BITE_COUNT : taken;
     }
 
     /** Where along the trail the buddy has walked to, without its idle bob. */
@@ -121,7 +161,8 @@ final class ScreenAdventure extends Screen {
      * slides left by exactly one spacing over each segment and the next item arrives
      * under the buddy at the moment the engine counts it as collected.
      */
-    private void drawTrail(Canvas c, Layout layout, BuddyTheme theme, Engine engine, float t) {
+    private void drawTrail(Canvas c, Layout layout, BuddyTheme theme, Engine engine,
+                           float t, boolean inMouth) {
         int total = engine.collectibleCount();
         if (total <= 0) return;
         int collected = engine.collectedCount();
@@ -129,16 +170,27 @@ final class ScreenAdventure extends Screen {
 
         float size = Math.min(layout.advScene.height() * 0.20f, Layout.W * 0.19f);
         float spacing = size * 1.35f;
-        float base = walkX(layout, engine);
+        // Items arrive in FRONT of the buddy, not on top of it. Landing them on the
+        // buddy's own x put the thing being eaten behind a sprite half the screen wide,
+        // so the bites -- the whole point of them -- were never visible. Offsetting by
+        // a third of the buddy's height puts it at the muzzle rather than behind the
+        // sprite's own middle -- Burger Buddy is already holding a burger of its own.
+        float height = buddyHeight(layout);
+        float base = walkX(layout, engine) + height * 0.30f;
         // Held at about the height the buddy's hands are, so reaching one is a lean
         // rather than a squat -- at ankle height no amount of tilt looked like eating.
-        float ground = layout.advTrail.centerY() - buddyHeight(layout) * 0.32f;
+        float ground = layout.advTrail.centerY() - height * 0.38f;
         float beat = engine.feastBeat();
 
-        for (int k = 0; k <= LOOKAHEAD; k++) {
+        for (int k = inMouth ? 0 : 1; k <= (inMouth ? 0 : LOOKAHEAD); k++) {
             int index = collected + k;                  // 1-based item number
             if (index < 1 || index > total) continue;
-            float lane = k - fraction;
+            // The item being eaten stays at the buddy's mouth rather than sliding on
+            // with the rest of the line: it is being held. Letting it drift by the
+            // segment fraction carried it back behind the buddy mid-bite, and on a short
+            // timer -- where a segment is only a few seconds long -- it slid far enough
+            // that the bites were never on screen at all.
+            float lane = (k == 0 && beat >= 0f) ? 0f : k - fraction;
             float x = base + lane * spacing;
             // Items belong to the lane, so they stop where it does. Clipping at the
             // goal's box instead cut them a good deal earlier than the chest actually
@@ -147,17 +199,20 @@ final class ScreenAdventure extends Screen {
 
             float y = ground + (float) Math.sin(t * 1.6f + index) * size * 0.06f;
             if (k == 0) {
-                // The one just eaten: it pops on contact, then shrinks away as the buddy
-                // walks on, which reads as swallowing rather than blinking out.
-                float pop = beat < 0f ? 0f : Math.max(0f, 1f - Math.abs(beat - 0.34f) * 5f);
-                float shrink = Math.max(0f, 1f - fraction * 4.5f);
-                Icons.collectible(c, theme.index, x, y, size * shrink, true, pop, false);
+                // The one being eaten: whole, then a bite gone, then two, then nothing.
+                // Each bite pops as it lands, which is what makes it read as a bite
+                // rather than the item quietly changing shape.
+                int bites = biteAt(beat);
+                if (bites >= Art.BITE_COUNT) continue;
+                float eaten = eatPhase(beat);
+                float pop = Math.max(0f, 1f - Math.abs(eaten - bites) * 6f);
+                Icons.collectible(c, theme.index, x, y, size, true, pop, false, bites);
             } else {
                 Icons.collectible(c, theme.index, x, y, size, true, 0f, false);
             }
         }
 
-        fireBurst(layout, theme, engine, collected, base, ground);
+        if (inMouth) fireBurst(layout, theme, engine, collected, base, ground);
     }
 
     /** One confetti burst per item reached, at the item, in the buddy's own colours. */
@@ -298,18 +353,23 @@ final class ScreenAdventure extends Screen {
                            box.left + pad + iconSize * 0.5f, box.centerY(), iconSize, false);
 
         float textLeft = box.left + pad * 2f + iconSize;
-        float counterWidth = Layout.W * 0.11f;
+        // Was a hard Layout.W * 0.11f, which never tracked the counter's type size at
+        // all. Measure the string the counter will actually draw, as the Grown-Ups rows
+        // already do, so the name box stops exactly where the counter starts.
+        String counter = (index + 1) + " of " + engine.taskCount();
+        float counterSize = Theme.rowSubtitleSize(box);
+        float counterWidth = Theme.measure(counter, counterSize, true) + pad;
         scratch.set(textLeft, box.top + pad * 0.5f,
                     box.right - pad - counterWidth, box.centerY() + box.height() * 0.04f);
-        Theme.fitText(c, engine.taskName(index), scratch, Theme.T1, 18f,
+        Theme.fitText(c, engine.taskName(index), scratch, Theme.rowTitleSize(box), 22f,
                       Theme.INK, Paint.Align.LEFT, true);
         scratch.set(textLeft, box.centerY() + box.height() * 0.06f,
                     box.right - pad - counterWidth, box.bottom - pad * 0.5f);
         Theme.fitText(c, Art.ACTIVITY_SUBTITLES[Art.activityKind(engine.taskKey(index))],
-                      scratch, Theme.B2, 14f, Theme.INK_MUTED, Paint.Align.LEFT, false);
+                      scratch, Theme.rowSubtitleSize(box), 16f,
+                      Theme.INK_MUTED, Paint.Align.LEFT, false);
 
-        Theme.textCentered(c, (index + 1) + " of " + engine.taskCount(),
-                           box.right - pad, box.centerY(), Theme.B1,
+        Theme.textCentered(c, counter, box.right - pad, box.centerY(), counterSize,
                            theme.ink, Paint.Align.RIGHT, true);
     }
 

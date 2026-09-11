@@ -27,6 +27,8 @@ final class ScreenHome extends Screen {
     };
 
     private final RectF scratch = new RectF();
+    /** Reused for the bubbles' idle float; see Anim.drift. */
+    private final Anim.Transform drift = new Anim.Transform();
     private float taskScroll;
 
     ScreenHome(MorningView view) {
@@ -62,7 +64,7 @@ final class ScreenHome extends Screen {
         view.drawBuddy(c, theme.index, layout.buddySlot.centerX(),
                        layout.buddySlot.bottom - layout.buddySlot.height() * 0.06f,
                        layout.buddySlot.height() * 0.82f, true);
-        drawMinuteBubbles(c, layout, theme);
+        drawMinuteBubbles(c, layout, theme, t);
 
         view.scene.drawForeground(c, theme, t, true);
 
@@ -111,7 +113,7 @@ final class ScreenHome extends Screen {
                     Theme.B1, theme.ink, Paint.Align.LEFT);
     }
 
-    private void drawMinuteBubbles(Canvas c, Layout layout, BuddyTheme theme) {
+    private void drawMinuteBubbles(Canvas c, Layout layout, BuddyTheme theme, float t) {
         int selected = view.minutes();
         Theme.textCentered(c, "MINUTES", layout.minutesLabel.centerX(),
                            layout.minutesLabel.centerY(), Theme.C1, 0xFF5C7086,
@@ -125,7 +127,13 @@ final class ScreenHome extends Screen {
             float scale = 0.60f + 0.40f * (i / (float) (MINUTES.length - 1));
             float radius = Math.min(box.width(), box.height()) * 0.5f * scale;
             radius *= 1f - 0.08f * view.pressOn(R_MINUTE, i);
-            float cx = box.centerX(), cy = box.centerY();
+
+            // The idle float. The limit is the room this bubble actually has -- its own
+            // slack inside its cell plus the few units of gutter between cells -- so the
+            // biggest bubbles, which fill their cells, still move without ever touching.
+            Anim.drift(i, t, driftLimit(box, radius), drift);
+            radius *= drift.scaleY;
+            float cx = box.centerX() + drift.dx, cy = box.centerY() + drift.dy;
 
             Clay.contactShadow(c, cx, cy + radius * 0.85f, radius * 0.8f, radius * 0.28f, 0.9f);
             Paint fill = Theme.FILL;
@@ -145,6 +153,16 @@ final class ScreenHome extends Screen {
                         Math.max(20f, radius * 0.78f),
                         on ? 0xFFFFFFFF : 0xFF173C79, Paint.Align.CENTER);
         }
+    }
+
+    /**
+     * How far a round control in {@code box} may float without meeting its neighbour:
+     * the slack it has inside its own cell, plus the gutter between cells, capped so a
+     * small bubble with lots of room does not wander further than it should.
+     */
+    static float driftLimit(RectF box, float radius) {
+        float slack = Math.max(0f, Math.min(box.width(), box.height()) * 0.5f - radius);
+        return Math.min(radius * 0.09f, Math.max(2f, slack + 4f));
     }
 
     private void drawTimerCard(Canvas c, Layout layout, BuddyTheme theme) {
@@ -218,12 +236,13 @@ final class ScreenHome extends Screen {
             float textRight = row.right - pad * 1.4f - checkSize;
 
             scratch.set(textLeft, top + pad * 0.5f, textRight, middle);
-            Theme.fitText(c, engine.taskName(i), scratch, Theme.T1, 18f,
+            Theme.fitText(c, engine.taskName(i), scratch,
+                          Theme.rowTitleSize(row), 25f,
                           done ? 0xFF4A6B57 : Theme.INK, Paint.Align.LEFT, true);
             scratch.set(textLeft, middle + row.height() * 0.03f,
                         textRight, bottom - pad * 0.6f);
             Theme.fitText(c, done ? "Done!" : Art.ACTIVITY_SUBTITLES[kind],
-                          scratch, Theme.B2, 14f,
+                          scratch, Theme.rowSubtitleSize(row), 17f,
                           done ? Theme.SUCCESS_DEEP : Theme.INK_MUTED,
                           Paint.Align.LEFT, false);
 

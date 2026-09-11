@@ -303,6 +303,52 @@ final class Anim {
         }
     }
 
+    // ------------------------------------------------------------------- idle drift
+
+    /** The same hash Scene uses, so the app and the preview stagger identically. */
+    private static float hash(int seed) {
+        int h = seed * 0x27D4EB2D;
+        h ^= h >>> 15;
+        h *= 0x85EBCA6B;
+        h ^= h >>> 13;
+        return (h >>> 8) / (float) (1 << 24);
+    }
+
+    /**
+     * A gentle idle float for a round control.
+     *
+     * <p>Two unrelated frequencies give a slow wandering path rather than a bob, a
+     * breath scales it, and a low-frequency envelope lets one control at a time bump a
+     * little more than its neighbours so a row of them does not pulse in unison.
+     *
+     * <p>The offsets are bounded by {@code limit} in both axes, which is the whole point:
+     * the minute bubbles sit a few units apart, so a caller can pass the gap it actually
+     * has and be sure nothing collides. Scale stays inside 0.97..1.03.
+     */
+    static void drift(int seed, float t, float limit, Transform out) {
+        out.reset();
+        if (limit <= 0f) return;
+        float phase = hash(seed) * 6.2831855f;
+        float breathPhase = hash(seed + 977) * 6.2831855f;
+
+        // 0.61 and 0.43 rad/s are deliberately not a ratio of small integers, so the
+        // path drifts around its cell instead of retracing one line.
+        out.dx = sin(t * 0.43f + phase) * limit * 0.62f;
+        out.dy = (sin(t * 0.61f + phase * 1.7f) * 0.7f
+                  + sin(t * 1.13f + phase) * 0.3f) * limit;
+
+        // The bump: a slow envelope that spends most of its time near zero, so each
+        // control swells briefly on its own schedule rather than everything breathing
+        // together.
+        float envelope = Math.max(0f, sin(t * 0.37f + breathPhase));
+        float swell = envelope * envelope * envelope;
+        float scale = 1f + 0.03f * swell - 0.008f * (1f - swell);
+        out.scaleX = scale;
+        out.scaleY = scale;
+        out.dx = clamp(out.dx, -limit, limit);
+        out.dy = clamp(out.dy, -limit, limit);
+    }
+
     // ------------------------------------------------------------ collectible actions
     // What the buddy does when it reaches something on the trail. These are one-shot
     // beats driven by a 0..1 progress rather than looping states, and they compose on
@@ -332,6 +378,31 @@ final class Anim {
      * @param p    0 at the start of the wind-up, 1 when the buddy is walking again
      */
     static void feast(int kind, float p, Transform out) {
+        feast(kind, p, 1f, out);
+    }
+
+    /**
+     * The same, scaled.
+     *
+     * <p>A collectible is eaten in three goes, and three identical lunges read as a
+     * stutter rather than as eating. The caller runs this three times across the beat at
+     * decreasing strength: one committed chomp, then two quick follow-ups. It also keeps
+     * a spinner from turning three full times in two seconds.
+     *
+     * @param strength 0 for no motion, 1 for the full move
+     */
+    static void feast(int kind, float p, float strength, Transform out) {
+        feastMove(kind, p, out);
+        if (strength == 1f) return;
+        float k = clamp(strength, 0f, 1f);
+        out.dx *= k;
+        out.dy *= k;
+        out.rotation *= k;
+        out.scaleX = 1f + (out.scaleX - 1f) * k;
+        out.scaleY = 1f + (out.scaleY - 1f) * k;
+    }
+
+    private static void feastMove(int kind, float p, Transform out) {
         out.reset();
         if (p <= 0f || p >= 1f) return;
         // Contact is a third of the way in: the wind-up is short, the recovery longer.

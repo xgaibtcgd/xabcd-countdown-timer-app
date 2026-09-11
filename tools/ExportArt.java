@@ -58,11 +58,24 @@ public final class ExportArt {
         }
         sb.append("\n],\n");
 
+        // The bite circles come from Art, so the preview cuts in exactly the places the
+        // app does rather than carrying its own copy of the geometry. It subtracts them
+        // by clipping, since Canvas2D has no boolean path operations.
         sb.append("\"collectibles\":[");
+        float[] bounds = new float[4];
+        float[] circle = new float[3];
         for (int i = 0; i < BuddyTheme.COUNT; i++) {
             if (i > 0) sb.append(",");
             sb.append("\n{").append(parts(Art.COLLECTIBLE_SHAPES[i], Art.COLLECTIBLE_COLORS[i],
-                                          Art.COLLECTIBLE_FLAGS[i])).append("}");
+                                          Art.COLLECTIBLE_FLAGS[i]));
+            Art.shapeBounds(Art.COLLECTIBLE_SHAPES[i], bounds);
+            sb.append(",\"bites\":[");
+            for (int b = 0; b < Art.BITE_COUNT - 1; b++) {
+                if (b > 0) sb.append(",");
+                Art.biteCircle(bounds, b, circle);
+                sb.append(floats(circle));
+            }
+            sb.append("]}");
         }
         sb.append("\n],\n");
 
