@@ -256,6 +256,16 @@ function labelSize(ctx, s, size, minSize, max) {
   return px;
 }
 
+/** Theme.buttonLabelSize: a button label is sized by its button, not the type scale. */
+function buttonLabelSize(r) {
+  return clamp((r[3] - r[1]) * 0.36, 22, 68);
+}
+
+/** Theme.labelRoom: a pill button's width less its end padding and anything sharing the line. */
+function labelRoom(r, taken) {
+  return (r[2] - r[0]) - (r[3] - r[1]) * 0.5 - taken;
+}
+
 /** Theme.label. */
 function label(ctx, s, x, cy, size, colour, align = 'left') {
   setDisplay(ctx, size);

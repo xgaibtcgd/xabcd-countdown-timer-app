@@ -617,7 +617,7 @@ final class Layout {
         solve(play.top, play.height());
 
         guBack.set(40f, bandTop[bHeader] + 14f, 40f + CHIP, bandTop[bHeader] + 14f + CHIP);
-        guTitle.set(guBack.right, bandTop[bHeader], W - 40f, bandBottom(bHeader));
+        guTitle.set(guBack.right, bandTop[bHeader], W - guBack.right, bandBottom(bHeader));
 
         place(bRows, guBand, 48f, W - 48f);
         scrollGrownUps(guScroll);
@@ -647,7 +647,7 @@ final class Layout {
         solve(play.top, play.height());
 
         edBack.set(40f, bandTop[bHeader] + 14f, 40f + CHIP, bandTop[bHeader] + 14f + CHIP);
-        edTitle.set(edBack.right, bandTop[bHeader], W - 40f, bandBottom(bHeader));
+        edTitle.set(edBack.right, bandTop[bHeader], W - edBack.right, bandBottom(bHeader));
 
         place(bRows, edBand, 48f, W - 48f);
         edContentHeight = Math.max(0f, edRowCount * TASK_ROW_PITCH - TASK_ROW_GAP);

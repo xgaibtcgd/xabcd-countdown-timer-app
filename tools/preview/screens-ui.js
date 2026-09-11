@@ -252,8 +252,8 @@ function screenHome(ctx, L, buddy, t) {
   const sb = L.startBtn;
   button(ctx, sb, rh(sb) / 2, DATA.tokens.cta, DATA.tokens.ctaDeep, 1);
   const pSize = rh(sb) * 0.40;
-  const pRoom = rw(sb) - pSize - 20 - rh(sb) * 0.5;
-  const pPx = labelSize(ctx, 'START MORNING', DATA.type.h2, 16, pRoom);
+  const pRoom = labelRoom(sb, pSize + 20);
+  const pPx = labelSize(ctx, 'START MORNING', buttonLabelSize(sb), 16, pRoom);
   const pWidth = measureLabel(ctx, 'START MORNING', pPx);
   const px = rcx(sb) - (pSize + 20 + pWidth) / 2;
   drawGlyph(ctx, 'play', px + pSize / 2, rcy(sb), pSize, '#ffffff');
@@ -354,8 +354,8 @@ function screenAdventure(ctx, L, buddy, t) {
   const act = L.advAction;
   button(ctx, act, rh(act) / 2, DATA.tokens.success, darken(DATA.tokens.success, 0.22), 1);
   const aSize = rh(act) * 0.40;
-  const aRoom = rw(act) - aSize - 20 - rh(act) * 0.5;
-  const aPx = labelSize(ctx, 'I DID IT!', DATA.type.h2, 16, aRoom);
+  const aRoom = labelRoom(act, aSize + 20);
+  const aPx = labelSize(ctx, 'I DID IT!', buttonLabelSize(act), 16, aRoom);
   const aWidth = measureLabel(ctx, 'I DID IT!', aPx);
   const ax = rcx(act) - (aSize + 20 + aWidth) / 2;
   drawGlyph(ctx, 'check', ax + aSize / 2, rcy(act), aSize, '#ffffff');
@@ -417,8 +417,8 @@ function screenComplete(ctx, L, buddy, t) {
 function labelledButton(ctx, r, g, text, face, edge, colour, glow = 0) {
   button(ctx, r, rh(r) / 2, face, edge, glow);
   const size = rh(r) * 0.38;
-  const room = rw(r) - size - 18 - rh(r) * 0.5;
-  const px = labelSize(ctx, text, DATA.type.h2, 16, room);
+  const room = labelRoom(r, size + 18);
+  const px = labelSize(ctx, text, buttonLabelSize(r), 16, room);
   const width = measureLabel(ctx, text, px);
   const x = rcx(r) - (size + 18 + width) / 2;
   drawGlyph(ctx, g, x + size / 2, rcy(r), size, colour);
@@ -509,8 +509,8 @@ function screenBuddyPicker(ctx, L, buddy, t) {
   const confirm = L.pickConfirm;
   button(ctx, confirm, rh(confirm) / 2, buddy.primary, darken(buddy.primary, 0.22));
   labelFit(ctx, 'Use ' + buddy.name,
-           [confirm[0] + rh(confirm) * 0.5, confirm[1], confirm[2] - rh(confirm) * 0.5, confirm[3]],
-           DATA.type.h2, 18, '#ffffff', 'center');
+           [confirm[0] + rh(confirm) * 0.25, confirm[1], confirm[2] - rh(confirm) * 0.25, confirm[3]],
+           buttonLabelSize(confirm), 18, '#ffffff', 'center');
 }
 
 /* =============================================================== TIME PICKER */
@@ -570,7 +570,9 @@ function screenTimePicker(ctx, L, buddy, t) {
 
   const set = L.timeSet;
   button(ctx, set, rh(set) / 2, buddy.primary, darken(buddy.primary, 0.22));
-  label(ctx, 'Set Time', rcx(set), rcy(set), DATA.type.h2, '#ffffff', 'center');
+  label(ctx, 'Set Time', rcx(set), rcy(set),
+        labelSize(ctx, 'Set Time', buttonLabelSize(set), 18, labelRoom(set, 0)),
+        '#ffffff', 'center');
 }
 
 /* ================================================================= GROWN-UPS */
@@ -678,14 +680,18 @@ function screenEditRoutine(ctx, L, buddy, t) {
   const add = L.edAdd;
   button(ctx, add, rh(add) / 2, '#ffffff', '#DCE6F2');
   const gSize = rh(add) * 0.36;
-  const gWidth = measureLabel(ctx, 'Add a Task', DATA.type.t2);
+  const addPx = labelSize(ctx, 'Add a Task', buttonLabelSize(add), 16,
+                          labelRoom(add, gSize + 16));
+  const gWidth = measureLabel(ctx, 'Add a Task', addPx);
   const gx = rcx(add) - (gSize + 16 + gWidth) / 2;
   drawGlyph(ctx, 'plus', gx + gSize / 2, rcy(add), gSize, buddy.primary);
-  label(ctx, 'Add a Task', gx + gSize + 16, rcy(add), DATA.type.t2, buddy.ink, 'left');
+  label(ctx, 'Add a Task', gx + gSize + 16, rcy(add), addPx, buddy.ink, 'left');
 
   const save = L.edSave;
   button(ctx, save, rh(save) / 2, buddy.primary, darken(buddy.primary, 0.22));
-  label(ctx, 'Save Routine', rcx(save), rcy(save), DATA.type.h2, '#ffffff', 'center');
+  label(ctx, 'Save Routine', rcx(save), rcy(save),
+        labelSize(ctx, 'Save Routine', buttonLabelSize(save), 18, labelRoom(save, 0)),
+        '#ffffff', 'center');
 }
 
 const SCREENS = [

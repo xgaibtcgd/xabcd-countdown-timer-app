@@ -281,10 +281,10 @@ final class ScreenHome extends Screen {
         Theme.button(c, box, box.height() * 0.5f, Theme.CTA, Theme.CTA_DEEP, press, 1f);
         float cy = box.centerY() + box.height() * 0.04f * press;
         float size = box.height() * 0.40f;
-        // The glyph, its gap and a pill's worth of end padding all have to come out of
-        // the button before the label knows how much room it has.
-        float room = box.width() - size - 20f - box.height() * 0.5f;
-        float textSize = Theme.labelSize(label, resuming ? Theme.T2 : Theme.H2, 16f, room);
+        // The glyph and its gap come out of the button before the label knows its room;
+        // the longer "BACK TO THE MORNING" then shrinks itself to fit what is left.
+        float room = Theme.labelRoom(box, size + 20f);
+        float textSize = Theme.labelSize(label, Theme.buttonLabelSize(box), 16f, room);
         float textWidth = Theme.measureLabel(label, textSize);
         float startX = box.centerX() - (size + 20f + textWidth) * 0.5f;
         Icons.glyph(c, Art.GLYPH_PLAY, startX + size * 0.5f, cy, size, 0xFFFFFFFF);

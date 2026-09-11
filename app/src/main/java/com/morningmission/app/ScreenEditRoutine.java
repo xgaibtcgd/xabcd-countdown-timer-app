@@ -96,12 +96,14 @@ final class ScreenEditRoutine extends Screen {
         float addPress = view.pressOn(R_ADD);
         Theme.button(c, add, add.height() * 0.5f, 0xFFFFFFFF, 0xFFDCE6F2, addPress);
         float glyph = add.height() * 0.36f;
-        float textWidth = Theme.measureLabel("Add a Task", Theme.T2);
+        float addSize = Theme.labelSize("Add a Task", Theme.buttonLabelSize(add), 16f,
+                                        Theme.labelRoom(add, glyph + 16f));
+        float textWidth = Theme.measureLabel("Add a Task", addSize);
         float startX = add.centerX() - (glyph + 16f + textWidth) * 0.5f;
         float cy = add.centerY() + add.height() * 0.04f * addPress;
         Icons.glyph(c, Art.GLYPH_PLUS, startX + glyph * 0.5f, cy, glyph, theme.primary);
         Theme.label(c, "Add a Task", startX + glyph + 16f, cy,
-                    Theme.T2, theme.ink, Paint.Align.LEFT);
+                    addSize, theme.ink, Paint.Align.LEFT);
 
         RectF save = layout.edSave;
         float savePress = view.pressOn(R_SAVE);
@@ -109,7 +111,9 @@ final class ScreenEditRoutine extends Screen {
                      Theme.darken(theme.primary, 0.22f), savePress);
         Theme.label(c, "Save Routine", save.centerX(),
                     save.centerY() + save.height() * 0.04f * savePress,
-                    Theme.H2, 0xFFFFFFFF, Paint.Align.CENTER);
+                    Theme.labelSize("Save Routine", Theme.buttonLabelSize(save), 18f,
+                                    Theme.labelRoom(save, 0f)),
+                    0xFFFFFFFF, Paint.Align.CENTER);
     }
 
     private void drawRow(Canvas c, RectF row, RectF clip, BuddyTheme theme, int index) {

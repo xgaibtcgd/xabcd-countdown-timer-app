@@ -134,8 +134,8 @@ final class ScreenComplete extends Screen {
     private void labelled(Canvas c, RectF box, float press, int glyph, String label, int colour) {
         float cy = box.centerY() + box.height() * 0.04f * press;
         float size = box.height() * 0.38f;
-        float room = box.width() - size - 18f - box.height() * 0.5f;
-        float textSize = Theme.labelSize(label, Theme.H2, 16f, room);
+        float room = Theme.labelRoom(box, size + 18f);
+        float textSize = Theme.labelSize(label, Theme.buttonLabelSize(box), 16f, room);
         float textWidth = Theme.measureLabel(label, textSize);
         float startX = box.centerX() - (size + 18f + textWidth) * 0.5f;
         Icons.glyph(c, glyph, startX + size * 0.5f, cy, size, colour);

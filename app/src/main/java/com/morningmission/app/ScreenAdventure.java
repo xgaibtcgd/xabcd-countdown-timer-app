@@ -226,8 +226,8 @@ final class ScreenAdventure extends Screen {
         float cy = box.centerY() + box.height() * 0.04f * press;
         String label = done ? "YOU DID IT!" : "I DID IT!";
         float glyph = box.height() * 0.40f;
-        float room = box.width() - glyph - 20f - box.height() * 0.5f;
-        float textSize = Theme.labelSize(label, Theme.H2, 16f, room);
+        float room = Theme.labelRoom(box, glyph + 20f);
+        float textSize = Theme.labelSize(label, Theme.buttonLabelSize(box), 16f, room);
         float textWidth = Theme.measureLabel(label, textSize);
         float startX = box.centerX() - (glyph + 20f + textWidth) * 0.5f;
         Icons.glyph(c, done ? Art.GLYPH_STAR : Art.GLYPH_CHECK,

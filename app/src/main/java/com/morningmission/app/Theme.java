@@ -432,6 +432,26 @@ final class Theme {
         return TEXT.getTextSize();
     }
 
+    /**
+     * The type size a label should take to fill {@code box} as a button.
+     *
+     * <p>Button labels used to be set at the fixed {@link #H2}, which on a 175-unit
+     * button is 19% of its height -- a large empty shape with small text in it, and
+     * visibly smaller than the glyph drawn beside it. Derive it from the button instead,
+     * then let {@link #labelSize} shrink it further if the string is long.
+     */
+    static float buttonLabelSize(RectF box) {
+        return clamp(box.height() * 0.36f, 22f, 68f);
+    }
+
+    /**
+     * Horizontal room a label has inside a pill button: the full width less a pill's
+     * worth of end padding, and less {@code taken} for anything sharing the line.
+     */
+    static float labelRoom(RectF box, float taken) {
+        return box.width() - box.height() * 0.5f - taken;
+    }
+
     /** A display-face label, vertically centred on {@code cy}. */
     static void label(Canvas c, String s, float x, float cy,
                       float size, int color, Paint.Align align) {

@@ -88,7 +88,9 @@ final class ScreenTimePicker extends Screen {
                      Theme.darken(theme.primary, 0.22f), press);
         Theme.label(c, "Set Time", set.centerX(),
                     set.centerY() + set.height() * 0.04f * press,
-                    Theme.H2, 0xFFFFFFFF, Paint.Align.CENTER);
+                    Theme.labelSize("Set Time", Theme.buttonLabelSize(set), 18f,
+                                    Theme.labelRoom(set, 0f)),
+                    0xFFFFFFFF, Paint.Align.CENTER);
     }
 
     private void stepper(Canvas c, RectF box, int glyph, BuddyTheme theme,

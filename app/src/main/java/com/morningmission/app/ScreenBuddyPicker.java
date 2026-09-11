@@ -54,9 +54,10 @@ final class ScreenBuddyPicker extends Screen {
         Theme.button(c, confirm, confirm.height() * 0.5f, chosen.primary,
                      Theme.darken(chosen.primary, 0.22f), press);
         scratch.set(confirm);
-        scratch.inset(confirm.height() * 0.5f, 0f);
+        scratch.inset(confirm.height() * 0.25f, 0f);
         scratch.offset(0f, confirm.height() * 0.04f * press);
-        Theme.labelFit(c, "Use " + chosen.name, scratch, Theme.H2, 18f,
+        Theme.labelFit(c, "Use " + chosen.name, scratch,
+                       Theme.buttonLabelSize(confirm), 18f,
                        0xFFFFFFFF, Paint.Align.CENTER);
     }
 
