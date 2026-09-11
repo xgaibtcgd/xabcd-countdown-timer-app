@@ -27,7 +27,8 @@ public final class ExportArt {
         for (int i = 0; i < BuddyTheme.COUNT; i++) {
             BuddyTheme b = BuddyTheme.ALL[i];
             if (i > 0) sb.append(",");
-            sb.append("\n{\"key\":").append(str(b.key))
+            sb.append("\n{\"index\":").append(b.index)
+              .append(",\"key\":").append(str(b.key))
               .append(",\"name\":").append(str(b.name))
               .append(",\"soundWord\":").append(str(b.soundWord))
               .append(",\"collectMany\":").append(str(b.collectMany))

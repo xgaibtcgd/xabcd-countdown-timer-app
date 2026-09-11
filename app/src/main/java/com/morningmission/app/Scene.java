@@ -39,21 +39,33 @@ final class Scene {
     static final int MODE_CELEBRATE = 2;
 
     // Environments, one per buddy, in buddy order.
-    private static final int PICNIC = 0, HIVE = 1, PARK = 2, REEF = 3,
-                             JUNGLE = 4, SKY = 5, BLOSSOM = 6;
+    static final int PICNIC = 0, HIVE = 1, PARK = 2, REEF = 3,
+                     JUNGLE = 4, SKY = 5, BLOSSOM = 6;
+
+    /** Environment names, in buddy order, for the design preview. */
+    static final String[] ENVIRONMENT_NAMES = {
+        "Picnic meadow", "Flower meadow", "Park path", "Coral reef",
+        "Jungle", "Above the clouds", "Blossom meadow"
+    };
 
     // Per environment: sky top, sky middle, sky bottom, ground near, ground far,
     // horizon fraction, and the strength of the scrim behind the top interface.
-    private static final int[] SKY_TOP    = {0xFFBFE9FF, 0xFFB7E6FB, 0xFFCDEBFF, 0xFF2BB3F0, 0xFFBDF0D8, 0xFF6FC4FA, 0xFFFFDCEA};
-    private static final int[] SKY_MID    = {0xFFDDF4FF, 0xFFD9F2F6, 0xFFE0F4FF, 0xFF1785D4, 0xFFD3F3E4, 0xFFA8DBFB, 0xFFFFEAF2};
-    private static final int[] SKY_LOW    = {0xFFE8F8E4, 0xFFE9F8EC, 0xFFEAF9E9, 0xFF0F63AE, 0xFFE4F6EF, 0xFFD9EFFE, 0xFFFFF4F8};
-    private static final int[] GROUND_NEAR= {0xFF9DDD71, 0xFFA8DE74, 0xFF9BD98E, 0xFFF3DCA4, 0xFF6FC98F, 0xFFFFFFFF, 0xFFC7ECA8};
-    private static final int[] GROUND_FAR = {0xFF7FCB5C, 0xFF85CC57, 0xFF7CC46C, 0xFFE4C88A, 0xFF4FAE72, 0xFFEAF4FF, 0xFFA8DC85};
-    private static final float[] HORIZON  = {0.60f,      0.58f,      0.56f,      0.70f,      0.58f,      0.66f,      0.58f};
-    private static final int[] SCRIM      = {0x33,       0x33,       0x33,       0x4D,       0x33,       0x2E,       0x33};
+    //
+    // Package-visible rather than private so tools/ExportScreens.java can dump them for
+    // the design preview. These are plain arrays with no graphics in their initialiser,
+    // so reading them does not drag native state in off-device.
+    static final int[] SKY_TOP    = {0xFFBFE9FF, 0xFFB7E6FB, 0xFFCDEBFF, 0xFF2BB3F0, 0xFFBDF0D8, 0xFF6FC4FA, 0xFFFFDCEA};
+    static final int[] SKY_MID    = {0xFFDDF4FF, 0xFFD9F2F6, 0xFFE0F4FF, 0xFF1785D4, 0xFFD3F3E4, 0xFFA8DBFB, 0xFFFFEAF2};
+    static final int[] SKY_LOW    = {0xFFE8F8E4, 0xFFE9F8EC, 0xFFEAF9E9, 0xFF0F63AE, 0xFFE4F6EF, 0xFFD9EFFE, 0xFFFFF4F8};
+    static final int[] GROUND_NEAR= {0xFF9DDD71, 0xFFA8DE74, 0xFF9BD98E, 0xFFF3DCA4, 0xFF6FC98F, 0xFFFFFFFF, 0xFFC7ECA8};
+    static final int[] GROUND_FAR = {0xFF7FCB5C, 0xFF85CC57, 0xFF7CC46C, 0xFFE4C88A, 0xFF4FAE72, 0xFFEAF4FF, 0xFFA8DC85};
+    static final float[] HORIZON  = {0.60f,      0.58f,      0.56f,      0.70f,      0.58f,      0.66f,      0.58f};
+    static final int[] SCRIM      = {0x33,       0x33,       0x33,       0x4D,       0x33,       0x2E,       0x33};
 
     private int environment = -1;
     private int mode = -1;
+    /** The active buddy's light tint, kept for the celebration sky. */
+    private int tint = 0xFFFFFFFF;
     private final RectF area = new RectF();
     private float horizon;
 
@@ -88,6 +100,7 @@ final class Scene {
         area.set(bounds);
         environment = theme.index;
         mode = newMode;
+        tint = theme.light;
 
         float frac = HORIZON[environment];
         if (mode == MODE_HOME) frac = Math.min(0.74f, frac + 0.14f);
@@ -108,9 +121,11 @@ final class Scene {
             mid = Theme.mix(mid, 0xFFFFFFFF, 0.26f);
             low = Theme.mix(low, 0xFFFFFFFF, 0.26f);
         } else if (mode == MODE_CELEBRATE) {
-            top = Theme.mix(0xFFFFF3C8, top, 0.25f);
-            mid = Theme.mix(0xFFFFF8DE, mid, 0.20f);
-            low = Theme.mix(0xFFFFFCF0, low, 0.15f);
+            // Golden, with only a hint of the buddy's own sky. Blending the other way
+            // round left the shark's celebration a washed-out mint.
+            top = Theme.mix(0xFFFFD978, tint, 0.22f);
+            mid = Theme.mix(0xFFFFF0BE, tint, 0.16f);
+            low = Theme.mix(0xFFFFFBEC, tint, 0.12f);
         }
         skyShader = new LinearGradient(0f, area.top, 0f, horizon + area.height() * 0.12f,
                 new int[]{top, mid, low}, new float[]{0f, 0.55f, 1f}, Shader.TileMode.CLAMP);

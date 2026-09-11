@@ -33,6 +33,8 @@ final class Art {
     static final int OVAL = 5;
     static final int CIRCLE = 6;
     static final int RRECT = 7;
+    /** A circle wound the other way, which subtracts from the shape. */
+    static final int HOLE = 8;
 
     /** Number of coordinates each opcode consumes. */
     static int operandCount(int op) {
@@ -40,7 +42,7 @@ final class Art {
             case MOVE: case LINE: return 2;
             case QUAD: case OVAL: return 4;
             case CUBIC: case RRECT: return 6;
-            case CIRCLE: return 3;
+            case CIRCLE: case HOLE: return 3;
             case CLOSE: return 0;
             default: return -1;
         }
@@ -127,6 +129,13 @@ final class Art {
         B circle(float cx, float cy, float r) {
             need(4);
             data[n++] = CIRCLE; data[n++] = cx; data[n++] = cy; data[n++] = r;
+            return this;
+        }
+
+        /** Subtracts a circle, for a ring or a gear's hub. */
+        B hole(float cx, float cy, float r) {
+            need(4);
+            data[n++] = HOLE; data[n++] = cx; data[n++] = cy; data[n++] = r;
             return this;
         }
 
@@ -618,11 +627,13 @@ final class Art {
     static final float[][] GLYPHS = new float[GLYPH_COUNT][];
 
     static {
-        // A capsule extends half its width past each endpoint, so the spokes reach
-        // 40 + 9 = 49 from centre and the glyph just fits its box.
+        // Blunt, stubby teeth around a thick ring. Longer, thinner spokes read as an
+        // asterisk rather than a gear, which is what the first version of this did.
+        // A capsule extends half its width past each endpoint, so teeth reach 36 + 13.
         GLYPHS[GLYPH_GEAR] = b()
-            .rays(50, 50, 24, 40, 18, 8, 22)
-            .circle(50, 50, 28)
+            .rays(50, 50, 30, 36, 26, 8, 22)
+            .circle(50, 50, 34)
+            .hole(50, 50, 14)
             .build();
 
         GLYPHS[GLYPH_CHEVRON_LEFT] = b()

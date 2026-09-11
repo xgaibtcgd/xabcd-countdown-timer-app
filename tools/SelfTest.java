@@ -570,12 +570,13 @@ public final class SelfTest {
             check(i + 1 + operands <= shape.length,
                   what + " is truncated: opcode " + op + " at " + i + " lacks operands");
             if (i + 1 + operands > shape.length) return;
-            if (op == Art.MOVE || op == Art.CIRCLE || op == Art.OVAL || op == Art.RRECT) started = true;
+            if (op == Art.MOVE || op == Art.CIRCLE || op == Art.HOLE
+                || op == Art.OVAL || op == Art.RRECT) started = true;
             check(started || op == Art.CLOSE,
                   what + " draws before any move, circle, oval or round rect");
 
             // Control points bound the curve, so checking them is conservative.
-            if (op == Art.CIRCLE) {
+            if (op == Art.CIRCLE || op == Art.HOLE) {
                 float cx = shape[i + 1], cy = shape[i + 2], r = Math.abs(shape[i + 3]);
                 check(!Float.isNaN(cx) && !Float.isNaN(cy) && !Float.isNaN(r),
                       what + " has a non-finite circle at " + i);

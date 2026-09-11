@@ -70,14 +70,24 @@ Studio before shipping.**
 
 ## Design preview
 
-`tools/preview/` renders every icon, collectible, goal and glyph in a browser,
-re-tintable across all seven buddies, from the geometry exported by
-`tools/ExportArt.java`. Regenerate with:
+`tools/preview/` has two browser previews, for looking at the app without building it.
+
+- `index.html` -- every icon, collectible, goal and glyph, re-tintable across all
+  seven buddies.
+- `screens.html` -- all seven screens, across four device shapes.
+
+Both render from data exported out of the app's own classes, so they cannot
+quietly drift from the build: `ExportArt` dumps the `float[]` geometry and the
+palettes, and `ExportScreens` runs the real `Layout` solver and dumps every
+rectangle it produces. Regenerate both with:
 
 ```
-java -cp tools/.cache/android-all.jar:tools/.cache/classes \
-     com.morningmission.app.ExportArt tools/preview/art.json
+tools/buildpreview.sh
 ```
+
+The drawing itself is a port of `Clay`, `Scene` and the `Screen` classes into
+Canvas2D. Close, but not the app running -- it has already earned its keep by
+surfacing three real defects, but do not treat it as a substitute for the APK.
 
 ## Art and type
 

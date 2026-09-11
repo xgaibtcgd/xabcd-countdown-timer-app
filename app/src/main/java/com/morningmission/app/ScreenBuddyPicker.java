@@ -80,7 +80,7 @@ final class ScreenBuddyPicker extends Screen {
                            Anim.DANCE, index * 0.7f);
 
         Theme.textCentered(c, theme.name, scratch.centerX(),
-                           scratch.bottom - scratch.height() * 0.19f,
+                           scratch.bottom - scratch.height() * 0.27f,
                            Math.min(Theme.T2, scratch.width() * 0.10f),
                            theme.ink, Paint.Align.CENTER, true);
 
@@ -89,9 +89,9 @@ final class ScreenBuddyPicker extends Screen {
         float label = Theme.measure(theme.soundWord, Theme.B2, true);
         float chipW = chipH + 14f + label + chipH * 0.6f;
         scratch.set(scratch.centerX() - chipW * 0.5f,
-                    scratch.bottom - scratch.height() * 0.13f - chipH * 0.5f,
+                    scratch.bottom - scratch.height() * 0.115f - chipH * 0.5f,
                     scratch.centerX() + chipW * 0.5f,
-                    scratch.bottom - scratch.height() * 0.13f + chipH * 0.5f);
+                    scratch.bottom - scratch.height() * 0.115f + chipH * 0.5f);
         Theme.solid(c, scratch, chipH * 0.5f, 0xFFFFFFFF);
         Icons.glyph(c, Art.GLYPH_SPEAKER, scratch.left + chipH * 0.72f, scratch.centerY(),
                     chipH * 0.62f, theme.accent);

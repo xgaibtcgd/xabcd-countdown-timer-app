@@ -298,6 +298,12 @@ final class Clay {
                     path.addCircle(cx, cy, rad, Path.Direction.CW);
                     break;
                 }
+                case Art.HOLE: {
+                    // Wound the other way, so the default non-zero fill rule cuts it out.
+                    float cx = commands[i++], cy = commands[i++], rad = commands[i++];
+                    path.addCircle(cx, cy, rad, Path.Direction.CCW);
+                    break;
+                }
                 case Art.RRECT: {
                     float l = commands[i++], t = commands[i++];
                     float r = commands[i++], b = commands[i++];

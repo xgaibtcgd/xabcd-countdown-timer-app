@@ -1,0 +1,412 @@
+<title>Morning Mission Screens</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Nunito:wght@400;600;800&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --paper:       #F4F7FB;
+    --cell:        #FFFFFF;
+    --cell-sunk:   #EDF2F8;
+    --rule:        #DBE4EF;
+    --rule-strong: #C3D1E2;
+    --ink:         #16304F;
+    --ink-soft:    #5B7191;
+    --ink-faint:   #8FA0B8;
+    --accent:      #F26B2A;
+    --accent-soft: #FCE7DB;
+    --frame:       #243546;
+    --shadow: 0 1px 2px rgba(19,44,74,.06), 0 8px 24px rgba(19,44,74,.07);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #0F1722; --cell: #18222F; --cell-sunk: #131C27;
+      --rule: #27374A; --rule-strong: #36495F;
+      --ink: #E6EDF6; --ink-soft: #9FB1C6; --ink-faint: #6C7F97;
+      --accent: #FF8A4C; --accent-soft: #38241A; --frame: #050A11;
+      --shadow: 0 1px 2px rgba(0,0,0,.35), 0 8px 24px rgba(0,0,0,.3);
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #0F1722; --cell: #18222F; --cell-sunk: #131C27;
+    --rule: #27374A; --rule-strong: #36495F;
+    --ink: #E6EDF6; --ink-soft: #9FB1C6; --ink-faint: #6C7F97;
+    --accent: #FF8A4C; --accent-soft: #38241A; --frame: #050A11;
+    --shadow: 0 1px 2px rgba(0,0,0,.35), 0 8px 24px rgba(0,0,0,.3);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--paper); color: var(--ink);
+    font-family: "Nunito", ui-sans-serif, system-ui, sans-serif;
+    font-size: 15px; line-height: 1.55; -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1240px; margin: 0 auto; padding-inline: 20px; padding-block: 0 72px; }
+
+  header { padding-block: 44px 26px; border-bottom: 2px solid var(--rule-strong); }
+  .eyebrow {
+    font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 11px;
+    letter-spacing: .14em; text-transform: uppercase; color: var(--accent); margin: 0 0 10px;
+  }
+  h1 {
+    font-family: "Baloo 2", ui-rounded, system-ui, sans-serif; font-weight: 800;
+    font-size: clamp(32px, 5.6vw, 50px); line-height: 1.05; letter-spacing: -.015em;
+    margin: 0 0 14px; text-wrap: balance;
+  }
+  .lede { max-width: 64ch; color: var(--ink-soft); font-size: 17px; margin: 0; }
+  .lede strong { color: var(--ink); font-weight: 800; }
+
+  .rail {
+    position: sticky; top: 0; z-index: 20;
+    background: color-mix(in srgb, var(--paper) 93%, transparent);
+    backdrop-filter: blur(8px); border-bottom: 1px solid var(--rule); margin-bottom: 30px;
+  }
+  .rail-inner {
+    max-width: 1240px; margin: 0 auto; padding: 11px 20px;
+    display: flex; align-items: center; gap: 9px; flex-wrap: wrap;
+  }
+  .rail-label {
+    font-family: "IBM Plex Mono", monospace; font-size: 11px; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--ink-faint); margin-right: 2px;
+  }
+  .rail-sep { width: 1px; align-self: stretch; background: var(--rule); margin-inline: 6px; }
+  button.chip {
+    display: inline-flex; align-items: center; gap: 7px;
+    border: 1.5px solid var(--rule); background: var(--cell); color: var(--ink);
+    border-radius: 999px; padding: 5px 13px 5px 6px; font: inherit; font-size: 13.5px;
+    font-weight: 700; cursor: pointer; transition: border-color .14s;
+  }
+  button.chip.plain { padding-inline: 13px; }
+  button.chip:hover { border-color: var(--rule-strong); }
+  button.chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  button.chip[aria-pressed="true"] { border-color: var(--ink); }
+  .dot {
+    width: 20px; height: 20px; border-radius: 50%;
+    box-shadow: inset 0 -2px 4px rgba(0,0,0,.15), inset 0 2px 3px rgba(255,255,255,.5);
+  }
+
+  .sheet {
+    display: grid; gap: 26px;
+    grid-template-columns: repeat(auto-fill, minmax(276px, 1fr));
+  }
+  figure { margin: 0; }
+  .device {
+    background: var(--frame); border-radius: 30px; padding: 9px;
+    box-shadow: var(--shadow); position: relative;
+  }
+  .device::after {
+    content: ""; position: absolute; left: 50%; top: 17px; translate: -50% 0;
+    width: 46px; height: 7px; border-radius: 99px; background: rgba(255,255,255,.16);
+  }
+  .device canvas { display: block; width: 100%; height: auto; border-radius: 22px; }
+  figcaption { padding-top: 11px; }
+  .cap-name {
+    font-family: "Baloo 2", ui-rounded, sans-serif; font-weight: 700;
+    font-size: 17px; margin: 0; letter-spacing: -.005em;
+  }
+  .cap-note { margin: 1px 0 0; color: var(--ink-soft); font-size: 13px; line-height: 1.4; }
+
+  .callout {
+    border-left: 3px solid var(--accent); background: var(--accent-soft);
+    padding: 15px 17px; border-radius: 0 10px 10px 0; margin: 30px 0 0; font-size: 14.5px;
+  }
+  .callout p { margin: 0; }
+  .callout p + p { margin-top: 9px; }
+  .mono { font-family: "IBM Plex Mono", monospace; font-size: 12.5px; }
+
+  .meta {
+    margin-top: 30px; display: grid; gap: 12px;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  }
+  .stat {
+    background: var(--cell); border: 1px solid var(--rule); border-radius: 12px;
+    padding: 13px 15px; box-shadow: var(--shadow);
+  }
+  .stat b {
+    display: block; font-family: "Baloo 2", sans-serif; font-size: 25px;
+    line-height: 1.15; font-weight: 700;
+  }
+  .stat span { color: var(--ink-soft); font-size: 13px; }
+
+  footer {
+    margin-top: 46px; padding-top: 20px; border-top: 1px solid var(--rule);
+    color: var(--ink-faint); font-size: 13px;
+  }
+  @media (max-width: 520px) {
+    .sheet { grid-template-columns: 1fr; }
+    .rail-inner { gap: 7px; }
+  }
+  @media (prefers-reduced-motion: reduce) { .device canvas { transition: none; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <p class="eyebrow">Morning Mission &middot; v0.7</p>
+    <h1>Every screen, drawn the way the app draws it</h1>
+    <p class="lede">The layout here is not a mockup. Every rectangle is exported straight from
+    the app's own layout solver, so each element sits <strong>exactly where the built APK puts
+    it</strong> &mdash; including on the tall phone that the previous version got wrong. The
+    icons, palettes and scenery colours come from the same source files the app compiles.
+    Pick a buddy or a device shape and the whole set re-solves.</p>
+  </header>
+</div>
+
+<div class="rail">
+  <div class="rail-inner">
+    <span class="rail-label">Buddy</span>
+    <span id="buddyRail" style="display:contents"></span>
+    <span class="rail-sep"></span>
+    <span class="rail-label">Screen</span>
+    <span id="deviceRail" style="display:contents"></span>
+    <span class="rail-sep"></span>
+    <button class="chip plain" type="button" id="bandsToggle" aria-pressed="false">Layout bands</button>
+    <button class="chip plain" type="button" id="motionToggle" aria-pressed="true">Motion on</button>
+  </div>
+</div>
+
+<div class="wrap">
+  <div class="sheet" id="sheet"></div>
+
+  <div class="meta" id="meta"></div>
+
+  <div class="callout">
+    <p><strong>Turn on Layout bands</strong> to see how the solver divided the screen. Those
+    outlines are the real solved rectangles, and they are the same ones the touch handler
+    uses &mdash; which is the fix for the old build, where drawing and tapping kept separate
+    copies of every coordinate and had quietly drifted apart.</p>
+    <p>Switch to <span class="mono">Older 16:9</span> and back to <span class="mono">Tall
+    phone</span> to watch the bands take up the slack. The previous version had every
+    position hardcoded for 1080&times;1920, so on a modern phone the middle simply did not
+    stretch.</p>
+  </div>
+
+  <footer>
+    Layout from <span class="mono">tools/ExportScreens.java</span>, geometry from
+    <span class="mono">tools/ExportArt.java</span>, both run against the app's own classes.
+    The drawing is a faithful port of <span class="mono">Clay.java</span>,
+    <span class="mono">Scene.java</span> and the <span class="mono">Screen</span> classes
+    &mdash; close, but not the app running. Build the APK to see the real thing.
+  </footer>
+</div>
+
+<script src="data.js"></script>
+<script src="screens-engine.js"></script>
+<script src="screens-draw.js"></script>
+<script src="screens-ui.js"></script>
+<script>
+const BUDDY_IMAGES = [];
+let currentBuddy = 3;      // Splash Buddy, the default on a new install
+let currentDevice = 0;
+let showBands = false;
+let motion = true;
+let t0 = performance.now();
+
+const sheet = document.getElementById('sheet');
+const cards = [];
+
+function buildSheet() {
+  sheet.textContent = '';
+  cards.length = 0;
+  const device = DATA.devices[currentDevice];
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const cssWidth = 258;
+  const cssHeight = Math.round(cssWidth * device.heightPx / device.widthPx);
+
+  for (const screen of SCREENS) {
+    const fig = document.createElement('figure');
+    const frame = document.createElement('div');
+    frame.className = 'device';
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(cssWidth * dpr);
+    canvas.height = Math.round(cssHeight * dpr);
+    canvas.style.aspectRatio = device.widthPx + ' / ' + device.heightPx;
+    canvas.setAttribute('role', 'img');
+    canvas.setAttribute('aria-label', screen.name + ' screen');
+    frame.appendChild(canvas);
+    fig.appendChild(frame);
+
+    const cap = document.createElement('figcaption');
+    const name = document.createElement('p');
+    name.className = 'cap-name';
+    name.textContent = screen.name;
+    const note = document.createElement('p');
+    note.className = 'cap-note';
+    note.textContent = screen.note;
+    cap.append(name, note);
+    fig.appendChild(cap);
+    sheet.appendChild(fig);
+
+    cards.push({ screen, canvas, ctx: canvas.getContext('2d'), dpr });
+  }
+  buildMeta();
+}
+
+function buildMeta() {
+  const device = DATA.devices[currentDevice];
+  const L = device.layout;
+  const rows = [
+    [device.widthPx + '×' + device.heightPx, 'Pixels, at ' + device.dpi + ' dpi'],
+    [Math.round(rh(L.hero)) + ' units', 'Hero band, solved'],
+    [Math.round(rh(L.taskBand)) + ' units', 'Task list viewport'],
+    [Math.round(L.minTouch) + ' units', 'Minimum tap target (48dp)'],
+  ];
+  const meta = document.getElementById('meta');
+  meta.textContent = '';
+  for (const [big, small] of rows) {
+    const d = document.createElement('div');
+    d.className = 'stat';
+    const b = document.createElement('b');
+    b.textContent = big;
+    const s = document.createElement('span');
+    s.textContent = small;
+    d.append(b, s);
+    meta.appendChild(d);
+  }
+}
+
+/** The status bar clock and the gesture pill, so the frame reads as a real phone. */
+function drawSystemBars(ctx, L, device) {
+  const W = DATA.metrics.designWidth;
+  const scale = device.widthPx / W;
+  const top = device.insetTop / scale;
+  const bottom = device.insetBottom / scale;
+  if (top > 24) {
+    ctx.fillStyle = 'rgba(22,48,79,.55)';
+    setFont(ctx, Math.min(34, top * 0.42), true);
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('7:13', 54, top * 0.56);
+    ctx.textAlign = 'right';
+    ctx.fillText('\u25CF \u25CF \u25AE', W - 54, top * 0.56);
+  }
+  if (bottom > 40) {
+    ctx.fillStyle = 'rgba(22,48,79,.32)';
+    ctx.beginPath();
+    ctx.roundRect(W / 2 - 150, L.height - bottom * 0.55, 300, 12, 6);
+    ctx.fill();
+  }
+}
+
+function drawBands(ctx, L, keys) {
+  ctx.save();
+  ctx.setLineDash([14, 10]);
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = 'rgba(242,107,42,.95)';
+  ctx.fillStyle = 'rgba(242,107,42,.09)';
+  for (const key of keys) {
+    const r = L[key];
+    if (!r) continue;
+    const list = Array.isArray(r[0]) ? r : [r];
+    for (const one of list) {
+      ctx.fillRect(one[0], one[1], one[2] - one[0], one[3] - one[1]);
+      ctx.strokeRect(one[0], one[1], one[2] - one[0], one[3] - one[1]);
+    }
+  }
+  ctx.restore();
+}
+
+function renderAll(t) {
+  const device = DATA.devices[currentDevice];
+  const L = device.layout;
+  const buddy = DATA.buddies[currentBuddy];
+  for (const card of cards) {
+    const { ctx, canvas } = card;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const scale = canvas.width / DATA.metrics.designWidth;
+    ctx.scale(scale, scale);
+    // The app draws its scenery into the safe area only; the strips behind the status
+    // and navigation bars take the window background, which the theme sets to #E8F8FF.
+    ctx.fillStyle = '#E8F8FF';
+    ctx.fillRect(0, 0, DATA.metrics.designWidth, L.height);
+    try {
+      card.screen.draw(ctx, L, buddy, t);
+      if (showBands) drawBands(ctx, L, card.screen.bands || []);
+      drawSystemBars(ctx, L, device);
+    } catch (e) {
+      ctx.fillStyle = '#B3261E';
+      setFont(ctx, 30, true);
+      ctx.textAlign = 'center';
+      ctx.fillText('render error', DATA.metrics.designWidth / 2, L.height / 2);
+      console.error(card.screen.key, e);
+    }
+  }
+}
+
+function frame(now) {
+  const t = motion ? (now - t0) / 1000 : 6.0;
+  renderAll(t);
+  if (motion) requestAnimationFrame(frame);
+}
+
+/* ------------------------------------------------------------------ controls */
+function chip(label, pressed, onClick, dotColour) {
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = dotColour ? 'chip' : 'chip plain';
+  b.setAttribute('aria-pressed', String(pressed));
+  if (dotColour) {
+    const dot = document.createElement('span');
+    dot.className = 'dot';
+    dot.style.background = dotColour;
+    b.appendChild(dot);
+  }
+  b.appendChild(document.createTextNode(label));
+  b.addEventListener('click', onClick);
+  return b;
+}
+
+const buddyRail = document.getElementById('buddyRail');
+DATA.buddies.forEach((b, i) => {
+  buddyRail.appendChild(chip(b.name, i === currentBuddy, () => {
+    currentBuddy = i;
+    for (const el of buddyRail.querySelectorAll('.chip')) el.setAttribute('aria-pressed', 'false');
+    buddyRail.querySelectorAll('.chip')[i].setAttribute('aria-pressed', 'true');
+    if (!motion) renderAll(6.0);
+  }, b.primary));
+});
+
+const deviceRail = document.getElementById('deviceRail');
+DATA.devices.forEach((d, i) => {
+  deviceRail.appendChild(chip(d.name, i === currentDevice, () => {
+    currentDevice = i;
+    for (const el of deviceRail.querySelectorAll('.chip')) el.setAttribute('aria-pressed', 'false');
+    deviceRail.querySelectorAll('.chip')[i].setAttribute('aria-pressed', 'true');
+    buildSheet();
+    if (!motion) renderAll(6.0);
+  }));
+});
+
+document.getElementById('bandsToggle').addEventListener('click', function () {
+  showBands = !showBands;
+  this.setAttribute('aria-pressed', String(showBands));
+  this.textContent = showBands ? 'Layout bands on' : 'Layout bands';
+  if (!motion) renderAll(6.0);
+});
+
+document.getElementById('motionToggle').addEventListener('click', function () {
+  motion = !motion;
+  this.setAttribute('aria-pressed', String(motion));
+  this.textContent = motion ? 'Motion on' : 'Motion off';
+  if (motion) { t0 = performance.now(); requestAnimationFrame(frame); }
+  else renderAll(6.0);
+});
+
+/* ------------------------------------------------------------------- start */
+const KEYS = ['burger', 'bee', 'pug', 'shark', 'dino', 'cloud', 'kitty'];
+let pending = KEYS.length;
+KEYS.forEach((key, i) => {
+  const img = new Image();
+  img.onload = img.onerror = () => { if (--pending === 0) start(); };
+  img.src = 'buddies/' + key + '.png';
+  BUDDY_IMAGES[i] = img;
+});
+
+function start() {
+  buildSheet();
+  if (document.fonts && document.fonts.ready) {
+    document.fonts.ready.then(() => requestAnimationFrame(frame));
+  } else {
+    requestAnimationFrame(frame);
+  }
+}
+</script>

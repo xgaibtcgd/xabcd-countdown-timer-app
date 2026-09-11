@@ -82,7 +82,8 @@ final class ScreenAdventure extends Screen {
         Icons.goal(c, theme.index, box.centerX(), box.centerY(), size,
                    reached ? 1f : 0f, reached ? 1f : 0f);
         if (!reached) {
-            Icons.goalLocked(c, box.centerX(), box.bottom + size * 0.10f, size);
+            // Over the goal, not beneath it: below, it collided with the progress bar.
+            Icons.goalLocked(c, box.centerX(), box.centerY() + size * 0.08f, size);
         }
     }
 
