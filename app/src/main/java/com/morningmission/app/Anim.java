@@ -303,6 +303,116 @@ final class Anim {
         }
     }
 
+    // ------------------------------------------------------------ collectible actions
+    // What the buddy does when it reaches something on the trail. These are one-shot
+    // beats driven by a 0..1 progress rather than looping states, and they compose on
+    // top of whatever walk motion is already running -- the offsets add, the scales
+    // multiply. Each buddy gets a motion that suits it; a shark does not nibble.
+
+    static final int FEAST_BITE   = 0;   // lean in and take a bite
+    static final int FEAST_SIP    = 1;   // hover down, sip, rise
+    static final int FEAST_POUNCE = 2;   // crouch, leap, land
+    static final int FEAST_LUNGE  = 3;   // a big forward surge, nose down
+    static final int FEAST_STOMP  = 4;   // rear back, slam down
+    static final int FEAST_SPIN   = 5;   // rise and turn
+    static final int FEAST_NIBBLE = 6;   // three quick little nods
+    static final int FEAST_COUNT  = 7;
+
+    /** A 0..1..0 hump, peaking at {@code peak}. */
+    private static float hump(float p, float peak) {
+        if (p <= 0f || p >= 1f) return 0f;
+        float u = p < peak ? p / peak : 1f - (p - peak) / (1f - peak);
+        return (float) Math.sin(u * Math.PI * 0.5f);
+    }
+
+    /**
+     * Fills {@code out} with one collectible action.
+     *
+     * @param kind one of the FEAST_* constants; anything else is treated as a bite
+     * @param p    0 at the start of the wind-up, 1 when the buddy is walking again
+     */
+    static void feast(int kind, float p, Transform out) {
+        out.reset();
+        if (p <= 0f || p >= 1f) return;
+        // Contact is a third of the way in: the wind-up is short, the recovery longer.
+        float contact = 0.34f;
+        switch (kind) {
+            case FEAST_SIP: {
+                // Hovering: up first, then a quick dip onto the item, wings buzzing.
+                float dip = hump(p, contact);
+                out.dy = -30f + 46f * dip + sin(p * 80f) * 3f;
+                out.dx = 12f * dip;
+                out.rotation = 8f * dip;
+                break;
+            }
+            case FEAST_POUNCE: {
+                if (p < contact) {                       // crouch
+                    float c = p / contact;
+                    out.scaleY = 1f - 0.16f * c;
+                    out.dy = 6f * c;
+                } else {                                  // leap and land
+                    float j = (p - contact) / (1f - contact);
+                    out.dy = -110f * (float) Math.sin(j * Math.PI);
+                    out.dx = 40f * (float) Math.sin(j * Math.PI);
+                    out.scaleY = 1f + 0.14f * (float) Math.sin(j * Math.PI)
+                               - 0.18f * Math.max(0f, (j - 0.82f) / 0.18f);
+                }
+                out.scaleX = 2f - out.scaleY;
+                break;
+            }
+            case FEAST_LUNGE: {
+                // A surge forward, nose down, then a snap back.
+                float surge = hump(p, contact);
+                out.dx = 88f * surge;
+                out.rotation = 13f * surge;
+                out.scaleX = 1f + 0.12f * surge;
+                out.scaleY = 2f - out.scaleX;
+                break;
+            }
+            case FEAST_STOMP: {
+                if (p < contact) {                        // rear back
+                    float c = p / contact;
+                    out.rotation = -11f * c;
+                    out.dy = -26f * c;
+                } else {                                   // slam
+                    float j = (p - contact) / (1f - contact);
+                    float land = Math.min(1f, j * 3.2f);
+                    out.rotation = -11f + 15f * land;
+                    out.dy = -26f + 26f * land;
+                    out.scaleY = 1f - 0.20f * Math.max(0f, 1f - Math.abs(j * 3.2f - 1f) * 2.4f);
+                    out.scaleX = 2f - out.scaleY;
+                }
+                break;
+            }
+            case FEAST_SPIN: {
+                float rise = hump(p, 0.5f);
+                out.dy = -58f * rise;
+                out.rotation = 360f * easeInOutCubic(p);
+                out.dx = 18f * rise;
+                break;
+            }
+            case FEAST_NIBBLE: {
+                // Three small quick nods, no leaving the ground.
+                float nods = (float) Math.sin(p * Math.PI * 6f) * hump(p, 0.5f);
+                out.dy = -9f * Math.abs(nods);
+                out.dx = 20f * hump(p, contact);
+                out.rotation = 6f * nods;
+                break;
+            }
+            case FEAST_BITE:
+            default: {
+                float lean = hump(p, contact);
+                out.dx = 46f * lean;
+                out.rotation = 9f * lean;
+                // The squash on contact is what sells the bite.
+                float chomp = Math.max(0f, 1f - Math.abs(p - contact) * 9f);
+                out.scaleY = 1f - 0.13f * chomp;
+                out.scaleX = 2f - out.scaleY;
+                break;
+            }
+        }
+    }
+
     /**
      * Picks the state the buddy should be in.
      *

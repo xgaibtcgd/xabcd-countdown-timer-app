@@ -35,7 +35,13 @@ final class Engine {
     }
 
     /** The adventure shows at most this many collectibles, however long the routine. */
-    static final int MAX_COLLECTIBLES = 12;
+    static final int MIN_COLLECTIBLES = 3;
+    static final int MAX_COLLECTIBLES = 18;
+
+    /** The beat of one collectible action, in seconds: wind-up, contact, recovery. */
+    static final float FEAST_SECONDS = 1.4f;
+    /** How much of that beat happens before the buddy reaches the item. */
+    static final float FEAST_LEAD = 0.45f;
 
     private static final String[] NO_TASKS = new String[0];
 
@@ -237,7 +243,60 @@ final class Engine {
     /** How many collectibles the trail shows: one a minute, capped so they stay legible. */
     int collectibleCount() {
         int minutes = Math.max(1, durationMinutes());
-        return Math.max(1, Math.min(minutes, MAX_COLLECTIBLES));
+        // Roughly one every two minutes, so a longer morning really does have more to
+        // find. Floored at three so even a one-minute timer is a journey rather than a
+        // single stop, and capped so the gaps never close up into a crowd.
+        int n = Math.round(minutes / 2f) + 2;
+        return Math.max(MIN_COLLECTIBLES, Math.min(n, MAX_COLLECTIBLES));
+    }
+
+    /** Milliseconds into the countdown, clamped to the run. */
+    private long elapsedMs() {
+        long elapsed = durationMs - remainingMs();
+        return elapsed < 0L ? 0L : (elapsed > durationMs ? durationMs : elapsed);
+    }
+
+    /** When collectible {@code index} (1-based) is reached, in milliseconds. */
+    private long collectibleAt(int index) {
+        return durationMs * index / collectibleCount();
+    }
+
+    /**
+     * Seconds since the most recent collectible was reached, or {@link Float#MAX_VALUE}
+     * before the first.
+     *
+     * <p>Derived from the clock rather than stored, so it survives a rotation and cannot
+     * drift out of step with {@link #collectedCount()}. It is seconds and not a fraction
+     * of a segment because the buddy's action has to run at the same speed whether the
+     * morning is five minutes long or ninety.
+     */
+    float secondsSinceCollected() {
+        int got = collectedCount();
+        if (got <= 0 || durationMs <= 0L) return Float.MAX_VALUE;
+        return Math.max(0f, (elapsedMs() - collectibleAt(got)) / 1000f);
+    }
+
+    /** Seconds until the next collectible is reached, or {@link Float#MAX_VALUE} if none. */
+    float secondsUntilCollect() {
+        int got = collectedCount();
+        if (got >= collectibleCount() || durationMs <= 0L) return Float.MAX_VALUE;
+        return Math.max(0f, (collectibleAt(got + 1) - elapsedMs()) / 1000f);
+    }
+
+    /**
+     * The collectible action beat, 0..1, or -1 when the buddy is just walking.
+     *
+     * <p>Runs from {@link #FEAST_LEAD} seconds before reaching an item to the end of
+     * {@link #FEAST_SECONDS}, so the wind-up happens on approach and the contact lands
+     * on the item itself.
+     */
+    float feastBeat() {
+        if (allDone()) return -1f;
+        float until = secondsUntilCollect();
+        if (until <= FEAST_LEAD) return (FEAST_LEAD - until) / FEAST_SECONDS;
+        float since = secondsSinceCollected();
+        float p = (since + FEAST_LEAD) / FEAST_SECONDS;
+        return p < 1f ? p : -1f;
     }
 
     /** How many have been picked up so far. */

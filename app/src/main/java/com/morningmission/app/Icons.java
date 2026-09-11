@@ -118,6 +118,20 @@ final class Icons {
      */
     static void collectible(Canvas c, int buddy, float cx, float cy, float size,
                             boolean collected, float pop) {
+        collectible(c, buddy, cx, cy, size, collected, pop, collected);
+    }
+
+    /**
+     * The same, with the check badge under separate control.
+     *
+     * <p>An item sitting on the trail waiting to be reached is drawn in full colour --
+     * it is the thing the buddy is heading for, so it should look worth heading for --
+     * but it has plainly not been collected yet, so it must not wear the badge. Only the
+     * tally does.
+     */
+    static void collectible(Canvas c, int buddy, float cx, float cy, float size,
+                            boolean collected, float pop, boolean badged) {
+        if (size <= 0.5f) return;
         BuddyTheme theme = BuddyTheme.of(buddy);
         int index = theme.index;
         Path[] paths = COLLECTIBLE[index];
@@ -135,7 +149,7 @@ final class Icons {
         }
         Clay.end(c);
 
-        if (collected) {
+        if (badged) {
             float badge = size * 0.34f;
             float bx = cx + size * 0.38f, by = cy - size * 0.38f;
             Paint fill = Theme.FILL;

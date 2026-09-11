@@ -32,6 +32,8 @@ public final class ExportArt {
               .append(",\"name\":").append(str(b.name))
               .append(",\"soundWord\":").append(str(b.soundWord))
               .append(",\"collectMany\":").append(str(b.collectMany))
+              .append(",\"munchWord\":").append(str(b.munchWord))
+              .append(",\"feastKind\":").append(b.feastKind)
               .append(",\"goalName\":").append(str(Art.GOAL_NAMES[i]))
               .append(",\"primary\":").append(hex(b.primary))
               .append(",\"accent\":").append(hex(b.accent))

@@ -11,6 +11,8 @@ const MINUTES = [1, 2, 5, 10, 15, 30, 60];
 const BUBBLE = ['#EAF5FF', '#D9F8F2', '#FFF0A9', '#E8DDFF', '#FF8657', '#B7D9FF', '#93ECC1'];
 const LOGO = ['#E8533F', '#F2A02C', '#F6C844', '#3FA96A', '#2879ED', '#7B5BD6', '#EC4777'];
 const NAV = ['Today', 'Rewards', 'Routine', 'Grown-Ups'];
+/** Engine.FEAST_SECONDS and Engine.FEAST_LEAD, the beat of one collectible action. */
+const FEAST_SECONDS = 1.4, FEAST_LEAD = 0.45;
 const NAV_GLYPH = ['home', 'star', 'list', 'people'];
 
 const glyphCache = {};
@@ -66,9 +68,10 @@ function activityChip(ctx, kind, buddy, cx, cy, size, done) {
   drawActivity(ctx, kind, buddy, cx, cy, size * 0.70);
 }
 
-function drawCollectible(ctx, index, cx, cy, size, collected) {
+function drawCollectible(ctx, index, cx, cy, size, collected, pop = 0, badged = collected) {
+  if (size <= 0.5) return;
   const buddy = DATA.buddies[index];
-  unitBox(ctx, cx, cy, size);
+  unitBox(ctx, cx, cy, size * (1 + 0.35 * clamp(pop, 0, 1)));
   const parts = DATA.art.collectibles[index].parts;
   for (const part of parts) {
     let colour = resolvePart(part, buddy);
@@ -77,7 +80,7 @@ function drawCollectible(ctx, index, cx, cy, size, collected) {
              collected ? part.flags : (part.flags & ~SPEC));
   }
   ctx.restore();
-  if (collected) {
+  if (badged) {
     const badge = size * 0.34, bx = cx + size * 0.38, by = cy - size * 0.38;
     ctx.fillStyle = DATA.tokens.success;
     ctx.beginPath(); ctx.arc(bx, by, badge, 0, Math.PI * 2); ctx.fill();
@@ -130,11 +133,73 @@ function partBounds(d) {
   return { left, bottom };
 }
 
-function drawBuddy(ctx, index, cx, feetY, height, bob = 0) {
+function drawBuddy(ctx, index, cx, feetY, height, bob = 0, rotation = 0) {
   const img = BUDDY_IMAGES[index];
   if (!img || !img.complete) return;
   contactShadow(ctx, cx, feetY + height * 0.02, height * 0.36, height * 0.055, 0.9);
-  ctx.drawImage(img, cx - height / 2, feetY - height + bob, height, height);
+  if (!rotation) {
+    ctx.drawImage(img, cx - height / 2, feetY - height + bob, height, height);
+    return;
+  }
+  ctx.save();
+  ctx.translate(cx, feetY - height / 2 + bob);
+  ctx.rotate(rotation * Math.PI / 180);
+  ctx.drawImage(img, -height / 2, -height / 2, height, height);
+  ctx.restore();
+}
+
+/**
+ * Anim.feast, enough of it to show the pose. The preview draws a still, so only the
+ * offsets and the rotation matter -- the squash is velocity-driven in the app.
+ */
+function feastTransform(kind, p) {
+  const out = { dx: 0, dy: 0, rotation: 0 };
+  if (p <= 0 || p >= 1) return out;
+  const contact = 0.34;
+  const hump = (q, peak) => q <= 0 || q >= 1 ? 0
+    : Math.sin((q < peak ? q / peak : 1 - (q - peak) / (1 - peak)) * Math.PI * 0.5);
+  switch (kind) {
+    case 1: {                                    // sip
+      const dip = hump(p, contact);
+      out.dy = -30 + 46 * dip; out.dx = 12 * dip; out.rotation = 8 * dip; break;
+    }
+    case 2: {                                    // pounce
+      if (p >= contact) {
+        const j = (p - contact) / (1 - contact);
+        out.dy = -110 * Math.sin(j * Math.PI);
+        out.dx = 40 * Math.sin(j * Math.PI);
+      }
+      break;
+    }
+    case 3: {                                    // lunge
+      const surge = hump(p, contact);
+      out.dx = 88 * surge; out.rotation = 13 * surge; break;
+    }
+    case 4: {                                    // stomp
+      if (p < contact) { const c = p / contact; out.rotation = -11 * c; out.dy = -26 * c; }
+      else {
+        const land = Math.min(1, (p - contact) / (1 - contact) * 3.2);
+        out.rotation = -11 + 15 * land; out.dy = -26 + 26 * land;
+      }
+      break;
+    }
+    case 5: {                                    // spin
+      const rise = hump(p, 0.5);
+      out.dy = -58 * rise; out.dx = 18 * rise;
+      out.rotation = 360 * (p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2);
+      break;
+    }
+    case 6: {                                    // nibble
+      const nods = Math.sin(p * Math.PI * 6) * hump(p, 0.5);
+      out.dy = -9 * Math.abs(nods); out.dx = 20 * hump(p, contact);
+      out.rotation = 6 * nods; break;
+    }
+    default: {                                   // bite
+      const lean = hump(p, contact);
+      out.dx = 46 * lean; out.rotation = 9 * lean; break;
+    }
+  }
+  return out;
 }
 
 /* ====================================================================== HOME */
@@ -275,6 +340,42 @@ function screenAdventure(ctx, L, buddy, t) {
   const scene = buildScene(L.play, buddy.index, M_ADVENTURE, buddy.light, BACKDROPS.adventure[buddy.index]);
   drawSceneBackground(ctx, scene, buddy, t);
 
+  // The trail: the buddy walking along it, with the next few collectibles laid out
+  // ahead. The whole walk-up-and-eat cycle is driven off the clock exactly as
+  // Engine.feastBeat drives it, on a four-second segment, so with motion on the preview
+  // actually plays the loop instead of freezing one arbitrary frame of it.
+  const trail = L.advTrail;
+  const total = 12;
+  const SEGMENT = 4.0;                          // seconds between collectibles here
+  const since = t % SEGMENT;                    // seconds since the last one
+  const until = SEGMENT - since;
+  const collected = 5 + Math.floor(t / SEGMENT) % 3;
+  const fraction = since / SEGMENT;
+  const beat = until <= FEAST_LEAD ? (FEAST_LEAD - until) / FEAST_SECONDS
+             : (since + FEAST_LEAD) / FEAST_SECONDS < 1
+               ? (since + FEAST_LEAD) / FEAST_SECONDS : -1;
+  const progress = 0.20 + 0.55 * fraction * 0.3 + 0.08 * (collected - 5);
+  const walkX = trail[0] + rw(trail) * progress;
+  const height = Math.min(rh(L.advScene) * 0.46, DATA.metrics.designWidth * 0.42);
+
+  const cSize = Math.min(rh(L.advScene) * 0.20, DATA.metrics.designWidth * 0.19);
+  const spacing = cSize * 1.35;
+  const ground = rcy(trail) - height * 0.32;
+  for (let k = 0; k <= 4; k++) {
+    const index = collected + k;
+    if (index < 1 || index > total) continue;
+    const x = walkX + (k - fraction) * spacing;
+    if (x < -cSize || x > trail[2] + cSize * 0.35) continue;
+    const y = ground + Math.sin(t * 1.6 + index) * cSize * 0.06;
+    if (k === 0) {
+      const pop = beat < 0 ? 0 : Math.max(0, 1 - Math.abs(beat - 0.34) * 5);
+      drawCollectible(ctx, buddy.index, x, y, cSize * Math.max(0, 1 - fraction * 4.5),
+                      true, pop, false);
+    } else {
+      drawCollectible(ctx, buddy.index, x, y, cSize, true, 0, false);
+    }
+  }
+
   const goalBox = L.advGoal;
   const goalSize = Math.min(rw(goalBox), rh(goalBox));
   drawGoal(ctx, buddy.index, rcx(goalBox), rcy(goalBox), goalSize, 0, 0);
@@ -284,12 +385,22 @@ function screenAdventure(ctx, L, buddy, t) {
   ctx.beginPath(); ctx.arc(rcx(goalBox), lockY, lock, 0, Math.PI * 2); ctx.fill();
   drawGlyph(ctx, 'lock', rcx(goalBox), lockY, goalSize * 0.26, '#ffffff');
 
-  // the buddy, part-way along its trail
-  const trail = L.advTrail;
-  const progress = 0.38;
-  const bx = trail[0] + rw(trail) * progress + Math.sin(t * 1.5) * rw(L.advScene) * 0.016;
-  const height = Math.min(rh(L.advScene) * 0.46, DATA.metrics.designWidth * 0.42);
-  drawBuddy(ctx, buddy.index, bx, rcy(trail), height, Math.sin(t * 2.6) * 8);
+  const feast = feastTransform(buddy.feastKind, beat);
+  const bx = walkX + Math.sin(t * 1.5) * rw(L.advScene) * 0.016 + feast.dx;
+  drawBuddy(ctx, buddy.index, bx, rcy(trail), height,
+            Math.sin(t * 2.6) * 8 + feast.dy, feast.rotation);
+
+  if (beat >= 0 && beat < 0.72) {
+    const bw = DATA.metrics.designWidth * 0.24, bh = bw * 0.42;
+    let bub = [bx + height * 0.22, rcy(trail) - height - bh * 0.4,
+               bx + height * 0.22 + bw, rcy(trail) - height + bh * 0.6];
+    if (bub[2] > DATA.metrics.designWidth - 20) {
+      const d = DATA.metrics.designWidth - 20 - bub[2];
+      bub = [bub[0] + d, bub[1], bub[2] + d, bub[3]];
+    }
+    card(ctx, bub, rh(bub) * 0.42, 'rgba(255,255,255,.97)');
+    fitText(ctx, buddy.munchWord, bub, DATA.type.t2, 14, buddy.ink, 'center', true);
+  }
 
   drawSceneForeground(ctx, scene, t, true);
 
@@ -308,21 +419,20 @@ function screenAdventure(ctx, L, buddy, t) {
   text(ctx, 'Keep going!', rcx(clock), clock[3] - rh(clock) * 0.19,
        DATA.type.b2, DATA.tokens.inkMuted, 'center', true);
 
-  // collectible ribbon
-  const total = 12, collected = 5;
-  const band = L.advRibbon;
-  const perRow = total > 8 ? Math.ceil(total / 2) : total;
-  const rows = total > 8 ? 2 : 1;
-  const rowHeight = rh(band) / rows;
-  const cell = Math.min(rw(band) / perRow, rowHeight);
-  const size = cell * 0.82;
-  for (let i = 0; i < total; i++) {
-    const row = Math.floor(i / perRow), col = i % perRow;
-    const inRow = Math.min(perRow, total - row * perRow);
-    const x = rcx(band) - inRow * cell / 2 + col * cell + cell / 2;
-    const y = band[1] + row * rowHeight + rowHeight / 2;
-    drawCollectible(ctx, buddy.index, x, y, size, i < collected);
-  }
+  // the tally: one collectible at a size you can see, and the count
+  const band = L.advTally;
+  const tallyLabel = `${collected} of ${total} ${buddy.collectMany}`;
+  const tIcon = rh(band) * 0.86;
+  const tText = Math.min(DATA.type.t2, rh(band) * 0.44);
+  setFont(ctx, tText, true);
+  const tWidth = ctx.measureText(tallyLabel).width;
+  const chipW = Math.min(rw(band), tIcon + 16 + tWidth + rh(band) * 0.9);
+  const chip = [rcx(band) - chipW / 2, band[1], rcx(band) + chipW / 2, band[3]];
+  card(ctx, chip, rh(chip) / 2, 'rgba(255,255,255,.95)');
+  gloss(ctx, chip, rh(chip) / 2, 0.7);
+  const tStart = rcx(chip) - (tIcon + 16 + tWidth) / 2;
+  drawCollectible(ctx, buddy.index, tStart + tIcon / 2, rcy(chip), tIcon, true, 0, false);
+  text(ctx, tallyLabel, tStart + tIcon + 16, rcy(chip), tText, buddy.ink, 'left', true);
 
   // progress
   const track = L.advProgress;
@@ -332,8 +442,6 @@ function screenAdventure(ctx, L, buddy, t) {
   ctx.fillStyle = buddy.primary;
   roundRect(ctx, [track[0], track[1], track[0] + rw(track) * (collected / total), track[3]], radius);
   ctx.fill();
-  text(ctx, `${collected} of ${total} ${buddy.collectMany}`, track[0],
-       track[1] - rh(track) * 1.2, DATA.type.b2, '#ffffff', 'left', true);
 
   // current task
   const tcard = L.advTaskCard;
@@ -700,7 +808,7 @@ const SCREENS = [
     bands: ['homeHeader', 'wordmark', 'hero', 'timerCard', 'routineHeader', 'taskBand', 'startBtn', 'navBar'] },
   { key: 'adventure', name: 'Buddy Adventure',
     note: 'The countdown, with the buddy travelling its trail', draw: screenAdventure,
-    bands: ['advBack', 'advTitle', 'advPause', 'advClock', 'advRibbon', 'advScene', 'advTrail', 'advGoal', 'advProgress', 'advTaskCard', 'advAction'] },
+    bands: ['advBack', 'advTitle', 'advPause', 'advClock', 'advTally', 'advScene', 'advTrail', 'advGoal', 'advProgress', 'advTaskCard', 'advAction'] },
   { key: 'complete', name: 'Mission Complete',
     note: 'New in v0.7. The frozen time is the subject', draw: screenComplete,
     bands: ['cmpTitle', 'cmpStage', 'cmpCard', 'cmpPlayAgain', 'cmpBackHome'] },

@@ -155,8 +155,8 @@ public final class SelfTest {
     }
 
     private static void checkAdventure(Layout L, String at) {
-        RectF[] stack = {L.advClock, L.advRibbon, L.advScene, L.advTaskCard, L.advAction};
-        String[] names = {"advClock", "advRibbon", "advScene", "advTaskCard", "advAction"};
+        RectF[] stack = {L.advClock, L.advTally, L.advScene, L.advTaskCard, L.advAction};
+        String[] names = {"advClock", "advTally", "advScene", "advTaskCard", "advAction"};
         for (int i = 0; i < stack.length; i++) {
             valid(stack[i], names[i] + " @ " + at);
             inside(stack[i], L.play, names[i] + " @ " + at);
@@ -173,8 +173,17 @@ public final class SelfTest {
         valid(L.advTrail, "advTrail @ " + at);
         valid(L.advProgress, "advProgress @ " + at);
         inside(L.advGoal, L.advScene, "advGoal @ " + at);
-        check(L.advTrail.right <= L.advGoal.left + 0.6f,
-              "the buddy's lane runs into the goal @ " + at);
+        // The lane used to have to stop short of the goal entirely, which cost it the
+        // right third of the screen. The goal now stands ON the lane at its far end, so
+        // the buddy arrives at it: what must hold is that the goal is still beyond the
+        // walk, and that the walk is long enough to lay collectibles along.
+        check(L.advGoal.centerX() > L.advTrail.right,
+              "the goal should stand beyond the end of the lane @ " + at);
+        check(L.advTrail.right <= L.advScene.right + 0.6f
+              && L.advTrail.left >= L.advScene.left - 0.6f,
+              "the buddy's lane runs outside the scene @ " + at);
+        check(L.advTrail.width() > Layout.W * 0.55f,
+              "the buddy's lane is too short to read as a journey @ " + at);
 
         float minTouch = L.minTouchUnits();
         check(L.advAction.height() >= minTouch - 0.6f, "advAction under touch target @ " + at);
@@ -802,13 +811,28 @@ public final class SelfTest {
         Engine e = new Engine(clock);
         e.setRoutine(tasks(5), keys(5));
 
-        int[][] expected = {{1, 1}, {5, 5}, {12, 12}, {15, 12}, {60, 12}, {120, 12}};
+        // Roughly one every two minutes, floored at three and capped at eighteen.
+        int[][] expected = {{1, 3}, {5, 5}, {12, 8}, {15, 10}, {30, 17}, {60, 18}, {120, 18}};
         for (int[] pair : expected) {
             e.reset();
             e.start(pair[0]);
             check(e.collectibleCount() == pair[1],
                   pair[0] + " minutes should show " + pair[1] + " collectibles, showed "
                   + e.collectibleCount());
+            e.reset();
+        }
+
+        // A longer morning must never offer fewer things to find than a shorter one.
+        int previousCount = 0;
+        for (int minutes = 1; minutes <= 120; minutes++) {
+            e.reset();
+            e.start(minutes);
+            int n = e.collectibleCount();
+            check(n >= previousCount,
+                  "collectible count went backwards at " + minutes + " minutes");
+            check(n >= Engine.MIN_COLLECTIBLES && n <= Engine.MAX_COLLECTIBLES,
+                  minutes + " minutes gave an out-of-range collectible count: " + n);
+            previousCount = n;
             e.reset();
         }
 
@@ -827,6 +851,61 @@ public final class SelfTest {
 
         float f = e.collectibleFraction();
         check(f >= 0f && f < 1.0001f, "the collectible fraction must stay in range");
+
+        feastBeat();
+    }
+
+    /**
+     * The action beat has to run at a fixed speed in seconds, not as a fraction of a
+     * segment, or a ninety-minute morning would show a chomp in slow motion.
+     */
+    private static void feastBeat() {
+        FakeClock clock = new FakeClock();
+        Engine e = new Engine(clock);
+        e.setRoutine(tasks(3), keys(3));
+
+        for (int minutes : new int[]{2, 10, 30, 90}) {
+            e.reset();
+            e.start(minutes);
+            int total = e.collectibleCount();
+            long segment = minutes * 60_000L / total;
+            check(segment > (long) (Engine.FEAST_SECONDS * 1000f),
+                  minutes + " minutes packs collectibles closer than one action beat");
+
+            check(e.feastBeat() < 0f || e.feastBeat() <= 1f,
+                  "the beat is either idle or inside 0..1 at the start");
+
+            // Walk to just before the first item, then across it.
+            long toFirst = segment;
+            clock.advance(toFirst - (long) (Engine.FEAST_LEAD * 1000f) + 10L);
+            float lead = e.feastBeat();
+            check(lead >= 0f && lead < 1f,
+                  minutes + " minutes: the wind-up should have started, beat=" + lead);
+            check(e.collectedCount() == 0, "the item is not collected during the wind-up");
+
+            clock.advance((long) (Engine.FEAST_LEAD * 1000f));
+            check(e.collectedCount() == 1, "the item is collected on arrival");
+            float contact = e.feastBeat();
+            check(contact >= 0f && contact <= 1f,
+                  minutes + " minutes: the beat continues through contact, beat=" + contact);
+            check(contact > lead, "the beat must advance across the item");
+
+            // Well past the beat, the buddy is walking again.
+            clock.advance((long) (Engine.FEAST_SECONDS * 1000f) + 500L);
+            check(e.feastBeat() < 0f,
+                  minutes + " minutes: the beat should have ended, beat=" + e.feastBeat());
+            check(e.secondsSinceCollected() > Engine.FEAST_SECONDS,
+                  "seconds-since should keep counting up after the beat");
+            e.reset();
+        }
+
+        // Before the first item there is nothing to have just eaten.
+        e.reset();
+        e.start(10);
+        check(e.secondsSinceCollected() == Float.MAX_VALUE,
+              "nothing has been collected yet at the start");
+        check(e.secondsUntilCollect() < Float.MAX_VALUE,
+              "the first item is still ahead at the start");
     }
 
     private static void routineReconciliation() {

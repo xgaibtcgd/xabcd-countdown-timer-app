@@ -14,8 +14,26 @@ final class ScreenAdventure extends Screen {
 
     private final RectF scratch = new RectF();
 
+    /**
+     * How many upcoming collectibles are laid out ahead of the buddy.
+     *
+     * <p>They are placed relative to the buddy rather than spread over the whole trail,
+     * so the spacing -- and therefore the size -- stays the same whether the morning has
+     * three things to find or eighteen. A longer morning gives you more of them, not
+     * smaller ones.
+     */
+    private static final int LOOKAHEAD = 4;
+
+    /** Fires the pickup burst once per item rather than on every frame of the window. */
+    private int burstedThrough = 0;
+    private final int[] burstPalette = new int[4];
+
     ScreenAdventure(MorningView view) {
         super(view);
+    }
+
+    @Override void onEnter() {
+        burstedThrough = view.engine.collectedCount();
     }
 
     @Override void layout(Layout layout, HitMap hits) {
@@ -29,13 +47,16 @@ final class ScreenAdventure extends Screen {
         Engine engine = view.engine;
 
         view.scene.drawBackground(c, theme, t);
+        // Trail first: the goal stands at the end of the lane, so items still to be
+        // reached slide out from behind it rather than floating across its lid.
+        drawTrail(c, layout, theme, engine, t);
         drawGoal(c, layout, theme, engine);
         drawBuddy(c, layout, theme, engine, t);
         view.scene.drawForeground(c, theme, t, true);
 
         drawTopBar(c, layout, theme);
         drawClock(c, layout, theme, engine);
-        drawRibbon(c, layout, theme, engine, t);
+        drawTally(c, layout, theme, engine);
         drawProgress(c, layout, theme, engine);
         drawTaskCard(c, layout, theme, engine);
         drawAction(c, layout, engine);
@@ -54,25 +75,104 @@ final class ScreenAdventure extends Screen {
      */
     private void drawBuddy(Canvas c, Layout layout, BuddyTheme theme, Engine engine, float t) {
         RectF trail = layout.advTrail;
-        float progress = engine.progress();
-        float x = trail.left + trail.width() * progress
+        float x = walkX(layout, engine)
                 + (float) Math.sin(t * 1.5f) * layout.advScene.width() * 0.016f;
         float feet = trail.centerY();
-        float height = Math.min(layout.advScene.height() * 0.46f, Layout.W * 0.42f);
-        view.drawBuddy(c, theme.index, x, feet, height, true);
+        float height = buddyHeight(layout);
+        float beat = engine.feastBeat();
+        view.drawBuddy(c, theme.index, x, feet, height, true, theme.feastKind, beat);
 
-        // A reaction the moment a collectible is reached.
-        if (!engine.allDone() && engine.collectedCount() > 0
-            && engine.collectibleFraction() < 0.14f) {
+        // The reaction runs off the same beat as the motion, so the word lands with the
+        // bite rather than on a fraction of a segment that stretches with the timer.
+        if (beat >= 0f && beat < 0.72f) {
             float bubbleW = Layout.W * 0.24f;
             float bubbleH = bubbleW * 0.42f;
             scratch.set(x + height * 0.22f, feet - height - bubbleH * 0.4f,
                         x + height * 0.22f + bubbleW, feet - height + bubbleH * 0.6f);
             if (scratch.right > Layout.W - 20f) scratch.offset(Layout.W - 20f - scratch.right, 0f);
+            if (scratch.left < 20f) scratch.offset(20f - scratch.left, 0f);
             Theme.card(c, scratch, scratch.height() * 0.42f, 0xF7FFFFFF);
             Theme.fitText(c, theme.munchWord, scratch, Theme.T2, 14f,
                           theme.ink, Paint.Align.CENTER, true);
         }
+    }
+
+    /** Where along the trail the buddy has walked to, without its idle bob. */
+    private static float walkX(Layout layout, Engine engine) {
+        RectF trail = layout.advTrail;
+        return trail.left + trail.width() * engine.progress();
+    }
+
+    private static float buddyHeight(Layout layout) {
+        return Math.min(layout.advScene.height() * 0.46f, Layout.W * 0.42f);
+    }
+
+    /**
+     * The collectibles lying on the trail ahead of the buddy.
+     *
+     * <p>These used to be a strip of thumbnails at the top of the screen, one per item,
+     * which on a long morning shrank to about sixty units across -- too small to make
+     * out, and nowhere near the buddy, so nothing ever appeared to be collected. They
+     * now sit on the ground the buddy is walking along, at a size that reads, and the
+     * buddy walks into each one and performs its own move as it arrives.
+     *
+     * <p>Positions are relative to the buddy, not spread across the trail: item
+     * {@code collected + k} sits {@code k - fraction} spacings ahead, so the whole line
+     * slides left by exactly one spacing over each segment and the next item arrives
+     * under the buddy at the moment the engine counts it as collected.
+     */
+    private void drawTrail(Canvas c, Layout layout, BuddyTheme theme, Engine engine, float t) {
+        int total = engine.collectibleCount();
+        if (total <= 0) return;
+        int collected = engine.collectedCount();
+        float fraction = engine.allDone() ? 1f : engine.collectibleFraction();
+
+        float size = Math.min(layout.advScene.height() * 0.20f, Layout.W * 0.19f);
+        float spacing = size * 1.35f;
+        float base = walkX(layout, engine);
+        // Held at about the height the buddy's hands are, so reaching one is a lean
+        // rather than a squat -- at ankle height no amount of tilt looked like eating.
+        float ground = layout.advTrail.centerY() - buddyHeight(layout) * 0.32f;
+        float beat = engine.feastBeat();
+
+        for (int k = 0; k <= LOOKAHEAD; k++) {
+            int index = collected + k;                  // 1-based item number
+            if (index < 1 || index > total) continue;
+            float lane = k - fraction;
+            float x = base + lane * spacing;
+            // Items belong to the lane, so they stop where it does. Clipping at the
+            // goal's box instead cut them a good deal earlier than the chest actually
+            // reaches, since its art does not fill that box.
+            if (x < -size || x > layout.advTrail.right + size * 0.35f) continue;
+
+            float y = ground + (float) Math.sin(t * 1.6f + index) * size * 0.06f;
+            if (k == 0) {
+                // The one just eaten: it pops on contact, then shrinks away as the buddy
+                // walks on, which reads as swallowing rather than blinking out.
+                float pop = beat < 0f ? 0f : Math.max(0f, 1f - Math.abs(beat - 0.34f) * 5f);
+                float shrink = Math.max(0f, 1f - fraction * 4.5f);
+                Icons.collectible(c, theme.index, x, y, size * shrink, true, pop, false);
+            } else {
+                Icons.collectible(c, theme.index, x, y, size, true, 0f, false);
+            }
+        }
+
+        fireBurst(layout, theme, engine, collected, base, ground);
+    }
+
+    /** One confetti burst per item reached, at the item, in the buddy's own colours. */
+    private void fireBurst(Layout layout, BuddyTheme theme, Engine engine,
+                           int collected, float x, float y) {
+        if (collected < burstedThrough) burstedThrough = collected;   // a new run
+        if (collected <= burstedThrough || engine.allDone()) return;
+        burstedThrough = collected;
+        burstPalette[0] = theme.primary;
+        burstPalette[1] = theme.accent;
+        burstPalette[2] = theme.accent2;
+        burstPalette[3] = 0xFFFFFFFF;
+        view.particles.burst(14, x, y, -90f, 150f,
+                             layout.advScene.height() * 0.25f,
+                             layout.advScene.height() * 0.55f, burstPalette);
     }
 
     private void drawGoal(Canvas c, Layout layout, BuddyTheme theme, Engine engine) {
@@ -130,34 +230,34 @@ final class ScreenAdventure extends Screen {
     }
 
     /**
-     * The collectibles, floating on the scene rather than inside a white pill.
+     * The score: one large collectible and how many have been eaten.
      *
-     * <p>Wraps to two rows past eight items, so a long morning does not shrink them to
-     * the point of being unreadable.
+     * <p>A row of one thumbnail per item was the old shape, and it could not survive a
+     * long morning -- eighteen of anything across a phone is eighteen things too small
+     * to recognise. A single item at a size you can actually see, with a count beside
+     * it, says the same thing and keeps saying it however long the timer runs.
      */
-    private void drawRibbon(Canvas c, Layout layout, BuddyTheme theme, Engine engine, float t) {
+    private void drawTally(Canvas c, Layout layout, BuddyTheme theme, Engine engine) {
+        RectF band = layout.advTally;
         int total = engine.collectibleCount();
         int collected = engine.collectedCount();
-        RectF band = layout.advRibbon;
-        int perRow = total > 8 ? (total + 1) / 2 : total;
-        int rows = total > 8 ? 2 : 1;
-        float rowHeight = band.height() / rows;
-        float cell = Math.min(band.width() / perRow, rowHeight);
-        float size = cell * 0.82f;
 
-        for (int i = 0; i < total; i++) {
-            int row = i / perRow;
-            int col = i % perRow;
-            int inRow = Math.min(perRow, total - row * perRow);
-            float rowWidth = inRow * cell;
-            float x = band.centerX() - rowWidth * 0.5f + col * cell + cell * 0.5f;
-            float y = band.top + row * rowHeight + rowHeight * 0.5f;
-            boolean got = i < collected;
-            // The newest one pops as it is picked up.
-            float pop = (got && i == collected - 1)
-                      ? Math.max(0f, 1f - engine.collectibleFraction() * 6f) : 0f;
-            Icons.collectible(c, theme.index, x, y, size, got, pop);
-        }
+        String label = collected + " of " + total + " " + theme.collectibleNoun(total);
+        float icon = band.height() * 0.86f;
+        float textSize = Math.min(Theme.T2, band.height() * 0.44f);
+        float textWidth = Theme.measure(label, textSize, true);
+        float chipWidth = Math.min(band.width(), icon + 16f + textWidth + band.height() * 0.9f);
+
+        scratch.set(band.centerX() - chipWidth * 0.5f, band.top,
+                    band.centerX() + chipWidth * 0.5f, band.bottom);
+        Theme.card(c, scratch, scratch.height() * 0.5f, 0xF2FFFFFF);
+        Theme.gloss(c, scratch, scratch.height() * 0.5f, 0.7f);
+
+        float startX = scratch.centerX() - (icon + 16f + textWidth) * 0.5f;
+        Icons.collectible(c, theme.index, startX + icon * 0.5f, scratch.centerY(), icon,
+                          collected > 0, 0f, false);
+        Theme.textCentered(c, label, startX + icon + 16f, scratch.centerY(),
+                           textSize, theme.ink, Paint.Align.LEFT, true);
     }
 
     private void drawProgress(Canvas c, Layout layout, BuddyTheme theme, Engine engine) {
@@ -178,10 +278,8 @@ final class ScreenAdventure extends Screen {
             c.drawRoundRect(scratch, radius, radius, fill);
         }
 
-        String label = engine.collectedCount() + " of " + engine.collectibleCount() + " "
-                     + theme.collectibleNoun(engine.collectibleCount());
-        Theme.textCentered(c, label, track.left, track.top - track.height() * 1.2f,
-                           Theme.B2, 0xFFFFFFFF, Paint.Align.LEFT, true);
+        // The count itself lives in the tally chip at the top; repeating it here just
+        // put two copies of the same number on one screen.
     }
 
     private void drawTaskCard(Canvas c, Layout layout, BuddyTheme theme, Engine engine) {

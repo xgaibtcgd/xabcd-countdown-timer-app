@@ -29,6 +29,8 @@ final class BuddyTheme {
     final String key;
 
     String name, soundWord, munchWord, collectOne, collectMany;
+    /** Which {@link Anim} FEAST_* motion this buddy performs at a collectible. */
+    int feastKind = Anim.FEAST_BITE;
     int artRes, soundRes;
     /** The illustrated world this buddy's adventure happens in. */
     int backdropRes;
@@ -70,6 +72,11 @@ final class BuddyTheme {
         return this;
     }
 
+    private BuddyTheme feast(int kind) {
+        this.feastKind = kind;
+        return this;
+    }
+
     private BuddyTheme assets(int artRes, int soundRes, int backdropRes) {
         this.artRes = artRes;
         this.soundRes = soundRes;
@@ -92,42 +99,49 @@ final class BuddyTheme {
     static final BuddyTheme[] ALL = {
         new BuddyTheme(0, "burger")
             .words("Burger Buddy", "nom!", "YUM!", "mini burger", "mini burgers")
+            .feast(Anim.FEAST_BITE)
             .assets(R.drawable.buddy_burger, R.raw.buddy_burger_sound,
                     R.drawable.bg_adventure_burger)
             .palette(0xFFF39B28, 0xFF2772C9, 0xFFEC4777, 0xFFFDEDD8, 0xFFFBF4EA, 0xFF8A4A12, 0xFFC7B8B9),
 
         new BuddyTheme(1, "bee")
             .words("Queen Bee", "buzz!", "BUZZ!", "honey drop", "honey drops")
+            .feast(Anim.FEAST_SIP)
             .assets(R.drawable.buddy_bee, R.raw.buddy_bee_sound,
                     R.drawable.bg_adventure_bee)
             .palette(0xFFFBD638, 0xFFEAA815, 0xFF8DCCF7, 0xFFFEF8DB, 0xFFFFFDF0, 0xFF6B4E05, 0xFF271A17),
 
         new BuddyTheme(2, "pug")
             .words("Pug Pal", "ruff!", "NOM!", "pup treat", "pup treats")
+            .feast(Anim.FEAST_POUNCE)
             .assets(R.drawable.buddy_pug, R.raw.buddy_pug_sound,
                     R.drawable.bg_adventure_pug)
             .palette(0xFFFA6801, 0xFFDF8542, 0xFFF9D6A8, 0xFFFEE4D1, 0xFFF9EFE4, 0xFF7A3300, 0xFF382826),
 
         new BuddyTheme(3, "shark")
             .words("Splash Buddy", "splash!", "CHOMP!", "fish", "fish")
+            .feast(Anim.FEAST_LUNGE)
             .assets(R.drawable.buddy_shark, R.raw.buddy_shark_sound,
                     R.drawable.bg_adventure_shark)
             .palette(0xFF25A7F9, 0xFF0776D9, 0xFFAE3242, 0xFFD3ECFE, 0xFFF6F7F9, 0xFF0B4D8F, 0xFF246FC8),
 
         new BuddyTheme(4, "dino")
             .words("Sprout Dino", "rawr!", "MUNCH!", "leaf", "leaves")
+            .feast(Anim.FEAST_STOMP)
             .assets(R.drawable.buddy_dino, R.raw.buddy_dino_sound,
                     R.drawable.bg_adventure_dino)
             .palette(0xFF67CFA4, 0xFF259474, 0xFF83D126, 0xFFE4F6EF, 0xFFF2FBF7, 0xFF1B6B52, 0xFF49B893),
 
         new BuddyTheme(5, "cloud")
             .words("Cloud Pup", "ding!", "SPARKLE!", "star", "stars")
+            .feast(Anim.FEAST_SPIN)
             .assets(R.drawable.buddy_cloud, R.raw.buddy_cloud_sound,
                     R.drawable.bg_adventure_cloud)
             .palette(0xFF57B9F3, 0xFF3798E4, 0xFFFFFFFF, 0xFFF0F7FF, 0xFFF5FBFF, 0xFF1D6FA8, 0xFF45A8EB),
 
         new BuddyTheme(6, "kitty")
             .words("Sweet Kitty", "meow!", "PURR!", "fish treat", "fish treats")
+            .feast(Anim.FEAST_NIBBLE)
             .assets(R.drawable.buddy_kitty, R.raw.buddy_kitty_sound,
                     R.drawable.bg_adventure_kitty)
             .palette(0xFFF85798, 0xFFD03D6B, 0xFFFFFFFF, 0xFFFEE1EC, 0xFFF8ECE2, 0xFFA32354, 0xFFD4BBB7),

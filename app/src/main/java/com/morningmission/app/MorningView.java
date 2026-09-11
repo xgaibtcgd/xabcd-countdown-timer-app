@@ -64,6 +64,8 @@ final class MorningView extends View implements Choreographer.FrameCallback, Eng
     private float routeProgress = 1f;
 
     private final Anim.Blend blend = new Anim.Blend();
+    /** Solved separately so a collectible action can be composed onto the walk. */
+    private final Anim.Transform feastMotion = new Anim.Transform();
     private final Anim.Transform motion = new Anim.Transform();
     private final int[] palette = new int[6];
     private final RectF scratch = new RectF();
@@ -333,6 +335,21 @@ final class MorningView extends View implements Choreographer.FrameCallback, Eng
      */
     void drawBuddy(Canvas c, int buddyIndex, float cx, float feetY, float height,
                    boolean withShadow) {
+        drawBuddy(c, buddyIndex, cx, feetY, height, withShadow, -1, -1f);
+    }
+
+    /**
+     * The same, with a collectible action layered on top of the walk.
+     *
+     * <p>The two compose rather than replace: offsets add and scales multiply, so the
+     * buddy keeps breathing and bobbing through its chomp instead of freezing into a
+     * canned clip.
+     *
+     * @param feastKind an {@link Anim} FEAST_* constant, or -1 for no action
+     * @param feastBeat 0..1 across the action, or negative when there is none
+     */
+    void drawBuddy(Canvas c, int buddyIndex, float cx, float feetY, float height,
+                   boolean withShadow, int feastKind, float feastBeat) {
         Bitmap bitmap = art(buddyIndex, buddyIndex == buddy().index);
         if (bitmap == null || bitmap.isRecycled()) return;
 
@@ -340,6 +357,14 @@ final class MorningView extends View implements Choreographer.FrameCallback, Eng
         // and stretch. drawBuddyPose below solves without touching that state, so the
         // seven dancing buddies in the picker cannot disturb it.
         blend.solve(time, lastDelta, motion);
+        if (feastKind >= 0 && feastBeat >= 0f && feastBeat < 1f) {
+            Anim.feast(feastKind, feastBeat, feastMotion);
+            motion.dx += feastMotion.dx;
+            motion.dy += feastMotion.dy;
+            motion.rotation += feastMotion.rotation;
+            motion.scaleX *= feastMotion.scaleX;
+            motion.scaleY *= feastMotion.scaleY;
+        }
         float width = height * bitmap.getWidth() / (float) bitmap.getHeight();
         float centreY = feetY - height * 0.5f + motion.dy;
 

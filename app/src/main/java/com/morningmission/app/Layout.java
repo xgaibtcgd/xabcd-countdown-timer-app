@@ -93,7 +93,7 @@ final class Layout {
     final RectF advTitle = new RectF();
     final RectF advPause = new RectF();
     final RectF advClock = new RectF();
-    final RectF advRibbon = new RectF();
+    final RectF advTally = new RectF();
     /** The illustrated world: everything between the clock and the task card. */
     final RectF advScene = new RectF();
     /** The horizontal lane the buddy travels along. */
@@ -453,7 +453,10 @@ final class Layout {
         int g1 = gap();
         int bClock = band(170f, 200f, 0.4f, 1f);
         int g2 = gap();
-        int bRibbon = band(110f, 140f, 0.3f, 1f);
+        // Was a strip of one small icon per collectible. The collectibles now live on
+        // the trail at a size a child can actually see, so this band only has to hold a
+        // tally chip, and the scene takes the slack.
+        int bTally = band(120f, 145f, 0.15f, 1f);
         int bScene = band(520f, 1400f, 6f, 3f);
         int g3 = gap();
         int bTaskCard = band(150f, 180f, 0.3f, 1f);
@@ -467,15 +470,18 @@ final class Layout {
         advTitle.set(advBack.right, bandTop[bTop], advPause.left, bandBottom(bTop));
 
         place(bClock, advClock, 250f, W - 250f);
-        place(bRibbon, advRibbon, 60f, W - 60f);
+        place(bTally, advTally, 60f, W - 60f);
         place(bScene, advScene, 0f, W);
 
-        // The goal sits at the right end of the lane the buddy walks along, so that
-        // travelling along the trail visibly approaches it.
-        float goalSize = Math.min(300f, advScene.height() * 0.42f);
-        advGoal.set(W - 60f - goalSize, advScene.bottom - 150f - goalSize,
-                    W - 60f, advScene.bottom - 150f);
-        advTrail.set(150f, advScene.bottom - 210f, advGoal.left - 40f, advScene.bottom - 90f);
+        // The goal stands on the lane at its far end, so walking the trail visibly
+        // approaches it. It used to be half again this size, which took up the right
+        // third of the walk: with the collectibles now laid out along that lane, the
+        // journey needs the room more than the chest does.
+        float goalSize = Math.min(225f, advScene.height() * 0.30f);
+        float laneY = advScene.bottom - 150f;
+        advGoal.set(W - 45f - goalSize, laneY - goalSize * 0.94f, W - 45f, laneY + goalSize * 0.06f);
+        advTrail.set(120f, advScene.bottom - 210f,
+                     advGoal.centerX() - goalSize * 0.35f, advScene.bottom - 90f);
         advProgress.set(100f, advScene.bottom - 62f, W - 100f, advScene.bottom - 34f);
 
         place(bTaskCard, advTaskCard, 45f, W - 45f);
