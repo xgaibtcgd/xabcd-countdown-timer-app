@@ -1,19 +1,57 @@
-MORNING MISSION v0.4 — WINDOWS BUILD
+MORNING MISSION v0.7 - WINDOWS BUILD
 
-1. Extract MorningMission-v0.4-source.zip.
-2. In Android Studio choose Open and select the MorningMission-v0.4 folder (the folder containing settings.gradle.kts and app/).
-3. Let Gradle sync finish. If Android Studio asks for Gradle version, choose 9.6.0.
+1. Extract MorningMission-v0.7-source.zip.
+2. In Android Studio choose Open and select the MorningMission-v0.7 folder
+   (the folder containing settings.gradle.kts and app/).
+3. Let Gradle sync finish. If Android Studio asks for a Gradle version, choose 9.6.0.
 4. Build > Build App Bundle(s) or APK(s) > Build APK(s).
 5. APK: app\build\outputs\apk\debug\app-debug.apk
-6. Install the APK on the phone. If the previous debug build was signed by the same Android Studio debug key, Android should offer to update it.
+6. Install on the phone. If the previous debug build was signed with the same
+   Android Studio debug key, Android should offer to update it.
 
-FIRST TEST
-- Pick a buddy and a short 1- or 2-minute timer.
-- Tap Start Morning.
-- Confirm Buddy Adventure expands to the large running view.
-- Confirm collectibles disappear/check off as time passes and the buddy moves toward the goal.
-- Tap I DID IT — NEXT TASK to advance tasks.
-- Complete the last task and confirm the timer freezes instantly, the goal unlocks, and the victory dance/music/confetti run.
-- Confirm Parent Unlock still requires the PIN.
+NOTE ON THE GRADLE WRAPPER
+This project has gradle\wrapper\gradle-wrapper.properties but no gradlew.bat and
+no gradle-wrapper.jar, which is how it has always been. Android Studio generates
+them on first open, so the steps above are unaffected. It does mean gradlew will
+not work from a terminal until the project has been opened once.
 
-Do not provision Device Owner / Full Kid Lock until normal mode and Parent Unlock are tested.
+AGP 9.4.0, Gradle 9.6.0, compileSdk 36, minSdk 26, Java 17. No dependencies:
+no AndroidX, no Material, no Compose.
+
+WHAT IS NEW IN v0.7
+The whole interface was rebuilt. The eight background PNGs are gone and the
+scenery is drawn in code, every icon that used to be an emoji is now a drawn
+vector, Mission Complete is its own screen, and Grown-Ups and Edit Routine are
+no longer Android dialogs.
+
+FIRST TEST - the visual work
+- Open the app and check the layout on your own phone: no gaps between sections,
+  and START MORNING clear of the navigation bar. This is the fix for the biggest
+  problem in v0.6, where every position assumed a 1080x1920 screen.
+- Check the launcher icon on the home screen. It is new.
+- Check the lettering. The app now ships its own rounded typeface rather than
+  asking the device for one, which many phones did not actually have.
+- Open Choose Buddy and try all seven. Each one has its own scenery, collectible
+  and goal, and none of those environments have ever been seen rendered.
+- Tap around and confirm every control does what it looks like it should. The
+  pause button on the adventure screen is worth a try: in v0.6 it was drawn but
+  had no touch region at all.
+
+FIRST TEST - the behaviour that must not have changed
+- Pick a buddy and a 1 or 2 minute timer, then tap Start Morning.
+- Confirm collectibles fill in as time passes and the buddy travels along the
+  trail toward the goal.
+- Tap I DID IT! to advance through the tasks.
+- Complete the last task. The timer must freeze at whatever was left, the goal
+  should open, and the celebration should run before Mission Complete appears.
+  Finishing with 3:42 left must still show 3:42 throughout.
+- Confirm Parent Unlock still asks for the PIN.
+- Confirm neither Play Again nor Back to Home leaves kid mode.
+
+Do not provision Device Owner / Full Kid Lock until standard mode and Parent
+Unlock are both tested. See FULL_KID_LOCK_WINDOWS.txt.
+
+IF SOMETHING LOOKS WRONG
+Setting MorningView.debugRegions to true outlines every tap target on screen,
+which makes a control that is drawn in one place and tapped in another obvious
+at a glance.

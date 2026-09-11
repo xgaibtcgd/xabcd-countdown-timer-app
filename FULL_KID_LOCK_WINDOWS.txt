@@ -1,12 +1,21 @@
-MORNING MISSION — FULL KID LOCK SETUP (WINDOWS)
+MORNING MISSION - FULL KID LOCK SETUP (WINDOWS)
 
-1. Test the app in STANDARD mode first.
+1. Test the app in STANDARD mode first, including Parent Unlock.
 2. Install the APK:
    adb install -r app-debug.apk
-3. For an Android device that is eligible for Device Owner provisioning:
+3. For an Android device eligible for Device Owner provisioning:
    adb shell dpm set-device-owner --user 0 com.morningmission.app/.MorningDeviceAdminReceiver
-4. Launch Morning Mission and open Grown-Ups settings. It should show:
-   Full Kid Lock available
+4. Launch Morning Mission, open Grown-Ups and tap About. It should read:
+   Full Kid Lock is available on this device.
+   Without provisioning it reads: Standard screen pinning is in use.
+5. The Grown-Ups list also has a Kid Lock row showing On or Off, which turns the
+   lock on and off directly.
 
-NOTE: Android can reject Device Owner provisioning on an already provisioned personal phone.
-A dedicated/spare device is the safest place to test Full Kid Lock.
+NOTE: Android can refuse Device Owner provisioning on a phone that has already
+been set up with an account. A dedicated or freshly reset device is the safest
+place to test Full Kid Lock.
+
+Leaving the app always requires the Grown-Ups PIN, whether or not Device Owner is
+provisioned. Unlocking does not clear the morning: the countdown keeps running
+and completed tasks stay completed, so a grown-up checking something does not
+cost a child their progress. Home then offers a way straight back in.
