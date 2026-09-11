@@ -156,22 +156,67 @@ function card(ctx, r, radius, colour) {
   roundRect(ctx, r, radius); ctx.fill();
 }
 
-/** Theme.button: a face on a darker bottom edge. */
-function button(ctx, r, radius, face, edge) {
+/** Theme.gloss: white fading out down the top of a curved surface. */
+function gloss(ctx, r, radius, strength = 1) {
+  if (strength <= 0) return;
+  const h = (r[3] - r[1]) * 0.62;
+  const g = ctx.createLinearGradient(0, r[1], 0, r[1] + h);
+  g.addColorStop(0, `rgba(255,255,255,${0.35 * strength})`);
+  g.addColorStop(0.55, `rgba(255,255,255,${0.12 * strength})`);
+  g.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.save();
+  roundRect(ctx, r, radius); ctx.clip();
+  ctx.fillStyle = g;
+  const inset = (r[2] - r[0]) * 0.012;
+  roundRect(ctx, [r[0] + inset, r[1] + inset, r[2] - inset, r[1] + h], radius); ctx.fill();
+  ctx.restore();
+}
+
+/** Theme.glossCircle. */
+function glossCircle(ctx, cx, cy, radius, strength = 1) {
+  gloss(ctx, [cx - radius, cy - radius, cx + radius, cy + radius], radius, strength);
+}
+
+/**
+ * Theme.button: a glow (primary actions only), a drop shadow, a darker bottom edge
+ * that makes it read as pressable, a vertically graded face, and a gloss on top.
+ */
+function button(ctx, r, radius, face, edge, glow = 0) {
   const lift = 10;
+  if (glow > 0) {
+    ctx.save();
+    ctx.shadowColor = alpha(face, 0.5 * glow);
+    ctx.shadowBlur = (r[3] - r[1]) * 0.42;
+    ctx.shadowOffsetY = (r[3] - r[1]) * 0.12;
+    ctx.fillStyle = face;
+    roundRect(ctx, [r[0], r[1] + lift, r[2], r[3] - lift], radius); ctx.fill();
+    ctx.restore();
+  }
   ctx.fillStyle = 'rgba(14,42,74,.10)';
   roundRect(ctx, [r[0], r[1] + lift + 8, r[2], r[3] + 8], radius); ctx.fill();
   ctx.fillStyle = edge;
   roundRect(ctx, [r[0], r[1] + lift, r[2], r[3]], radius); ctx.fill();
-  ctx.fillStyle = face;
-  roundRect(ctx, [r[0], r[1] + lift, r[2], r[3] - lift], radius); ctx.fill();
+
+  const top = r[1] + lift, bottom = r[3] - lift;
+  const g = ctx.createLinearGradient(0, top, 0, bottom);
+  g.addColorStop(0, lighten(face, 0.18));
+  g.addColorStop(1, darken(face, 0.06));
+  ctx.fillStyle = g;
+  roundRect(ctx, [r[0], top, r[2], bottom], radius); ctx.fill();
+  gloss(ctx, [r[0], top, r[2], bottom], radius, 1);
 }
 
 /* ------------------------------------------------------------------ text */
 const FAMILY = '"Nunito", system-ui, sans-serif';
+/** Theme.DISPLAY -- Baloo 2 ExtraBold, for labels, titles, wordmarks and the clock. */
+const DISPLAY_FAMILY = '"Baloo 2", ui-rounded, system-ui, sans-serif';
 
 function setFont(ctx, size, bold) {
   ctx.font = `${bold ? 800 : 400} ${size}px ${FAMILY}`;
+}
+
+function setDisplay(ctx, size) {
+  ctx.font = `800 ${size}px ${DISPLAY_FAMILY}`;
 }
 
 function text(ctx, s, x, cy, size, colour, align = 'left', bold = false) {
@@ -197,9 +242,67 @@ function fitText(ctx, s, box, size, minSize, colour, align = 'left', bold = fals
   text(ctx, out, x, (box[1] + box[3]) / 2, px, colour, align, bold);
 }
 
+/** Theme.measureLabel. */
+function measureLabel(ctx, s, size) {
+  setDisplay(ctx, size);
+  return ctx.measureText(s).width;
+}
+
+/** Theme.labelSize: the largest size at or below `size` at which `s` fits `max`. */
+function labelSize(ctx, s, size, minSize, max) {
+  let px = size;
+  setDisplay(ctx, px);
+  while (px > minSize && ctx.measureText(s).width > max) { px -= 1; setDisplay(ctx, px); }
+  return px;
+}
+
+/** Theme.label. */
+function label(ctx, s, x, cy, size, colour, align = 'left') {
+  setDisplay(ctx, size);
+  ctx.textAlign = align;
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = colour;
+  ctx.fillText(s, x, cy);
+}
+
+/** Theme.labelFit. */
+function labelFit(ctx, s, box, size, minSize, colour, align = 'center') {
+  const max = box[2] - box[0];
+  const px = labelSize(ctx, s, size, minSize, max);
+  let out = s;
+  if (ctx.measureText(out).width > max) {
+    while (out.length > 1 && ctx.measureText(out + '...').width > max) out = out.slice(0, -1);
+    out += '...';
+  }
+  const x = align === 'left' ? box[0] : align === 'right' ? box[2] : (box[0] + box[2]) / 2;
+  label(ctx, out, x, (box[1] + box[3]) / 2, px, colour, align);
+}
+
+/**
+ * Theme.drawTime: every digit centred in a cell one widest-digit wide, so the
+ * countdown never shifts as it ticks. Baloo 2 has no tabular figures.
+ */
+function drawTime(ctx, ms, x, cy, size, colour, align = 'center') {
+  const s = formatTime(ms);
+  setDisplay(ctx, size);
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = colour;
+  let step = 0;
+  for (let d = 0; d <= 9; d++) step = Math.max(step, ctx.measureText(String(d)).width);
+  let total = 0;
+  for (const ch of s) total += ch === ':' ? ctx.measureText(ch).width : step;
+  let cursor = align === 'center' ? x - total / 2 : align === 'right' ? x - total : x;
+  for (const ch of s) {
+    const w = ctx.measureText(ch).width;
+    if (ch === ':') { ctx.fillText(ch, cursor, cy); cursor += w; }
+    else { ctx.fillText(ch, cursor + (step - w) / 2, cy); cursor += step; }
+  }
+}
+
 /** Theme.wordmark: a thick white halo, then the fill. */
 function wordmark(ctx, s, cx, cy, size, fill) {
-  setFont(ctx, size, true);
+  setDisplay(ctx, size);
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.lineJoin = 'round';
@@ -217,7 +320,7 @@ function wordmark(ctx, s, cx, cy, size, fill) {
 
 /** Theme.wordmarkLetters: one colour per letter, placed by advance. */
 function wordmarkLetters(ctx, s, cx, cy, size, colours) {
-  setFont(ctx, size, true);
+  setDisplay(ctx, size);
   ctx.textAlign = 'left';
   ctx.textBaseline = 'middle';
   const total = ctx.measureText(s).width;

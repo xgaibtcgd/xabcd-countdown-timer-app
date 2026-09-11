@@ -95,8 +95,10 @@ final class ScreenAdventure extends Screen {
 
         RectF title = layout.advTitle;
         float size = Math.min(title.height() * 0.44f, Layout.W * 0.062f);
+        // Not white: wordmark() haloes in white, so a white fill vanished into its own
+        // outline. The deep blue is Home's "Morning", which ties the two titles together.
         Theme.wordmark(c, "Buddy", title.centerX(), title.top + title.height() * 0.32f,
-                       size, 0xFFFFFFFF);
+                       size, 0xFF1857A5);
         Theme.wordmark(c, "Adventure!", title.centerX(), title.top + title.height() * 0.78f,
                        size * 1.06f, 0xFFFFF06A);
     }
@@ -219,16 +221,19 @@ final class ScreenAdventure extends Screen {
         boolean done = engine.allDone();
         Theme.button(c, box, box.height() * 0.5f,
                      done ? Theme.SUCCESS_DEEP : Theme.SUCCESS,
-                     Theme.darken(done ? Theme.SUCCESS_DEEP : Theme.SUCCESS, 0.22f), press);
+                     Theme.darken(done ? Theme.SUCCESS_DEEP : Theme.SUCCESS, 0.22f),
+                     press, 1f);
         float cy = box.centerY() + box.height() * 0.04f * press;
         String label = done ? "YOU DID IT!" : "I DID IT!";
         float glyph = box.height() * 0.40f;
-        float textWidth = Theme.measure(label, Theme.H2, true);
+        float room = box.width() - glyph - 20f - box.height() * 0.5f;
+        float textSize = Theme.labelSize(label, Theme.H2, 16f, room);
+        float textWidth = Theme.measureLabel(label, textSize);
         float startX = box.centerX() - (glyph + 20f + textWidth) * 0.5f;
         Icons.glyph(c, done ? Art.GLYPH_STAR : Art.GLYPH_CHECK,
                     startX + glyph * 0.5f, cy, glyph, 0xFFFFFFFF);
-        Theme.textCentered(c, label, startX + glyph + 20f, cy,
-                           Theme.H2, 0xFFFFFFFF, Paint.Align.LEFT, true);
+        Theme.label(c, label, startX + glyph + 20f, cy,
+                    textSize, 0xFFFFFFFF, Paint.Align.LEFT);
     }
 
     private void drawPausedVeil(Canvas c, Layout layout) {
@@ -236,9 +241,9 @@ final class ScreenAdventure extends Screen {
         fill.setShader(null);
         fill.setColor(0x7A0E3560);
         c.drawRect(layout.advScene, fill);
-        Theme.textCentered(c, "Tap play to carry on", layout.advScene.centerX(),
-                           layout.advScene.centerY(), Theme.H2, 0xFFFFFFFF,
-                           Paint.Align.CENTER, true);
+        Theme.label(c, "Tap play to carry on", layout.advScene.centerX(),
+                    layout.advScene.centerY(), Theme.H2, 0xFFFFFFFF,
+                    Paint.Align.CENTER);
     }
 
     @Override void onRegion(int id, int data) {

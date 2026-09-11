@@ -103,12 +103,12 @@ final class ScreenHome extends Screen {
         scratch.offset(0f, chip.height() * 0.06f * press);
         Theme.card(c, scratch, scratch.height() * 0.5f, 0xF7FFFFFF);
         float glyphSize = scratch.height() * 0.46f;
-        float textWidth = Theme.measure("Grown-Ups", Theme.B1, true);
+        float textWidth = Theme.measureLabel("Grown-Ups", Theme.B1);
         float startX = scratch.centerX() - (glyphSize + 12f + textWidth) * 0.5f;
         Icons.glyph(c, Art.GLYPH_PEOPLE, startX + glyphSize * 0.5f, scratch.centerY(),
                     glyphSize, theme.ink);
-        Theme.textCentered(c, "Grown-Ups", startX + glyphSize + 12f, scratch.centerY(),
-                           Theme.B1, theme.ink, Paint.Align.LEFT, true);
+        Theme.label(c, "Grown-Ups", startX + glyphSize + 12f, scratch.centerY(),
+                    Theme.B1, theme.ink, Paint.Align.LEFT);
     }
 
     private void drawMinuteBubbles(Canvas c, Layout layout, BuddyTheme theme) {
@@ -132,6 +132,7 @@ final class ScreenHome extends Screen {
             fill.setShader(null);
             fill.setColor(on ? theme.primary : BUBBLE[i]);
             c.drawCircle(cx, cy, radius, fill);
+            Theme.glossCircle(c, cx, cy, radius, 1f);
             if (on) {
                 Paint stroke = Theme.STROKE;
                 stroke.setShader(null);
@@ -140,9 +141,9 @@ final class ScreenHome extends Screen {
                 stroke.setColor(0xFFFFFFFF);
                 c.drawCircle(cx, cy, radius * 1.06f, stroke);
             }
-            Theme.textCentered(c, Integer.toString(MINUTES[i]), cx, cy,
-                               Math.max(20f, radius * 0.82f),
-                               on ? 0xFFFFFFFF : 0xFF173C79, Paint.Align.CENTER, true);
+            Theme.label(c, Integer.toString(MINUTES[i]), cx, cy,
+                        Math.max(20f, radius * 0.78f),
+                        on ? 0xFFFFFFFF : 0xFF173C79, Paint.Align.CENTER);
         }
     }
 
@@ -163,20 +164,20 @@ final class ScreenHome extends Screen {
     }
 
     private void drawRoutineHeader(Canvas c, Layout layout, BuddyTheme theme) {
-        Theme.textCentered(c, "Today's Mission", layout.routineHeader.left,
-                           layout.routineHeader.centerY(), Theme.H2, Theme.INK,
-                           Paint.Align.LEFT, true);
+        Theme.label(c, "Today's Mission", layout.routineHeader.left,
+                    layout.routineHeader.centerY(), Theme.H2, Theme.INK,
+                    Paint.Align.LEFT);
         RectF chip = layout.editChip;
         scratch.set(chip);
         scratch.offset(0f, chip.height() * 0.06f * view.pressOn(R_EDIT));
         Theme.card(c, scratch, scratch.height() * 0.5f, 0xF6FFFFFF);
         float glyph = scratch.height() * 0.44f;
-        float textWidth = Theme.measure("Edit", Theme.B1, true);
+        float textWidth = Theme.measureLabel("Edit", Theme.B1);
         float startX = scratch.centerX() - (glyph + 10f + textWidth) * 0.5f;
         Icons.glyph(c, Art.GLYPH_PENCIL, startX + glyph * 0.5f, scratch.centerY(),
                     glyph, theme.ink);
-        Theme.textCentered(c, "Edit", startX + glyph + 10f, scratch.centerY(),
-                           Theme.B1, theme.ink, Paint.Align.LEFT, true);
+        Theme.label(c, "Edit", startX + glyph + 10f, scratch.centerY(),
+                    Theme.B1, theme.ink, Paint.Align.LEFT);
     }
 
     private void drawTasks(Canvas c, Layout layout, BuddyTheme theme) {
@@ -277,15 +278,18 @@ final class ScreenHome extends Screen {
         // gets a way back in rather than a button that looks like it would restart.
         boolean resuming = view.engine.isRunning() && !view.engine.allDone();
         String label = resuming ? "BACK TO THE MORNING" : "START MORNING";
-        Theme.button(c, box, box.height() * 0.5f, Theme.CTA, Theme.CTA_DEEP, press);
+        Theme.button(c, box, box.height() * 0.5f, Theme.CTA, Theme.CTA_DEEP, press, 1f);
         float cy = box.centerY() + box.height() * 0.04f * press;
         float size = box.height() * 0.40f;
-        float textSize = resuming ? Theme.T2 : Theme.H2;
-        float textWidth = Theme.measure(label, textSize, true);
+        // The glyph, its gap and a pill's worth of end padding all have to come out of
+        // the button before the label knows how much room it has.
+        float room = box.width() - size - 20f - box.height() * 0.5f;
+        float textSize = Theme.labelSize(label, resuming ? Theme.T2 : Theme.H2, 16f, room);
+        float textWidth = Theme.measureLabel(label, textSize);
         float startX = box.centerX() - (size + 20f + textWidth) * 0.5f;
         Icons.glyph(c, Art.GLYPH_PLAY, startX + size * 0.5f, cy, size, 0xFFFFFFFF);
-        Theme.textCentered(c, label, startX + size + 20f, cy,
-                           textSize, 0xFFFFFFFF, Paint.Align.LEFT, true);
+        Theme.label(c, label, startX + size + 20f, cy,
+                    textSize, 0xFFFFFFFF, Paint.Align.LEFT);
     }
 
     private void drawNav(Canvas c, Layout layout, BuddyTheme theme) {

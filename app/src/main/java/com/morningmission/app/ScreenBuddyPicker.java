@@ -53,9 +53,11 @@ final class ScreenBuddyPicker extends Screen {
         float press = view.pressOn(R_CONFIRM);
         Theme.button(c, confirm, confirm.height() * 0.5f, chosen.primary,
                      Theme.darken(chosen.primary, 0.22f), press);
-        Theme.textCentered(c, "Use " + chosen.name, confirm.centerX(),
-                           confirm.centerY() + confirm.height() * 0.04f * press,
-                           Theme.H2, 0xFFFFFFFF, Paint.Align.CENTER, true);
+        scratch.set(confirm);
+        scratch.inset(confirm.height() * 0.5f, 0f);
+        scratch.offset(0f, confirm.height() * 0.04f * press);
+        Theme.labelFit(c, "Use " + chosen.name, scratch, Theme.H2, 18f,
+                       0xFFFFFFFF, Paint.Align.CENTER);
     }
 
     private void drawCard(Canvas c, RectF box, BuddyTheme theme, boolean selected, int index) {

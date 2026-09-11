@@ -122,7 +122,7 @@ final class ScreenComplete extends Screen {
         RectF play = layout.cmpPlayAgain;
         float press = view.pressOn(R_PLAY_AGAIN);
         Theme.button(c, play, play.height() * 0.5f, Theme.SUCCESS,
-                     Theme.SUCCESS_DEEP, press);
+                     Theme.SUCCESS_DEEP, press, 1f);
         labelled(c, play, press, Art.GLYPH_REFRESH, "Play Again", 0xFFFFFFFF);
 
         RectF home = layout.cmpBackHome;
@@ -134,11 +134,13 @@ final class ScreenComplete extends Screen {
     private void labelled(Canvas c, RectF box, float press, int glyph, String label, int colour) {
         float cy = box.centerY() + box.height() * 0.04f * press;
         float size = box.height() * 0.38f;
-        float textWidth = Theme.measure(label, Theme.H2, true);
+        float room = box.width() - size - 18f - box.height() * 0.5f;
+        float textSize = Theme.labelSize(label, Theme.H2, 16f, room);
+        float textWidth = Theme.measureLabel(label, textSize);
         float startX = box.centerX() - (size + 18f + textWidth) * 0.5f;
         Icons.glyph(c, glyph, startX + size * 0.5f, cy, size, colour);
-        Theme.textCentered(c, label, startX + size + 18f, cy, Theme.H2, colour,
-                           Paint.Align.LEFT, true);
+        Theme.label(c, label, startX + size + 18f, cy, textSize, colour,
+                    Paint.Align.LEFT);
     }
 
     @Override void onRegion(int id, int data) {

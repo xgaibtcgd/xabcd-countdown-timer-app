@@ -35,6 +35,7 @@ function glyphChip(ctx, name, r, chipColour, glyphColour) {
   contactShadow(ctx, cx, cy + size * 0.40, size * 0.38, size * 0.12);
   ctx.fillStyle = chipColour;
   ctx.beginPath(); ctx.arc(cx, cy, size * 0.5, 0, Math.PI * 2); ctx.fill();
+  glossCircle(ctx, cx, cy, size * 0.5, 1);
   drawGlyph(ctx, name, cx, cy, size * 0.52, glyphColour);
 }
 
@@ -170,13 +171,14 @@ function screenHome(ctx, L, buddy, t) {
     contactShadow(ctx, cx, cy + radius * 0.85, radius * 0.8, radius * 0.28, 0.9);
     ctx.fillStyle = on ? buddy.primary : BUBBLE[i];
     ctx.beginPath(); ctx.arc(cx, cy, radius, 0, Math.PI * 2); ctx.fill();
+    glossCircle(ctx, cx, cy, radius, 1);
     if (on) {
       ctx.strokeStyle = '#ffffff';
       ctx.lineWidth = radius * 0.16;
       ctx.beginPath(); ctx.arc(cx, cy, radius * 1.06, 0, Math.PI * 2); ctx.stroke();
     }
-    text(ctx, String(MINUTES[i]), cx, cy, Math.max(20, radius * 0.82),
-         on ? '#ffffff' : '#173C79', 'center', true);
+    label(ctx, String(MINUTES[i]), cx, cy, Math.max(20, radius * 0.78),
+          on ? '#ffffff' : '#173C79', 'center');
   }
 
   drawSceneForeground(ctx, scene, t, true);
@@ -185,33 +187,31 @@ function screenHome(ctx, L, buddy, t) {
   const gu = L.grownUpsChip;
   card(ctx, gu, rh(gu) / 2, 'rgba(255,255,255,.97)');
   const gSize = rh(gu) * 0.46;
-  setFont(ctx, DATA.type.b1, true);
-  const gWidth = ctx.measureText('Grown-Ups').width;
+  const gWidth = measureLabel(ctx, 'Grown-Ups', DATA.type.b1);
   let gx = rcx(gu) - (gSize + 12 + gWidth) / 2;
   drawGlyph(ctx, 'people', gx + gSize / 2, rcy(gu), gSize, buddy.ink);
-  text(ctx, 'Grown-Ups', gx + gSize + 12, rcy(gu), DATA.type.b1, buddy.ink, 'left', true);
+  label(ctx, 'Grown-Ups', gx + gSize + 12, rcy(gu), DATA.type.b1, buddy.ink, 'left');
 
   // timer card
   const tc = L.timerCard;
   card(ctx, tc, rh(tc) * 0.30, 'rgba(255,255,255,.98)');
-  text(ctx, '15:00', rcx(tc), rcy(tc) - rh(tc) * 0.10,
-       Math.min(DATA.type.d1, rh(tc) * 0.50), DATA.tokens.ink, 'center', true);
+  drawTime(ctx, 15 * 60000, rcx(tc), rcy(tc) - rh(tc) * 0.10,
+           Math.min(DATA.type.d1, rh(tc) * 0.50), DATA.tokens.ink, 'center');
   text(ctx, 'Tap to customise', rcx(tc), tc[3] - rh(tc) * 0.19,
        DATA.type.b2, DATA.tokens.inkMuted, 'center', false);
   drawGlyph(ctx, 'pencil', rcx(L.timerPencil), rcy(L.timerPencil),
             Math.min(rw(L.timerPencil), rh(L.timerPencil)) * 0.62, buddy.accent);
 
   // routine header
-  text(ctx, "Today's Mission", L.routineHeader[0], rcy(L.routineHeader),
-       DATA.type.h2, DATA.tokens.ink, 'left', true);
+  label(ctx, "Today's Mission", L.routineHeader[0], rcy(L.routineHeader),
+        DATA.type.h2, DATA.tokens.ink, 'left');
   const ec = L.editChip;
   card(ctx, ec, rh(ec) / 2, 'rgba(255,255,255,.96)');
   const eSize = rh(ec) * 0.44;
-  setFont(ctx, DATA.type.b1, true);
-  const eWidth = ctx.measureText('Edit').width;
+  const eWidth = measureLabel(ctx, 'Edit', DATA.type.b1);
   const ex = rcx(ec) - (eSize + 10 + eWidth) / 2;
   drawGlyph(ctx, 'pencil', ex + eSize / 2, rcy(ec), eSize, buddy.ink);
-  text(ctx, 'Edit', ex + eSize + 10, rcy(ec), DATA.type.b1, buddy.ink, 'left', true);
+  label(ctx, 'Edit', ex + eSize + 10, rcy(ec), DATA.type.b1, buddy.ink, 'left');
 
   // task rows -- first two done, third active, as a real morning in progress
   ctx.save();
@@ -250,13 +250,14 @@ function screenHome(ctx, L, buddy, t) {
 
   // start button
   const sb = L.startBtn;
-  button(ctx, sb, rh(sb) / 2, DATA.tokens.cta, DATA.tokens.ctaDeep);
+  button(ctx, sb, rh(sb) / 2, DATA.tokens.cta, DATA.tokens.ctaDeep, 1);
   const pSize = rh(sb) * 0.40;
-  setFont(ctx, DATA.type.h2, true);
-  const pWidth = ctx.measureText('START MORNING').width;
+  const pRoom = rw(sb) - pSize - 20 - rh(sb) * 0.5;
+  const pPx = labelSize(ctx, 'START MORNING', DATA.type.h2, 16, pRoom);
+  const pWidth = measureLabel(ctx, 'START MORNING', pPx);
   const px = rcx(sb) - (pSize + 20 + pWidth) / 2;
   drawGlyph(ctx, 'play', px + pSize / 2, rcy(sb), pSize, '#ffffff');
-  text(ctx, 'START MORNING', px + pSize + 20, rcy(sb), DATA.type.h2, '#ffffff', 'left', true);
+  label(ctx, 'START MORNING', px + pSize + 20, rcy(sb), pPx, '#ffffff', 'left');
 
   // nav
   card(ctx, L.navBar, rh(L.navBar) * 0.38, 'rgba(255,255,255,.97)');
@@ -297,13 +298,13 @@ function screenAdventure(ctx, L, buddy, t) {
 
   const title = L.advTitle;
   const tSize = Math.min(rh(title) * 0.44, DATA.metrics.designWidth * 0.062);
-  wordmark(ctx, 'Buddy', rcx(title), title[1] + rh(title) * 0.32, tSize, '#ffffff');
+  wordmark(ctx, 'Buddy', rcx(title), title[1] + rh(title) * 0.32, tSize, '#1857A5');
   wordmark(ctx, 'Adventure!', rcx(title), title[1] + rh(title) * 0.78, tSize * 1.06, '#FFF06A');
 
   const clock = L.advClock;
   card(ctx, clock, rh(clock) * 0.34, 'rgba(255,255,255,.97)');
-  text(ctx, '9:24', rcx(clock), rcy(clock) - rh(clock) * 0.11,
-       Math.min(DATA.type.d1, rh(clock) * 0.52), DATA.tokens.ink, 'center', true);
+  drawTime(ctx, 564000, rcx(clock), rcy(clock) - rh(clock) * 0.11,
+           Math.min(DATA.type.d1, rh(clock) * 0.52), DATA.tokens.ink, 'center');
   text(ctx, 'Keep going!', rcx(clock), clock[3] - rh(clock) * 0.19,
        DATA.type.b2, DATA.tokens.inkMuted, 'center', true);
 
@@ -351,13 +352,14 @@ function screenAdventure(ctx, L, buddy, t) {
 
   // action
   const act = L.advAction;
-  button(ctx, act, rh(act) / 2, DATA.tokens.success, darken(DATA.tokens.success, 0.22));
+  button(ctx, act, rh(act) / 2, DATA.tokens.success, darken(DATA.tokens.success, 0.22), 1);
   const aSize = rh(act) * 0.40;
-  setFont(ctx, DATA.type.h2, true);
-  const aWidth = ctx.measureText('I DID IT!').width;
+  const aRoom = rw(act) - aSize - 20 - rh(act) * 0.5;
+  const aPx = labelSize(ctx, 'I DID IT!', DATA.type.h2, 16, aRoom);
+  const aWidth = measureLabel(ctx, 'I DID IT!', aPx);
   const ax = rcx(act) - (aSize + 20 + aWidth) / 2;
   drawGlyph(ctx, 'check', ax + aSize / 2, rcy(act), aSize, '#ffffff');
-  text(ctx, 'I DID IT!', ax + aSize + 20, rcy(act), DATA.type.h2, '#ffffff', 'left', true);
+  label(ctx, 'I DID IT!', ax + aSize + 20, rcy(act), aPx, '#ffffff', 'left');
 }
 
 /* ================================================================== COMPLETE */
@@ -399,8 +401,8 @@ function screenComplete(ctx, L, buddy, t) {
   card(ctx, box, rh(box) * 0.20, 'rgba(255,255,255,.98)');
   text(ctx, 'You finished with', rcx(box), box[1] + rh(box) * 0.20,
        DATA.type.b1, DATA.tokens.inkMuted, 'center', false);
-  text(ctx, '3:42', rcx(box), box[1] + rh(box) * 0.50,
-       Math.min(DATA.type.d1, rh(box) * 0.36), DATA.tokens.ink, 'center', true);
+  drawTime(ctx, 222000, rcx(box), box[1] + rh(box) * 0.50,
+           Math.min(DATA.type.d1, rh(box) * 0.36), DATA.tokens.ink, 'center');
   text(ctx, 'left on the clock!', rcx(box), box[1] + rh(box) * 0.72,
        DATA.type.b1, DATA.tokens.inkMuted, 'center', false);
   fitText(ctx, "Amazing! You're a Morning Hero!",
@@ -408,18 +410,19 @@ function screenComplete(ctx, L, buddy, t) {
           DATA.type.b1, 13, buddy.ink, 'center', true);
 
   labelledButton(ctx, L.cmpPlayAgain, 'refresh', 'Play Again',
-                 DATA.tokens.success, DATA.tokens.successDeep, '#ffffff');
+                 DATA.tokens.success, DATA.tokens.successDeep, '#ffffff', 1);
   labelledButton(ctx, L.cmpBackHome, 'home', 'Back to Home', '#ffffff', '#DCE6F2', buddy.ink);
 }
 
-function labelledButton(ctx, r, g, label, face, edge, colour) {
-  button(ctx, r, rh(r) / 2, face, edge);
+function labelledButton(ctx, r, g, text, face, edge, colour, glow = 0) {
+  button(ctx, r, rh(r) / 2, face, edge, glow);
   const size = rh(r) * 0.38;
-  setFont(ctx, DATA.type.h2, true);
-  const width = ctx.measureText(label).width;
+  const room = rw(r) - size - 18 - rh(r) * 0.5;
+  const px = labelSize(ctx, text, DATA.type.h2, 16, room);
+  const width = measureLabel(ctx, text, px);
   const x = rcx(r) - (size + 18 + width) / 2;
   drawGlyph(ctx, g, x + size / 2, rcy(r), size, colour);
-  text(ctx, label, x + size + 18, rcy(r), DATA.type.h2, colour, 'left', true);
+  label(ctx, text, x + size + 18, rcy(r), px, colour, 'left');
 }
 
 /** A still frame of the particle system: two corner cannons under gravity. */
@@ -505,7 +508,9 @@ function screenBuddyPicker(ctx, L, buddy, t) {
 
   const confirm = L.pickConfirm;
   button(ctx, confirm, rh(confirm) / 2, buddy.primary, darken(buddy.primary, 0.22));
-  text(ctx, 'Use ' + buddy.name, rcx(confirm), rcy(confirm), DATA.type.h2, '#ffffff', 'center', true);
+  labelFit(ctx, 'Use ' + buddy.name,
+           [confirm[0] + rh(confirm) * 0.5, confirm[1], confirm[2] - rh(confirm) * 0.5, confirm[3]],
+           DATA.type.h2, 18, '#ffffff', 'center');
 }
 
 /* =============================================================== TIME PICKER */
@@ -527,8 +532,8 @@ function screenTimePicker(ctx, L, buddy, t) {
 
   const display = L.timeDisplay;
   card(ctx, display, rh(display) * 0.30, '#ffffff');
-  text(ctx, '25:00', rcx(display), rcy(display),
-       Math.min(DATA.type.d1, rh(display) * 0.50), DATA.tokens.ink, 'center', true);
+  drawTime(ctx, 25 * 60000, rcx(display), rcy(display),
+           Math.min(DATA.type.d1, rh(display) * 0.50), DATA.tokens.ink, 'center');
   glyphChip(ctx, 'minus', L.timeMinus, '#ffffff', buddy.primary);
   glyphChip(ctx, 'plus', L.timePlus, '#ffffff', buddy.primary);
 
@@ -540,8 +545,9 @@ function screenTimePicker(ctx, L, buddy, t) {
     contactShadow(ctx, rcx(box), rcy(box) + radius * 0.85, radius * 0.8, radius * 0.28, 0.85);
     ctx.fillStyle = on ? buddy.primary : mix(buddy.light, '#ffffff', 0.25);
     ctx.beginPath(); ctx.arc(rcx(box), rcy(box), radius, 0, Math.PI * 2); ctx.fill();
-    text(ctx, String(MINUTES[i]), rcx(box), rcy(box), Math.max(19, radius * 0.80),
-         on ? '#ffffff' : buddy.ink, 'center', true);
+    glossCircle(ctx, rcx(box), rcy(box), radius, 1);
+    label(ctx, String(MINUTES[i]), rcx(box), rcy(box), Math.max(19, radius * 0.76),
+          on ? '#ffffff' : buddy.ink, 'center');
   }
 
   const slider = L.timeSlider;
@@ -564,7 +570,7 @@ function screenTimePicker(ctx, L, buddy, t) {
 
   const set = L.timeSet;
   button(ctx, set, rh(set) / 2, buddy.primary, darken(buddy.primary, 0.22));
-  text(ctx, 'Set Time', rcx(set), rcy(set), DATA.type.h2, '#ffffff', 'center', true);
+  label(ctx, 'Set Time', rcx(set), rcy(set), DATA.type.h2, '#ffffff', 'center');
 }
 
 /* ================================================================= GROWN-UPS */
@@ -577,7 +583,7 @@ function screenGrownUps(ctx, L, buddy, t) {
   ctx.fillRect(0, 0, DATA.metrics.designWidth, L.height);
 
   glyphChip(ctx, 'chevron-left', L.guBack, '#ffffff', buddy.ink);
-  text(ctx, 'Grown-Ups', rcx(L.guTitle), rcy(L.guTitle), DATA.type.h1, DATA.tokens.ink, 'center', true);
+  labelFit(ctx, 'Grown-Ups', L.guTitle, DATA.type.h1, 22, DATA.tokens.ink, 'center');
 
   ctx.save();
   ctx.beginPath();
@@ -640,7 +646,7 @@ function screenEditRoutine(ctx, L, buddy, t) {
   ctx.fillRect(0, 0, DATA.metrics.designWidth, L.height);
 
   glyphChip(ctx, 'chevron-left', L.edBack, '#ffffff', buddy.ink);
-  text(ctx, 'Edit Routine', rcx(L.edTitle), rcy(L.edTitle), DATA.type.h1, DATA.tokens.ink, 'center', true);
+  labelFit(ctx, 'Edit Routine', L.edTitle, DATA.type.h1, 22, DATA.tokens.ink, 'center');
 
   ctx.save();
   ctx.beginPath();
@@ -672,15 +678,14 @@ function screenEditRoutine(ctx, L, buddy, t) {
   const add = L.edAdd;
   button(ctx, add, rh(add) / 2, '#ffffff', '#DCE6F2');
   const gSize = rh(add) * 0.36;
-  setFont(ctx, DATA.type.t2, true);
-  const gWidth = ctx.measureText('Add a Task').width;
+  const gWidth = measureLabel(ctx, 'Add a Task', DATA.type.t2);
   const gx = rcx(add) - (gSize + 16 + gWidth) / 2;
   drawGlyph(ctx, 'plus', gx + gSize / 2, rcy(add), gSize, buddy.primary);
-  text(ctx, 'Add a Task', gx + gSize + 16, rcy(add), DATA.type.t2, buddy.ink, 'left', true);
+  label(ctx, 'Add a Task', gx + gSize + 16, rcy(add), DATA.type.t2, buddy.ink, 'left');
 
   const save = L.edSave;
   button(ctx, save, rh(save) / 2, buddy.primary, darken(buddy.primary, 0.22));
-  text(ctx, 'Save Routine', rcx(save), rcy(save), DATA.type.h2, '#ffffff', 'center', true);
+  label(ctx, 'Save Routine', rcx(save), rcy(save), DATA.type.h2, '#ffffff', 'center');
 }
 
 const SCREENS = [

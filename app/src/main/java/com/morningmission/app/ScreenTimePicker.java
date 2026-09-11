@@ -86,9 +86,9 @@ final class ScreenTimePicker extends Screen {
         float press = view.pressOn(R_SET);
         Theme.button(c, set, set.height() * 0.5f, theme.primary,
                      Theme.darken(theme.primary, 0.22f), press);
-        Theme.textCentered(c, "Set Time", set.centerX(),
-                           set.centerY() + set.height() * 0.04f * press,
-                           Theme.H2, 0xFFFFFFFF, Paint.Align.CENTER, true);
+        Theme.label(c, "Set Time", set.centerX(),
+                    set.centerY() + set.height() * 0.04f * press,
+                    Theme.H2, 0xFFFFFFFF, Paint.Align.CENTER);
     }
 
     private void stepper(Canvas c, RectF box, int glyph, BuddyTheme theme,
@@ -110,9 +110,10 @@ final class ScreenTimePicker extends Screen {
                                radius * 0.8f, radius * 0.28f, 0.85f);
             fill.setColor(on ? theme.primary : Theme.mix(theme.light, 0xFFFFFFFF, 0.25f));
             c.drawCircle(box.centerX(), box.centerY(), radius, fill);
-            Theme.textCentered(c, Integer.toString(PRESETS[i]), box.centerX(), box.centerY(),
-                               Math.max(19f, radius * 0.80f),
-                               on ? 0xFFFFFFFF : theme.ink, Paint.Align.CENTER, true);
+            Theme.glossCircle(c, box.centerX(), box.centerY(), radius, 1f);
+            Theme.label(c, Integer.toString(PRESETS[i]), box.centerX(), box.centerY(),
+                        Math.max(19f, radius * 0.76f),
+                        on ? 0xFFFFFFFF : theme.ink, Paint.Align.CENTER);
         }
     }
 

@@ -68,9 +68,8 @@ final class ScreenGrownUps extends Screen {
 
         Icons.glyphChip(c, Art.GLYPH_CHEVRON_LEFT, layout.guBack, 0xFFFFFFFF,
                         theme.ink, view.pressOn(R_BACK));
-        Theme.textCentered(c, "Grown-Ups", layout.guTitle.centerX(),
-                           layout.guTitle.centerY(), Theme.H1, Theme.INK,
-                           Paint.Align.CENTER, true);
+        Theme.labelFit(c, "Grown-Ups", layout.guTitle, Theme.H1, 22f, Theme.INK,
+                       Paint.Align.CENTER);
 
         c.save();
         c.clipRect(layout.guBand);

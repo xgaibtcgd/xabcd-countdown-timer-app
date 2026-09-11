@@ -68,9 +68,8 @@ final class ScreenEditRoutine extends Screen {
 
         Icons.glyphChip(c, Art.GLYPH_CHEVRON_LEFT, layout.edBack, 0xFFFFFFFF,
                         theme.ink, view.pressOn(R_BACK));
-        Theme.textCentered(c, "Edit Routine", layout.edTitle.centerX(),
-                           layout.edTitle.centerY(), Theme.H1, Theme.INK,
-                           Paint.Align.CENTER, true);
+        Theme.labelFit(c, "Edit Routine", layout.edTitle, Theme.H1, 22f, Theme.INK,
+                       Paint.Align.CENTER);
 
         c.save();
         c.clipRect(layout.edBand);
@@ -97,20 +96,20 @@ final class ScreenEditRoutine extends Screen {
         float addPress = view.pressOn(R_ADD);
         Theme.button(c, add, add.height() * 0.5f, 0xFFFFFFFF, 0xFFDCE6F2, addPress);
         float glyph = add.height() * 0.36f;
-        float textWidth = Theme.measure("Add a Task", Theme.T2, true);
+        float textWidth = Theme.measureLabel("Add a Task", Theme.T2);
         float startX = add.centerX() - (glyph + 16f + textWidth) * 0.5f;
         float cy = add.centerY() + add.height() * 0.04f * addPress;
         Icons.glyph(c, Art.GLYPH_PLUS, startX + glyph * 0.5f, cy, glyph, theme.primary);
-        Theme.textCentered(c, "Add a Task", startX + glyph + 16f, cy,
-                           Theme.T2, theme.ink, Paint.Align.LEFT, true);
+        Theme.label(c, "Add a Task", startX + glyph + 16f, cy,
+                    Theme.T2, theme.ink, Paint.Align.LEFT);
 
         RectF save = layout.edSave;
         float savePress = view.pressOn(R_SAVE);
         Theme.button(c, save, save.height() * 0.5f, theme.primary,
                      Theme.darken(theme.primary, 0.22f), savePress);
-        Theme.textCentered(c, "Save Routine", save.centerX(),
-                           save.centerY() + save.height() * 0.04f * savePress,
-                           Theme.H2, 0xFFFFFFFF, Paint.Align.CENTER, true);
+        Theme.label(c, "Save Routine", save.centerX(),
+                    save.centerY() + save.height() * 0.04f * savePress,
+                    Theme.H2, 0xFFFFFFFF, Paint.Align.CENTER);
     }
 
     private void drawRow(Canvas c, RectF row, RectF clip, BuddyTheme theme, int index) {

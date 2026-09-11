@@ -85,6 +85,7 @@ python3 "$ROOT/tools/canvasbalance.py" "$PKG"/*.java
 # ------------------------------------------------- per-frame allocation gate
 python3 "$ROOT/tools/allocgate.py" \
   "$PKG"/Screen*.java "$PKG"/Scene.java "$PKG"/Icons.java "$PKG"/Glyphs.java \
-  "$PKG"/Clay.java "$PKG"/Particles.java "$PKG"/Anim.java "$PKG"/MorningView.java
+  "$PKG"/Clay.java "$PKG"/Particles.java "$PKG"/Anim.java "$PKG"/MorningView.java \
+  "$PKG"/Theme.java
 
 say "==> OK"

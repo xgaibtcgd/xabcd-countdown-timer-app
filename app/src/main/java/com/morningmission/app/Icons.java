@@ -233,6 +233,9 @@ final class Icons {
         fill.setShader(null);
         fill.setColor(chipColor);
         c.drawCircle(cx, cy, size * 0.5f, fill);
+        // The same highlight the buttons and bubbles carry, dimmed under a press, so
+        // every round surface in the app reads as one material.
+        Theme.glossCircle(c, cx, cy, size * 0.5f, 1f - 0.45f * Theme.clamp(press, 0f, 1f));
         glyph(c, which, cx, cy, size * 0.52f, glyphColor);
     }
 }

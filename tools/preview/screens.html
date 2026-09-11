@@ -418,8 +418,17 @@ BACKDROPS.home = home;
 
 function start() {
   buildSheet();
-  if (document.fonts && document.fonts.ready) {
-    document.fonts.ready.then(() => requestAnimationFrame(frame));
+  // A canvas never requests a webfont by itself, and fonts.ready can resolve before the
+  // display face has arrived -- which with motion off would leave the one rendered frame
+  // set in a fallback. Ask for the two canvas faces explicitly first.
+  if (document.fonts && document.fonts.load) {
+    Promise.all([
+      document.fonts.load('800 78px "Baloo 2"'),
+      document.fonts.load('800 30px "Nunito"'),
+      document.fonts.load('400 30px "Nunito"'),
+    ]).then(() => document.fonts.ready)
+      .then(() => requestAnimationFrame(frame))
+      .catch(() => requestAnimationFrame(frame));
   } else {
     requestAnimationFrame(frame);
   }

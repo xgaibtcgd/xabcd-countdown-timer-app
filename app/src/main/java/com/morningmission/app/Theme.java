@@ -74,6 +74,15 @@ final class Theme {
 
     static Typeface ROUND = Typeface.DEFAULT;
     static Typeface ROUND_BOLD = Typeface.DEFAULT_BOLD;
+    /**
+     * The display face: headings, button labels, the wordmark and the countdown.
+     *
+     * <p>Nunito is a text face. At wordmark size it is too light for artwork this heavy,
+     * and the mockup's lettering is visibly a different, chunkier family. Baloo 2
+     * ExtraBold is that family. Body copy stays in Nunito, which is the more readable of
+     * the two at task-row size.
+     */
+    static Typeface DISPLAY = Typeface.DEFAULT_BOLD;
     /** True when a bundled font was used, rather than the system "rounded" alias. */
     static boolean bundledFont;
 
@@ -89,6 +98,48 @@ final class Theme {
 
     private static final Paint.FontMetrics FM = new Paint.FontMetrics();
     private static final RectF SCRATCH = new RectF();
+    private static final android.graphics.Matrix SHADER_MATRIX = new android.graphics.Matrix();
+
+    /**
+     * White fading out downward, for the highlight along the top of a curved surface.
+     * Colour-independent, so one instance serves every button, chip and bubble.
+     */
+    private static final android.graphics.LinearGradient GLOSS =
+            new android.graphics.LinearGradient(0f, 0f, 0f, 1f,
+                    new int[]{0x59FFFFFF, 0x1FFFFFFF, 0x00FFFFFF},
+                    new float[]{0f, 0.55f, 1f}, android.graphics.Shader.TileMode.CLAMP);
+
+    // A button face gradient per colour, defined in 0..1 and placed with a matrix, so
+    // nothing is allocated per frame. Same approach as Clay.formGradient.
+    private static final int FACE_CACHE = 32;
+    private static final int[] faceKeys = new int[FACE_CACHE];
+    private static final android.graphics.LinearGradient[] faceValues =
+            new android.graphics.LinearGradient[FACE_CACHE];
+
+    private static android.graphics.LinearGradient faceGradient(int color) {
+        int slot = (color * 0x9E3779B1) >>> 27;          // 0..31
+        for (int probe = 0; probe < 6; probe++) {
+            int i = (slot + probe) & (FACE_CACHE - 1);
+            if (faceValues[i] != null && faceKeys[i] == color) return faceValues[i];
+            if (faceValues[i] == null) {
+                // allocgate: ok - fills the cache once per distinct colour
+                faceValues[i] = new android.graphics.LinearGradient(0f, 0f, 0f, 1f,
+                        lighten(color, 0.18f), darken(color, 0.06f),
+                        android.graphics.Shader.TileMode.CLAMP);
+                faceKeys[i] = color;
+                return faceValues[i];
+            }
+        }
+        return null;                                      // fall back to a flat fill
+    }
+
+    /** Maps a 0..1 vertical shader onto {@code top..bottom}. */
+    private static void placeShader(android.graphics.Shader shader, float top, float height) {
+        SHADER_MATRIX.reset();
+        SHADER_MATRIX.setScale(1f, Math.max(1f, height));
+        SHADER_MATRIX.postTranslate(0f, top);
+        shader.setLocalMatrix(SHADER_MATRIX);
+    }
 
     /**
      * Resolves typefaces once. Call from the View constructor.
@@ -121,6 +172,15 @@ final class Theme {
             ROUND = Typeface.create("sans-serif-rounded", Typeface.NORMAL);
             ROUND_BOLD = Typeface.create("sans-serif-rounded", Typeface.BOLD);
         }
+        try {
+            DISPLAY = context.getResources().getFont(R.font.mm_display);
+        } catch (Exception ignored) {
+            DISPLAY = null;
+        }
+        // Losing the display face costs character, not legibility: fall back to the text
+        // face's bold rather than leaving headings unset.
+        if (DISPLAY == null) DISPLAY = ROUND_BOLD;
+        tabularSize = -1f;   // measured lazily against whichever face we ended up with
     }
 
     // ------------------------------------------------------------------ colour math
@@ -191,21 +251,81 @@ final class Theme {
     }
 
     /**
-     * A chunky button: a face sitting on a darker bottom edge, which is what gives the
-     * mockup buttons their pressable look. {@code press} is 0 at rest and 1 held down.
+     * A candy button: a soft halo, a darker bottom edge, a gradient face and a gloss
+     * along the top. The edge is what makes it read as pressable; the gloss is what makes
+     * it read as a sweet rather than a Material surface.
+     *
+     * @param press 0 at rest, 1 held down -- the lift compresses and the shine dulls
+     * @param glow strength of the outer halo, for a primary action; 0 for the rest
      */
-    static void button(Canvas c, RectF r, float radius, int face, int edge, float press) {
-        float lift = lerp(10f, 2f, clamp(press, 0f, 1f));
+    static void button(Canvas c, RectF r, float radius, int face, int edge,
+                       float press, float glow) {
+        float held = clamp(press, 0f, 1f);
+        float lift = lerp(10f, 2f, held);
         FILL.setShader(null);
+
+        if (glow > 0.01f) {
+            float spread = lerp(16f, 8f, held) * clamp(glow, 0f, 1f);
+            FILL.setColor(alpha(face, (int) (40 * clamp(glow, 0f, 1f) * (1f - held * 0.4f))));
+            SCRATCH.set(r.left - spread, r.top + lift - spread * 0.4f,
+                        r.right + spread, r.bottom + spread * 0.8f);
+            c.drawRoundRect(SCRATCH, radius + spread, radius + spread, FILL);
+        }
+
         SCRATCH.set(r.left, r.top + lift + 8f, r.right, r.bottom + 8f);
         FILL.setColor(SHADOW_NEAR);
         c.drawRoundRect(SCRATCH, radius, radius, FILL);
+
         SCRATCH.set(r.left, r.top + lift, r.right, r.bottom);
         FILL.setColor(edge);
         c.drawRoundRect(SCRATCH, radius, radius, FILL);
+
         SCRATCH.set(r.left, r.top + lift, r.right, r.bottom - lift);
-        FILL.setColor(face);
+        android.graphics.LinearGradient gradient = faceGradient(face);
+        if (gradient != null) {
+            placeShader(gradient, SCRATCH.top, SCRATCH.height());
+            FILL.setShader(gradient);
+            FILL.setColor(0xFFFFFFFF);
+        } else {
+            FILL.setColor(face);
+        }
         c.drawRoundRect(SCRATCH, radius, radius, FILL);
+        FILL.setShader(null);
+
+        gloss(c, SCRATCH, radius, 1f - held * 0.55f);
+    }
+
+    /** Convenience for the many buttons that carry no halo. */
+    static void button(Canvas c, RectF r, float radius, int face, int edge, float press) {
+        button(c, r, radius, face, edge, press, 0f);
+    }
+
+    /**
+     * The highlight along the top of a curved surface. Shared by buttons, the round chips
+     * and the minute bubbles, so every tappable thing in the app is made of one material.
+     *
+     * @param strength 0 to 1
+     */
+    static void gloss(Canvas c, RectF r, float radius, float strength) {
+        float amount = clamp(strength, 0f, 1f);
+        if (amount <= 0.01f) return;
+        float inset = Math.min(r.width(), r.height()) * 0.06f;
+        SCRATCH.set(r.left + inset, r.top + inset * 0.6f,
+                    r.right - inset, r.top + r.height() * 0.48f);
+        if (SCRATCH.height() <= 1f) return;
+        placeShader(GLOSS, SCRATCH.top, SCRATCH.height());
+        FILL.setShader(GLOSS);
+        FILL.setAlpha((int) (255 * amount));
+        float capRadius = Math.max(2f, radius - inset);
+        c.drawRoundRect(SCRATCH, capRadius, capRadius, FILL);
+        FILL.setShader(null);
+        FILL.setAlpha(255);
+    }
+
+    /** A gloss sized for a circle of {@code radius} centred on a point. */
+    static void glossCircle(Canvas c, float cx, float cy, float radius, float strength) {
+        SCRATCH.set(cx - radius, cy - radius, cx + radius, cy + radius);
+        gloss(c, SCRATCH, radius, strength);
     }
 
     /** A round-ended pill. */
@@ -226,12 +346,16 @@ final class Theme {
     }
 
     private static void prepare(float size, int color, Paint.Align align, boolean bold) {
+        prepare(size, color, align, bold ? ROUND_BOLD : ROUND);
+    }
+
+    private static void prepare(float size, int color, Paint.Align align, Typeface face) {
         TEXT.setShader(null);
         TEXT.clearShadowLayer();
         // wordmark() strokes a halo pass; reset defensively so a later plain draw is
         // never accidentally outlined.
         TEXT.setStyle(Paint.Style.FILL);
-        TEXT.setTypeface(bold ? ROUND_BOLD : ROUND);
+        TEXT.setTypeface(face);
         TEXT.setTextSize(size);
         TEXT.setColor(color);
         TEXT.setTextAlign(align);
@@ -281,13 +405,68 @@ final class Theme {
         return TEXT.measureText(s);
     }
 
+    // --------------------------------------------------------------------- labels
+    // Button labels and screen titles are set in DISPLAY rather than the text face.
+    // They are short, they sit on coloured surfaces, and they are where the chunky
+    // storybook lettering of the artwork belongs. Body copy keeps using text()/fitText().
+
+    /** Width of a display-face label, for laying out a glyph beside it. */
+    static float measureLabel(String s, float size) {
+        prepare(size, 0xFF000000, Paint.Align.LEFT, DISPLAY);
+        return TEXT.measureText(s);
+    }
+
+    /**
+     * The largest size at or below {@code size} (and never under {@code minSize}) at which
+     * {@code s} fits {@code max} in the display face.
+     *
+     * <p>Baloo 2 is wider than Nunito, so a label that fitted before might not now. A call
+     * site that places a glyph beside its text has to know the final size before it can
+     * measure anything, hence resolving it separately rather than inside the draw.
+     */
+    static float labelSize(String s, float size, float minSize, float max) {
+        prepare(size, 0xFF000000, Paint.Align.LEFT, DISPLAY);
+        while (TEXT.getTextSize() > minSize && TEXT.measureText(s) > max) {
+            TEXT.setTextSize(TEXT.getTextSize() - 1f);
+        }
+        return TEXT.getTextSize();
+    }
+
+    /** A display-face label, vertically centred on {@code cy}. */
+    static void label(Canvas c, String s, float x, float cy,
+                      float size, int color, Paint.Align align) {
+        prepare(size, color, align, DISPLAY);
+        c.drawText(s, x, baselineCenter(TEXT, cy), TEXT);
+    }
+
+    /** A display-face label centred in {@code box}, shrinking and ellipsising to fit. */
+    static void labelFit(Canvas c, String s, RectF box, float size, float minSize,
+                         int color, Paint.Align align) {
+        prepare(size, color, align, DISPLAY);
+        float max = box.width();
+        while (TEXT.getTextSize() > minSize && TEXT.measureText(s) > max) {
+            TEXT.setTextSize(TEXT.getTextSize() - 1f);
+        }
+        String out = s;
+        if (TEXT.measureText(out) > max) {
+            float ellipsis = TEXT.measureText("...");
+            int end = out.length();
+            while (end > 1 && TEXT.measureText(out, 0, end) + ellipsis > max) end--;
+            out = out.substring(0, end) + "...";
+        }
+        float x = align == Paint.Align.LEFT ? box.left
+                : align == Paint.Align.RIGHT ? box.right
+                : box.centerX();
+        c.drawText(out, x, baselineCenter(TEXT, box.centerY()), TEXT);
+    }
+
     /**
      * Storybook title treatment: a thick white halo, then the fill with a soft drop
      * shadow. This is the one place a shadow layer is still used, because text shadows
      * are hardware accelerated.
      */
     static void wordmark(Canvas c, String s, float x, float cy, float size, int fill) {
-        prepare(size, Color.WHITE, Paint.Align.CENTER, true);
+        prepare(size, Color.WHITE, Paint.Align.CENTER, DISPLAY);
         float baseline = baselineCenter(TEXT, cy);
         TEXT.setStyle(Paint.Style.STROKE);
         TEXT.setStrokeWidth(size * 0.21f);
@@ -306,7 +485,7 @@ final class Theme {
      */
     static void wordmarkLetters(Canvas c, String s, float cx, float cy,
                                 float size, int[] colors) {
-        prepare(size, Color.WHITE, Paint.Align.LEFT, true);
+        prepare(size, Color.WHITE, Paint.Align.LEFT, DISPLAY);
         float total = TEXT.measureText(s);
         float baseline = baselineCenter(TEXT, cy);
         float x = cx - total * 0.5f;
@@ -329,11 +508,69 @@ final class Theme {
 
     // ------------------------------------------------------------- time formatting
 
-    /** Draws a countdown without allocating. See {@link TimeText}. */
+    /**
+     * Widest digit in the display face at {@link #tabularSize}. Baloo 2 has no tabular
+     * figures, so a 1 is far narrower than a 4 and an unaligned countdown twitches
+     * sideways every second -- on the app's hero element. Measured once per size.
+     */
+    private static float tabularSize = -1f;
+    private static float tabularAdvance;
+    private static final char[] DIGIT = new char[1];
+
+    /** Assumes TEXT is already prepared at {@code size} in the display face. */
+    private static float digitAdvance(float size) {
+        if (size == tabularSize) return tabularAdvance;
+        float widest = 0f;
+        for (char d = '0'; d <= '9'; d++) {
+            DIGIT[0] = d;
+            float w = TEXT.measureText(DIGIT, 0, 1);
+            if (w > widest) widest = w;
+        }
+        tabularSize = size;
+        tabularAdvance = widest;
+        return widest;
+    }
+
+    /**
+     * Draws a countdown without allocating. See {@link TimeText}. Every digit is centred
+     * in a cell one widest-digit wide, so the clock never shifts as it ticks; the colon
+     * keeps its own narrow advance.
+     */
     static void drawTime(Canvas c, long ms, float x, float cy,
                          float size, int color, Paint.Align align) {
         int len = TimeText.format(ms);
-        prepare(size, color, align, true);
-        c.drawText(TimeText.BUFFER, 0, len, x, baselineCenter(TEXT, cy), TEXT);
+        prepare(size, color, Paint.Align.LEFT, DISPLAY);
+        float step = digitAdvance(size);
+
+        float total = 0f;
+        for (int i = 0; i < len; i++) {
+            total += TimeText.BUFFER[i] == ':' ? TEXT.measureText(TimeText.BUFFER, i, 1) : step;
+        }
+        float cursor = align == Paint.Align.CENTER ? x - total * 0.5f
+                     : align == Paint.Align.RIGHT  ? x - total
+                     : x;
+        float baseline = baselineCenter(TEXT, cy);
+        for (int i = 0; i < len; i++) {
+            float w = TEXT.measureText(TimeText.BUFFER, i, 1);
+            if (TimeText.BUFFER[i] == ':') {
+                c.drawText(TimeText.BUFFER, i, 1, cursor, baseline, TEXT);
+                cursor += w;
+            } else {
+                c.drawText(TimeText.BUFFER, i, 1, cursor + (step - w) * 0.5f, baseline, TEXT);
+                cursor += step;
+            }
+        }
+    }
+
+    /** Width the countdown will occupy, for centring something under it. */
+    static float measureTime(long ms, float size) {
+        int len = TimeText.format(ms);
+        prepare(size, 0xFF000000, Paint.Align.LEFT, DISPLAY);
+        float step = digitAdvance(size);
+        float total = 0f;
+        for (int i = 0; i < len; i++) {
+            total += TimeText.BUFFER[i] == ':' ? TEXT.measureText(TimeText.BUFFER, i, 1) : step;
+        }
+        return total;
     }
 }
