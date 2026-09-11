@@ -73,7 +73,7 @@ if [ -f "$ROOT/tools/SelfTest.java" ]; then
     echo "FAIL: SelfTest does not compile" >&2
     exit 1
   fi
-  java -cp "$JAR:$OUT" SelfTest 2>&1 | grep -v '^Picked up'
+  java -cp "$JAR:$OUT" com.morningmission.app.SelfTest 2>&1 | grep -v '^Picked up'
 fi
 
 # ------------------------------------------------- per-frame allocation gate

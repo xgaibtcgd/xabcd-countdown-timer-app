@@ -1,0 +1,150 @@
+package com.morningmission.app;
+
+/**
+ * Everything that varies between the seven buddies, in one table.
+ *
+ * <p>This replaces ten parallel arrays and switch statements that were keyed by a bare
+ * {@code prefs.getInt("buddy", 0)} and scattered across the old single-file build --
+ * names, art ids, sound ids, sound words, collectible nouns, and the collectible and
+ * goal drawing switches. Four of those sites indexed their array without a bounds
+ * check, so a stale preference would throw; {@link #of(int)} clamps once for all of
+ * them.
+ *
+ * <p>The palettes are sampled from the actual buddy PNGs, so anything drawn in code --
+ * scenery, icons, collectibles, goals, buttons -- can be tinted to the chosen buddy and
+ * still look like it belongs with the artwork. Before this, every accent in the app was
+ * one of three hardcoded literals shared by all seven.
+ *
+ * <p>Index order is load-bearing: it is the value stored in SharedPreferences under
+ * "buddy" by every previously shipped version, so it must stay
+ * burger, bee, pug, shark, dino, cloud, kitty.
+ */
+final class BuddyTheme {
+
+    /** Cheek blush shared by all seven characters; the common highlight of the family. */
+    static final int CHEEK = 0xFFEA5A70;
+
+    final int index;
+    /** Stable identifier for logs and tests; not shown to the user. */
+    final String key;
+
+    String name, soundWord, munchWord, collectOne, collectMany;
+    int artRes, soundRes;
+
+    /** The character's signature colour. Drives scenery, accents and buttons. */
+    int primary;
+    /** Secondary colour, for the accent element of an icon. */
+    int accent;
+    /** Third colour, used sparingly -- a wing, a stripe, a bow. */
+    int accent2;
+    /**
+     * Very light tint of the character, for card fills and scene washes.
+     *
+     * <p>Shark and cloud are both hue ~203, so their tints are separated by saturation
+     * rather than hue -- shark's stays a visibly aqua wash, cloud's is nearly white.
+     * Sampled straight from the art they were almost the same colour, which made their
+     * cards indistinguishable side by side in the picker.
+     */
+    int light;
+    /** Near-neutral body colour (cream fur, a bun). Card fills only, never a theme colour. */
+    int body;
+    /** Readable dark, derived from the primary hue. Use for text and chevrons. */
+    int ink;
+    /** The character's own dark punctuation (a stripe, a nose, a paw). Use in icon detail. */
+    int dark;
+
+    private BuddyTheme(int index, String key) {
+        this.index = index;
+        this.key = key;
+    }
+
+    private BuddyTheme words(String name, String soundWord, String munchWord,
+                             String collectOne, String collectMany) {
+        this.name = name;
+        this.soundWord = soundWord;
+        this.munchWord = munchWord;
+        this.collectOne = collectOne;
+        this.collectMany = collectMany;
+        return this;
+    }
+
+    private BuddyTheme assets(int artRes, int soundRes) {
+        this.artRes = artRes;
+        this.soundRes = soundRes;
+        return this;
+    }
+
+    private BuddyTheme palette(int primary, int accent, int accent2,
+                               int light, int body, int ink, int dark) {
+        this.primary = primary;
+        this.accent = accent;
+        this.accent2 = accent2;
+        this.light = light;
+        this.body = body;
+        this.ink = ink;
+        this.dark = dark;
+        return this;
+    }
+
+    static final BuddyTheme[] ALL = {
+        new BuddyTheme(0, "burger")
+            .words("Burger Buddy", "nom!", "YUM!", "mini burger", "mini burgers")
+            .assets(R.drawable.buddy_burger, R.raw.buddy_burger_sound)
+            .palette(0xFFF39B28, 0xFF2772C9, 0xFFEC4777, 0xFFFDEDD8, 0xFFFBF4EA, 0xFF8A4A12, 0xFFC7B8B9),
+
+        new BuddyTheme(1, "bee")
+            .words("Queen Bee", "buzz!", "BUZZ!", "honey drop", "honey drops")
+            .assets(R.drawable.buddy_bee, R.raw.buddy_bee_sound)
+            .palette(0xFFFBD638, 0xFFEAA815, 0xFF8DCCF7, 0xFFFEF8DB, 0xFFFFFDF0, 0xFF6B4E05, 0xFF271A17),
+
+        new BuddyTheme(2, "pug")
+            .words("Pug Pal", "ruff!", "NOM!", "pup treat", "pup treats")
+            .assets(R.drawable.buddy_pug, R.raw.buddy_pug_sound)
+            .palette(0xFFFA6801, 0xFFDF8542, 0xFFF9D6A8, 0xFFFEE4D1, 0xFFF9EFE4, 0xFF7A3300, 0xFF382826),
+
+        new BuddyTheme(3, "shark")
+            .words("Splash Buddy", "splash!", "CHOMP!", "fish", "fish")
+            .assets(R.drawable.buddy_shark, R.raw.buddy_shark_sound)
+            .palette(0xFF25A7F9, 0xFF0776D9, 0xFFAE3242, 0xFFD3ECFE, 0xFFF6F7F9, 0xFF0B4D8F, 0xFF246FC8),
+
+        new BuddyTheme(4, "dino")
+            .words("Sprout Dino", "rawr!", "MUNCH!", "leaf", "leaves")
+            .assets(R.drawable.buddy_dino, R.raw.buddy_dino_sound)
+            .palette(0xFF67CFA4, 0xFF259474, 0xFF83D126, 0xFFE4F6EF, 0xFFF2FBF7, 0xFF1B6B52, 0xFF49B893),
+
+        new BuddyTheme(5, "cloud")
+            .words("Cloud Pup", "ding!", "SPARKLE!", "star", "stars")
+            .assets(R.drawable.buddy_cloud, R.raw.buddy_cloud_sound)
+            .palette(0xFF57B9F3, 0xFF3798E4, 0xFFFFFFFF, 0xFFF0F7FF, 0xFFF5FBFF, 0xFF1D6FA8, 0xFF45A8EB),
+
+        new BuddyTheme(6, "kitty")
+            .words("Sweet Kitty", "meow!", "PURR!", "fish treat", "fish treats")
+            .assets(R.drawable.buddy_kitty, R.raw.buddy_kitty_sound)
+            .palette(0xFFF85798, 0xFFD03D6B, 0xFFFFFFFF, 0xFFFEE1EC, 0xFFF8ECE2, 0xFFA32354, 0xFFD4BBB7),
+    };
+
+    static final int COUNT = ALL.length;
+
+    /** Never throws: an out-of-range stored preference falls back to the first buddy. */
+    static BuddyTheme of(int index) {
+        return (index < 0 || index >= ALL.length) ? ALL[0] : ALL[index];
+    }
+
+    /** Clamps a stored preference into range, for writing back. */
+    static int clampIndex(int index) {
+        return (index < 0 || index >= ALL.length) ? 0 : index;
+    }
+
+    /**
+     * Phrase for the collectible counter, e.g. "1 fish" / "4 fish". Shark's collectible
+     * has no distinct plural, which is why singular and plural are stored separately
+     * rather than derived by appending an "s".
+     */
+    String collectibleNoun(int count) {
+        return count == 1 ? collectOne : collectMany;
+    }
+
+    @Override public String toString() {
+        return "BuddyTheme(" + index + "," + key + ")";
+    }
+}
