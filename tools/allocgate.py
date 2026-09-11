@@ -11,7 +11,8 @@ static initialiser, a field declaration, a constructor, or a method whose name
 is in SETUP_METHODS (layout/rebuild/measure/build/init/...). Anything else in a
 frame-path file is an error.
 
-Escape hatch: append  // allocgate: ok - <reason>  to the line.
+Escape hatch: put  // allocgate: ok - <reason>  on the line, or on the line above it
+when the statement wraps.
 """
 import re, sys, os
 
@@ -43,7 +44,9 @@ def check(path):
         if (m and m.group(1) not in KEYWORDS
                 and "class " not in line and "interface " not in line):
             stack.append((m.group(1), depth))
-        if (ALLOC.search(code) or ARRAY.search(code)) and "allocgate: ok" not in line:
+        exempt = ("allocgate: ok" in line
+                  or (i >= 2 and "allocgate: ok" in src[i - 2]))
+        if (ALLOC.search(code) or ARRAY.search(code)) and not exempt:
             method = stack[-1][0] if stack else None
             in_setup = method is None or method in SETUP or method[0].isupper()
             is_field = not stack and depth <= 1

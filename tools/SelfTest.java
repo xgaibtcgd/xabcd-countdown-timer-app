@@ -26,6 +26,7 @@ public final class SelfTest {
         hitMapBasics();
         engineContract();
         timeFormatting();
+        artGeometry();
 
         System.out.println("==> SelfTest: " + checks + " checks, " + failures + " failures");
         if (failures > 0) System.exit(1);
@@ -382,6 +383,133 @@ public final class SelfTest {
         return hueGap(x[0], y[0]) >= 6f
             || Math.abs(x[1] - y[1]) >= 0.10f
             || Math.abs(x[2] - y[2]) >= 0.10f;
+    }
+
+    // ------------------------------------------------------------------- geometry
+
+    /**
+     * Every shape is well-formed and stays inside its 100x100 box.
+     *
+     * <p>This is the check that motivated authoring geometry as float[] rather than as
+     * Path constants: Path is native and unavailable here, so a shape that ran outside
+     * its box would otherwise only show up as clipping on a device.
+     */
+    private static void artGeometry() {
+        for (int kind = 0; kind < Art.ACT_COUNT; kind++) {
+            String name = Art.ACTIVITY_KEYS[kind];
+            float[][] shapes = Art.ACTIVITY_SHAPES[kind];
+            int[] colors = Art.ACTIVITY_COLORS[kind];
+            int[] flags = Art.ACTIVITY_FLAGS[kind];
+            check(shapes != null && shapes.length > 0, "activity icon " + name + " has no shapes");
+            check(colors != null && flags != null && shapes.length == colors.length
+                  && shapes.length == flags.length,
+                  "activity icon " + name + " has mismatched shape, colour and flag arrays");
+            check(shapes.length <= 4,
+                  "activity icon " + name + " has " + shapes.length + " parts; the ceiling is"
+                  + " four, or it stops reading at task-row size");
+            for (int i = 0; i < shapes.length; i++) {
+                checkShape(shapes[i], "activity " + name + " part " + i);
+            }
+        }
+
+        check(Art.ACTIVITY_KEYS.length == Art.ACT_COUNT, "activity key list is the wrong length");
+        check(Art.ACTIVITY_NAMES.length == Art.ACT_COUNT, "activity name list is the wrong length");
+        check(Art.ACTIVITY_SUBTITLES.length == Art.ACT_COUNT, "activity subtitle list is the wrong length");
+        for (int kind = 0; kind < Art.ACT_COUNT; kind++) {
+            check(Art.activityKind(Art.ACTIVITY_KEYS[kind]) == kind,
+                  "activity key " + Art.ACTIVITY_KEYS[kind] + " does not resolve to its own icon");
+            check(notBlank(Art.ACTIVITY_NAMES[kind]) && notBlank(Art.ACTIVITY_SUBTITLES[kind]),
+                  "activity " + Art.ACTIVITY_KEYS[kind] + " is missing a name or subtitle");
+        }
+        check(Art.activityKind("NOT_A_REAL_KEY") == Art.ACT_DRESS,
+              "an unknown task key should fall back to Get Dressed");
+        check(Art.activityKind(null) == Art.ACT_DRESS, "a null task key must not throw");
+
+        for (int buddy = 0; buddy < BuddyTheme.COUNT; buddy++) {
+            String name = BuddyTheme.ALL[buddy].key;
+
+            float[][] coll = Art.COLLECTIBLE_SHAPES[buddy];
+            check(coll != null && coll.length > 0, name + " has no collectible");
+            check(coll.length == Art.COLLECTIBLE_COLORS[buddy].length
+                  && coll.length == Art.COLLECTIBLE_FLAGS[buddy].length,
+                  name + " collectible has mismatched arrays");
+            check(coll.length <= 4,
+                  name + " collectible has too many parts to read at 24 units across");
+            for (int i = 0; i < coll.length; i++) {
+                checkShape(coll[i], name + " collectible part " + i);
+            }
+
+            float[][] goal = Art.GOAL_SHAPES[buddy];
+            check(goal != null && goal.length > 0, name + " has no goal");
+            check(goal.length == Art.GOAL_COLORS[buddy].length
+                  && goal.length == Art.GOAL_FLAGS[buddy].length,
+                  name + " goal has mismatched arrays");
+            for (int i = 0; i < goal.length; i++) {
+                checkShape(goal[i], name + " goal part " + i);
+            }
+            int lid = Art.GOAL_LID[buddy];
+            check(lid == -1 || (lid >= 0 && lid < goal.length),
+                  name + " goal names a lid part that does not exist: " + lid);
+        }
+        check(Art.GOAL_NAMES.length == BuddyTheme.COUNT, "goal name list is the wrong length");
+
+        for (int g = 0; g < Art.GLYPH_COUNT; g++) {
+            check(Art.GLYPHS[g] != null && Art.GLYPHS[g].length > 0,
+                  "UI glyph " + g + " is missing");
+            checkShape(Art.GLYPHS[g], "glyph " + g);
+        }
+    }
+
+    /** Validates the command stream and the bounding box of one shape. */
+    private static void checkShape(float[] shape, String what) {
+        check(shape != null && shape.length > 0, what + " is empty");
+        if (shape == null || shape.length == 0) return;
+
+        float minX = Float.MAX_VALUE, minY = Float.MAX_VALUE;
+        float maxX = -Float.MAX_VALUE, maxY = -Float.MAX_VALUE;
+        int i = 0;
+        boolean started = false;
+        while (i < shape.length) {
+            int op = (int) shape[i];
+            int operands = Art.operandCount(op);
+            check(operands >= 0, what + " has an unknown opcode " + op + " at " + i);
+            if (operands < 0) return;
+            check(i + 1 + operands <= shape.length,
+                  what + " is truncated: opcode " + op + " at " + i + " lacks operands");
+            if (i + 1 + operands > shape.length) return;
+            if (op == Art.MOVE || op == Art.CIRCLE || op == Art.OVAL || op == Art.RRECT) started = true;
+            check(started || op == Art.CLOSE,
+                  what + " draws before any move, circle, oval or round rect");
+
+            // Control points bound the curve, so checking them is conservative.
+            if (op == Art.CIRCLE) {
+                float cx = shape[i + 1], cy = shape[i + 2], r = Math.abs(shape[i + 3]);
+                check(!Float.isNaN(cx) && !Float.isNaN(cy) && !Float.isNaN(r),
+                      what + " has a non-finite circle at " + i);
+                minX = Math.min(minX, cx - r); maxX = Math.max(maxX, cx + r);
+                minY = Math.min(minY, cy - r); maxY = Math.max(maxY, cy + r);
+            } else {
+                for (int k = 0; k < operands; k++) {
+                    float v = shape[i + 1 + k];
+                    check(!Float.isNaN(v) && !Float.isInfinite(v),
+                          what + " has a non-finite coordinate at " + (i + 1 + k));
+                    if (op == Art.RRECT && k >= 4) continue;       // corner radii, not points
+                    if (k % 2 == 0) { minX = Math.min(minX, v); maxX = Math.max(maxX, v); }
+                    else            { minY = Math.min(minY, v); maxY = Math.max(maxY, v); }
+                }
+            }
+            i += 1 + operands;
+        }
+        check(i == shape.length, what + " has trailing data after the last command");
+
+        // A little slack: the rim light is drawn inside the shape, but a form may sit
+        // right on the edge of its box.
+        check(minX >= -4f && maxX <= 104f,
+              what + " runs outside its box horizontally: " + (int) minX + ".." + (int) maxX);
+        check(minY >= -4f && maxY <= 104f,
+              what + " runs outside its box vertically: " + (int) minY + ".." + (int) maxY);
+        check(maxX - minX > 4f && maxY - minY > 4f,
+              what + " is too small to be visible: " + (int) (maxX - minX) + "x" + (int) (maxY - minY));
     }
 
     // -------------------------------------------------------------- time formatting

@@ -1,0 +1,712 @@
+<title>Morning Mission Clay Set</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&family=Nunito+Sans:opsz,wght@6..12,400;6..12,600;6..12,700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --paper:        #F4F7FB;
+    --cell:         #FFFFFF;
+    --cell-sunk:    #EDF2F8;
+    --rule:         #DBE4EF;
+    --rule-strong:  #C3D1E2;
+    --ink:          #16304F;
+    --ink-soft:     #5B7191;
+    --ink-faint:    #8fa0b8;
+    --accent:       #F26B2A;
+    --accent-soft:  #FCE7DB;
+    --ok:           #2E9E5B;
+    --shadow:       0 1px 2px rgba(19,44,74,.06), 0 6px 18px rgba(19,44,74,.05);
+  }
+  :root:not([data-theme="light"]) {
+    color-scheme: light dark;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper:       #0F1722;
+      --cell:        #18222F;
+      --cell-sunk:   #131C27;
+      --rule:        #27374A;
+      --rule-strong: #36495F;
+      --ink:         #E6EDF6;
+      --ink-soft:    #9FB1C6;
+      --ink-faint:   #6C7F97;
+      --accent:      #FF8A4C;
+      --accent-soft: #38241A;
+      --ok:          #56C687;
+      --shadow:      0 1px 2px rgba(0,0,0,.3), 0 6px 18px rgba(0,0,0,.25);
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --paper:       #0F1722;
+    --cell:        #18222F;
+    --cell-sunk:   #131C27;
+    --rule:        #27374A;
+    --rule-strong: #36495F;
+    --ink:         #E6EDF6;
+    --ink-soft:    #9FB1C6;
+    --ink-faint:   #6C7F97;
+    --accent:      #FF8A4C;
+    --accent-soft: #38241A;
+    --ok:          #56C687;
+    --shadow:      0 1px 2px rgba(0,0,0,.3), 0 6px 18px rgba(0,0,0,.25);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "Nunito Sans", ui-sans-serif, system-ui, sans-serif;
+    font-size: 15px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: 1180px; margin: 0 auto; padding-inline: 20px; padding-block: 0 72px; }
+
+  /* ---------------------------------------------------------------- masthead */
+  header { padding-block: 44px 26px; border-bottom: 2px solid var(--rule-strong); }
+  .eyebrow {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 11px; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--accent); margin: 0 0 10px;
+  }
+  h1 {
+    font-family: "Baloo 2", ui-rounded, system-ui, sans-serif;
+    font-weight: 800; font-size: clamp(34px, 6vw, 52px); line-height: 1.04;
+    letter-spacing: -.015em; margin: 0 0 14px; text-wrap: balance;
+  }
+  .lede { max-width: 62ch; color: var(--ink-soft); font-size: 17px; margin: 0; }
+  .lede strong { color: var(--ink); font-weight: 700; }
+
+  /* --------------------------------------------------------------- theme rail */
+  .rail {
+    position: sticky; top: 0; z-index: 10;
+    background: color-mix(in srgb, var(--paper) 92%, transparent);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--rule);
+    margin-bottom: 34px;
+  }
+  .rail-inner {
+    max-width: 1180px; margin: 0 auto; padding: 12px 20px;
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  }
+  .rail-label {
+    font-family: "IBM Plex Mono", monospace; font-size: 11px;
+    letter-spacing: .12em; text-transform: uppercase; color: var(--ink-faint);
+    margin-right: 4px;
+  }
+  .swatch {
+    display: inline-flex; align-items: center; gap: 7px;
+    border: 1.5px solid var(--rule); background: var(--cell);
+    color: var(--ink); border-radius: 999px; padding: 5px 13px 5px 6px;
+    font: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer;
+    transition: border-color .14s, transform .14s;
+  }
+  .swatch:hover { border-color: var(--rule-strong); }
+  .swatch:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .swatch[aria-pressed="true"] { border-color: var(--ink); }
+  .swatch .dot {
+    width: 20px; height: 20px; border-radius: 50%;
+    box-shadow: inset 0 -2px 4px rgba(0,0,0,.14), inset 0 2px 3px rgba(255,255,255,.5);
+  }
+
+  /* ---------------------------------------------------------------- sections */
+  section { margin-block: 46px 0; }
+  .sec-head { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap;
+              border-bottom: 1px solid var(--rule); padding-bottom: 9px; margin-bottom: 22px; }
+  h2 {
+    font-family: "Baloo 2", ui-rounded, system-ui, sans-serif;
+    font-weight: 700; font-size: 25px; margin: 0; letter-spacing: -.01em;
+  }
+  .sec-note { color: var(--ink-soft); font-size: 14px; margin: 0; max-width: 58ch; }
+
+  .grid { display: grid; gap: 14px; }
+  .g-icons { grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); }
+  .g-coll  { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+  .g-goals { grid-template-columns: repeat(auto-fill, minmax(176px, 1fr)); }
+  .g-glyph { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); }
+  .g-pass  { grid-template-columns: repeat(auto-fill, minmax(156px, 1fr)); }
+
+  .cell {
+    background: var(--cell); border: 1px solid var(--rule); border-radius: 12px;
+    padding: 14px 10px 11px; text-align: center; box-shadow: var(--shadow);
+  }
+  .cell canvas { display: block; margin: 0 auto; max-width: 100%; }
+  .cap { margin: 9px 0 0; font-size: 12.5px; font-weight: 700; line-height: 1.3; }
+  .sub {
+    margin: 2px 0 0; font-family: "IBM Plex Mono", monospace; font-size: 10.5px;
+    color: var(--ink-faint); letter-spacing: .02em;
+  }
+
+  /* legibility strip: the icons at the size they actually appear in a task row */
+  .strip {
+    background: var(--cell); border: 1px solid var(--rule); border-radius: 12px;
+    padding: 16px; box-shadow: var(--shadow); overflow-x: auto;
+  }
+  .strip-row { display: flex; gap: 18px; align-items: center; min-width: max-content; }
+  .strip-item { text-align: center; }
+  .strip-item .sub { margin-top: 5px; }
+
+  /* palette table */
+  .tablewrap { overflow-x: auto; border: 1px solid var(--rule); border-radius: 12px;
+               background: var(--cell); box-shadow: var(--shadow); }
+  table { border-collapse: collapse; width: 100%; min-width: 640px; }
+  th, td { padding: 9px 12px; text-align: left; border-bottom: 1px solid var(--rule); }
+  thead th {
+    font-family: "IBM Plex Mono", monospace; font-size: 10.5px; font-weight: 500;
+    letter-spacing: .1em; text-transform: uppercase; color: var(--ink-faint);
+    background: var(--cell-sunk); position: sticky; top: 0;
+  }
+  tbody tr:last-child td { border-bottom: 0; }
+  .buddycell { font-weight: 700; white-space: nowrap; }
+  .chipwrap { display: flex; align-items: center; gap: 8px; }
+  .chip {
+    width: 22px; height: 22px; border-radius: 6px; flex: none;
+    border: 1px solid rgba(0,0,0,.12);
+  }
+  .hex { font-family: "IBM Plex Mono", monospace; font-size: 11.5px; color: var(--ink-soft); }
+
+  .callout {
+    border-left: 3px solid var(--accent); background: var(--accent-soft);
+    padding: 14px 16px; border-radius: 0 10px 10px 0; margin-top: 18px;
+    font-size: 14.5px; color: var(--ink);
+  }
+  .callout p { margin: 0; }
+  .callout p + p { margin-top: 8px; }
+
+  footer {
+    margin-top: 56px; padding-top: 20px; border-top: 1px solid var(--rule);
+    color: var(--ink-faint); font-size: 13px;
+  }
+  @media (max-width: 520px) {
+    .rail-inner { gap: 7px; padding: 10px 20px; }
+    .swatch { font-size: 12.5px; padding: 4px 10px 4px 5px; }
+    .swatch .dot { width: 17px; height: 17px; }
+  }
+</style>
+
+<div class="wrap">
+  <header>
+    <p class="eyebrow">Morning Mission &middot; v0.7 art direction</p>
+    <h1>Every graphic that isn't a buddy, drawn in code</h1>
+    <p class="lede">The seven buddy PNGs are the app's good artwork. Everything around them was
+    emoji text or flat vector fill. These are their replacements, drawn with the same soft clay
+    treatment the characters have &mdash; <strong>one light source from the upper left, a same-hue
+    core shadow, a bright rim on the lit edge, a soft contact shadow, and no outlines anywhere.</strong>
+    Pick a buddy to re-tint the set.</p>
+  </header>
+</div>
+
+<div class="rail">
+  <div class="rail-inner" id="rail">
+    <span class="rail-label">Buddy</span>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <section>
+    <div class="sec-head">
+      <h2>The five passes</h2>
+      <p class="sec-note">One shape, built up. The third pass is the one that stops it
+      looking like clipart.</p>
+    </div>
+    <div class="grid g-pass" id="passes"></div>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <h2>Routine icons</h2>
+      <p class="sec-note">Twelve tasks, on a chip tinted to the chosen buddy. The objects keep
+      their natural colours &mdash; tinting them too gave a blue sun.</p>
+    </div>
+    <div class="grid g-icons" id="icons"></div>
+    <div class="callout">
+      <p>These replace emoji text. Emoji render differently on every manufacturer's build,
+      and three of the characters the old build used &mdash; <span class="hex">&#x2016;</span>
+      <span class="hex">&#x2637;</span> <span class="hex">&#x2302;</span> &mdash; are not emoji
+      at all, but rare Unicode that shows as an empty box on some devices.</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <h2>At task-row size</h2>
+      <p class="sec-note">The real test: 56&nbsp;px on a 1080&nbsp;px-wide phone, five to a
+      screen. If an icon needs more than four parts, it stops reading here.</p>
+    </div>
+    <div class="strip"><div class="strip-row" id="strip"></div></div>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <h2>Collectibles</h2>
+      <p class="sec-note">One a minute along the trail, up to twelve. Not-yet-reached items are
+      desaturated rather than faded &mdash; at 27% opacity they vanished against the reef.</p>
+    </div>
+    <div class="grid g-coll" id="collectibles"></div>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <h2>Goals</h2>
+      <p class="sec-note">The destination at the end of the trail. Four of the seven have a
+      hinged part that opens when the mission is finished.</p>
+    </div>
+    <div class="grid g-goals" id="goals"></div>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <h2>Interface glyphs</h2>
+      <p class="sec-note">Drawn flat, not modelled: chrome should read crisp beside the modelled
+      objects, and most of these are small.</p>
+    </div>
+    <div class="grid g-glyph" id="glyphs"></div>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <h2>Palettes</h2>
+      <p class="sec-note">Sampled from the buddy artwork. Before this, every accent in the app
+      was one of three literals shared by all seven characters.</p>
+    </div>
+    <div class="tablewrap">
+      <table>
+        <thead>
+          <tr><th>Buddy</th><th>Primary</th><th>Accent</th><th>Light tint</th><th>Ink</th><th>Collects</th></tr>
+        </thead>
+        <tbody id="palette"></tbody>
+      </table>
+    </div>
+    <div class="callout">
+      <p><strong>Shark and cloud are both hue 203.</strong> Sampled straight from the art their
+      light tints were nearly the same colour, which would have made their cards
+      indistinguishable side by side in the picker. They are now separated by saturation:
+      shark's stays a visibly aqua wash, cloud's is nearly white.</p>
+    </div>
+  </section>
+
+  <footer>
+    Rendered from the same <span class="hex">float[]</span> geometry the app compiles into
+    Paths, exported by <span class="hex">tools/ExportArt.java</span>. Not a mockup &mdash; if a
+    shape is wrong here, it is wrong in the build.
+  </footer>
+</div>
+
+<script>
+const ART = __ART_JSON__;
+
+/* ------------------------------------------------------------------ opcodes */
+const MOVE=0, LINE=1, QUAD=2, CUBIC=3, CLOSE=4, OVAL=5, CIRCLE=6, RRECT=7;
+
+function toPath(d) {
+  const p = new Path2D();
+  let i = 0;
+  while (i < d.length) {
+    const op = d[i++];
+    if (op === MOVE) p.moveTo(d[i++], d[i++]);
+    else if (op === LINE) p.lineTo(d[i++], d[i++]);
+    else if (op === QUAD) p.quadraticCurveTo(d[i++], d[i++], d[i++], d[i++]);
+    else if (op === CUBIC) p.bezierCurveTo(d[i++], d[i++], d[i++], d[i++], d[i++], d[i++]);
+    else if (op === CLOSE) p.closePath();
+    else if (op === OVAL) {
+      const l=d[i++], t=d[i++], r=d[i++], b=d[i++];
+      const cx=(l+r)/2, cy=(t+b)/2;
+      p.moveTo(r, cy); p.ellipse(cx, cy, (r-l)/2, (b-t)/2, 0, 0, Math.PI*2); p.closePath();
+    } else if (op === CIRCLE) {
+      const cx=d[i++], cy=d[i++], rad=d[i++];
+      p.moveTo(cx+rad, cy); p.arc(cx, cy, rad, 0, Math.PI*2); p.closePath();
+    } else if (op === RRECT) {
+      const l=d[i++], t=d[i++], r=d[i++], b=d[i++], rx=d[i++]; i++;
+      p.roundRect(l, t, r-l, b-t, rx);
+    } else throw new Error('unknown opcode ' + op);
+  }
+  return p;
+}
+
+/* ------------------------------------------------------- colour helpers */
+const hexToRgb = h => [parseInt(h.slice(1,3),16), parseInt(h.slice(3,5),16), parseInt(h.slice(5,7),16)];
+const rgbToHex = c => '#' + c.map(v => Math.max(0,Math.min(255,Math.round(v))).toString(16).padStart(2,'0')).join('');
+const mix = (a, b, t) => rgbToHex(hexToRgb(a).map((v,i) => v + (hexToRgb(b)[i]-v)*t));
+const lighten = (c, t) => mix(c, '#ffffff', t);
+const darken  = (c, t) => mix(c, '#000000', t);
+const desaturate = (c, t) => mix(c, '#b9c6d6', t);
+
+/* -------------------------------------------------- the clay passes (Clay.java) */
+const LX = -0.55, LY = -0.83, U = 100;
+const FLAT=0, MODEL=1, RIM=2, SPEC=4;
+
+function drawPart(ctx, path, colour, flags) {
+  if (!(flags & MODEL)) {
+    ctx.fillStyle = colour;
+    ctx.fill(path);
+  } else {
+    const g = ctx.createLinearGradient(50+LX*50, 50+LY*50, 50-LX*50, 50-LY*50);
+    g.addColorStop(0, lighten(colour, .14));
+    g.addColorStop(1, darken(colour, .17));
+    ctx.fillStyle = g;
+    ctx.fill(path);
+
+    const occ = ctx.createRadialGradient(74, 80, 0, 74, 80, 70);
+    occ.addColorStop(0,   'rgba(0,0,0,.18)');
+    occ.addColorStop(.5,  'rgba(0,0,0,.06)');
+    occ.addColorStop(1,   'rgba(0,0,0,0)');
+    ctx.fillStyle = occ;
+    ctx.fill(path);
+
+    const hi = ctx.createRadialGradient(28, 24, 0, 28, 24, 62);
+    hi.addColorStop(0,   'rgba(255,255,255,.40)');
+    hi.addColorStop(.45, 'rgba(255,255,255,.10)');
+    hi.addColorStop(1,   'rgba(255,255,255,0)');
+    ctx.fillStyle = hi;
+    ctx.fill(path);
+  }
+
+  if (flags & RIM) {
+    ctx.save();
+    ctx.clip(path);
+    ctx.translate(-2.2, -2.2);
+    ctx.strokeStyle = 'rgba(255,255,255,.40)';
+    ctx.lineWidth = 4.4;
+    ctx.lineJoin = 'round';
+    ctx.stroke(path);
+    ctx.restore();
+  }
+
+  if (flags & SPEC) {
+    ctx.save();
+    ctx.clip(path);
+    ctx.translate(30, 24);
+    ctx.rotate(-24 * Math.PI/180);
+    ctx.fillStyle = 'rgba(255,255,255,.55)';
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 13, 7, 0, 0, Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+  }
+}
+
+function contactShadow(ctx, cx, cy, rx, ry) {
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.scale(rx, ry);
+  const g = ctx.createRadialGradient(0, 0, 0, 0, 0, 1);
+  g.addColorStop(0,   'rgba(16,24,40,.24)');
+  g.addColorStop(.55, 'rgba(16,24,40,.12)');
+  g.addColorStop(1,   'rgba(16,24,40,0)');
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.arc(0, 0, 1, 0, Math.PI*2);
+  ctx.fill();
+  ctx.restore();
+}
+
+/* ------------------------------------------------------------ canvas plumbing */
+function makeCanvas(size) {
+  const c = document.createElement('canvas');
+  const dpr = Math.min(window.devicePixelRatio || 1, 3);
+  c.width = size * dpr;
+  c.height = size * dpr;
+  c.style.width = size + 'px';
+  c.style.height = size + 'px';
+  const ctx = c.getContext('2d');
+  ctx.scale(dpr, dpr);
+  return { canvas: c, ctx, size };
+}
+
+/** Enters the 100x100 unit box, centred at (cx,cy) at `size` across. */
+function unitBox(ctx, cx, cy, size) {
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.scale(size / U, size / U);
+  ctx.translate(-U/2, -U/2);
+}
+
+function resolve(part, buddy) {
+  return part.role ? buddy[ART.roles[part.color]] : part.hex;
+}
+
+function drawParts(ctx, parts, buddy, override) {
+  for (const part of parts) {
+    const colour = override ? override(resolve(part, buddy)) : resolve(part, buddy);
+    drawPart(ctx, part._p || (part._p = toPath(part.d)), colour, part.flags);
+  }
+}
+
+/* ------------------------------------------------------------------- sections */
+let current = 3;   // Splash Buddy: the hero of every mockup
+
+function cell(canvas, caption, sub) {
+  const d = document.createElement('div');
+  d.className = 'cell';
+  d.appendChild(canvas);
+  const c = document.createElement('p');
+  c.className = 'cap';
+  c.textContent = caption;
+  d.appendChild(c);
+  if (sub) {
+    const s = document.createElement('p');
+    s.className = 'sub';
+    s.textContent = sub;
+    d.appendChild(s);
+  }
+  return d;
+}
+
+function renderPasses(buddy) {
+  const host = document.getElementById('passes');
+  host.textContent = '';
+  const shape = ART.collectibles[5].parts[0];   // the star: one clean form
+  const path = shape._p || (shape._p = toPath(shape.d));
+  const steps = [
+    ['1. Flat fill',      FLAT, false],
+    ['2. Form gradient',  MODEL, false, 'grad'],
+    ['3. Modelled',       MODEL, false],
+    ['4. Rim light',      MODEL | RIM, false],
+    ['5. Shadow + spec',  MODEL | RIM | SPEC, true],
+  ];
+  for (const [label, flags, shadow, only] of steps) {
+    const { canvas, ctx, size } = makeCanvas(108);
+    const c = size / 2;
+    if (shadow) contactShadow(ctx, c, c + size * 0.36, size * 0.34, size * 0.10);
+    unitBox(ctx, c, c, size * 0.78);
+    if (only === 'grad') {
+      const g = ctx.createLinearGradient(50+LX*50, 50+LY*50, 50-LX*50, 50-LY*50);
+      g.addColorStop(0, lighten(buddy.primary, .14));
+      g.addColorStop(1, darken(buddy.primary, .17));
+      ctx.fillStyle = g;
+      ctx.fill(path);
+    } else {
+      drawPart(ctx, path, buddy.primary, flags);
+    }
+    ctx.restore();
+    host.appendChild(cell(canvas, label, ''));
+  }
+}
+
+function renderIcons(buddy) {
+  const host = document.getElementById('icons');
+  host.textContent = '';
+  for (const act of ART.activities) {
+    const { canvas, ctx, size } = makeCanvas(112);
+    const c = size / 2;
+    const chip = size * 0.86;
+    contactShadow(ctx, c, c + chip * 0.40, chip * 0.36, chip * 0.11);
+    unitBox(ctx, c, c, chip);
+    ctx.fillStyle = buddy.light;
+    ctx.beginPath();
+    ctx.ellipse(50, 50, 46, 46, 0, 0, Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+    unitBox(ctx, c, c, chip * 0.70);
+    drawParts(ctx, act.parts, buddy);
+    ctx.restore();
+    host.appendChild(cell(canvas, act.name, act.subtitle));
+  }
+}
+
+function renderStrip(buddy) {
+  const host = document.getElementById('strip');
+  host.textContent = '';
+  for (const act of ART.activities) {
+    const { canvas, ctx, size } = makeCanvas(56);
+    const c = size / 2;
+    unitBox(ctx, c, c, size);
+    ctx.fillStyle = buddy.light;
+    ctx.beginPath();
+    ctx.ellipse(50, 50, 48, 48, 0, 0, Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+    unitBox(ctx, c, c, size * 0.70);
+    drawParts(ctx, act.parts, buddy);
+    ctx.restore();
+    const d = document.createElement('div');
+    d.className = 'strip-item';
+    d.appendChild(canvas);
+    const s = document.createElement('p');
+    s.className = 'sub';
+    s.textContent = act.key.toLowerCase();
+    d.appendChild(s);
+    host.appendChild(d);
+  }
+}
+
+function renderCollectibles() {
+  const host = document.getElementById('collectibles');
+  host.textContent = '';
+  ART.buddies.forEach((buddy, i) => {
+    const { canvas, ctx, size } = makeCanvas(130);
+    const c = size / 2;
+    const item = size * 0.40;
+    // pending on the left, collected on the right
+    unitBox(ctx, c - item * 0.62, c, item);
+    drawParts(ctx, ART.collectibles[i].parts, buddy, col => desaturate(col, .78));
+    ctx.restore();
+    contactShadow(ctx, c + item * 0.62, c + item * 0.44, item * 0.34, item * 0.11);
+    unitBox(ctx, c + item * 0.62, c, item);
+    drawParts(ctx, ART.collectibles[i].parts, buddy);
+    ctx.restore();
+    // the collected badge
+    const bx = c + item * 0.62 + item * 0.38, by = c - item * 0.38, br = item * 0.30;
+    ctx.fillStyle = '#30C764';
+    ctx.beginPath();
+    ctx.arc(bx, by, br, 0, Math.PI*2);
+    ctx.fill();
+    unitBox(ctx, bx, by, br * 2.3);
+    ctx.fillStyle = '#fff';
+    ctx.fill(glyphPath('check'));
+    ctx.restore();
+    host.appendChild(cell(canvas, buddy.collectMany, 'pending / collected'));
+  });
+}
+
+function renderGoals() {
+  const host = document.getElementById('goals');
+  host.textContent = '';
+  ART.buddies.forEach((buddy, i) => {
+    const goal = ART.goals[i];
+    const { canvas, ctx, size } = makeCanvas(156);
+    const c = size / 2;
+    const g = size * 0.72;
+    // completion halo
+    ctx.fillStyle = 'rgba(255,200,87,.26)';
+    ctx.beginPath(); ctx.arc(c, c, g * 0.70, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = 'rgba(255,200,87,.18)';
+    ctx.beginPath(); ctx.arc(c, c, g * 0.55, 0, Math.PI*2); ctx.fill();
+    contactShadow(ctx, c, c + g * 0.46, g * 0.42, g * 0.12);
+    unitBox(ctx, c, c, g);
+    goal.parts.forEach((part, idx) => {
+      const path = part._p || (part._p = toPath(part.d));
+      const colour = resolve(part, buddy);
+      if (idx === goal.lid) {
+        ctx.save();
+        const bb = partBounds(part.d);
+        ctx.translate(bb.left, bb.bottom);
+        ctx.rotate(-32 * Math.PI/180);
+        ctx.translate(-bb.left, -bb.bottom);
+        drawPart(ctx, path, colour, part.flags);
+        ctx.restore();
+      } else {
+        drawPart(ctx, path, colour, part.flags);
+      }
+    });
+    ctx.restore();
+    host.appendChild(cell(canvas, goal.name,
+      goal.lid >= 0 ? 'opens on completion' : buddy.name));
+  });
+}
+
+function partBounds(d) {
+  let left = Infinity, bottom = -Infinity;
+  let i = 0;
+  while (i < d.length) {
+    const op = d[i++];
+    if (op === CLOSE) continue;
+    if (op === CIRCLE) { left = Math.min(left, d[i]-d[i+2]); bottom = Math.max(bottom, d[i+1]+d[i+2]); i += 3; continue; }
+    const n = (op===MOVE||op===LINE) ? 2 : (op===QUAD||op===OVAL) ? 4 : 6;
+    for (let k = 0; k < n; k++) {
+      if (op === RRECT && k >= 4) break;
+      const v = d[i+k];
+      if (k % 2 === 0) left = Math.min(left, v); else bottom = Math.max(bottom, v);
+    }
+    i += n;
+  }
+  return { left, bottom };
+}
+
+const glyphCache = {};
+function glyphPath(name) {
+  if (!glyphCache[name]) {
+    const g = ART.glyphs.find(x => x.name === name);
+    glyphCache[name] = toPath(g.d);
+  }
+  return glyphCache[name];
+}
+
+function renderGlyphs() {
+  const host = document.getElementById('glyphs');
+  host.textContent = '';
+  for (const g of ART.glyphs) {
+    const { canvas, ctx, size } = makeCanvas(76);
+    const c = size / 2;
+    ctx.fillStyle = '#FFFFFF';
+    ctx.beginPath(); ctx.arc(c, c, size * 0.46, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = 'rgba(22,48,79,.12)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(c, c, size * 0.46, 0, Math.PI*2); ctx.stroke();
+    unitBox(ctx, c, c, size * 0.50);
+    ctx.fillStyle = '#16304F';
+    ctx.fill(toPath(g.d));
+    ctx.restore();
+    host.appendChild(cell(canvas, g.name, ''));
+  }
+}
+
+function renderPalette() {
+  const body = document.getElementById('palette');
+  body.textContent = '';
+  for (const b of ART.buddies) {
+    const tr = document.createElement('tr');
+    const name = document.createElement('td');
+    name.className = 'buddycell';
+    name.textContent = b.name;
+    tr.appendChild(name);
+    for (const key of ['primary', 'accent', 'light', 'ink']) {
+      const td = document.createElement('td');
+      const wrap = document.createElement('div');
+      wrap.className = 'chipwrap';
+      const chip = document.createElement('span');
+      chip.className = 'chip';
+      chip.style.background = b[key];
+      const hex = document.createElement('span');
+      hex.className = 'hex';
+      hex.textContent = b[key].toUpperCase();
+      wrap.append(chip, hex);
+      td.appendChild(wrap);
+      tr.appendChild(td);
+    }
+    const collects = document.createElement('td');
+    collects.textContent = b.collectMany;
+    tr.appendChild(collects);
+    body.appendChild(tr);
+  }
+}
+
+function renderAll() {
+  const buddy = ART.buddies[current];
+  renderPasses(buddy);
+  renderIcons(buddy);
+  renderStrip(buddy);
+  renderCollectibles();
+  renderGoals();
+  renderGlyphs();
+  renderPalette();
+}
+
+/* ---------------------------------------------------------------- theme rail */
+const rail = document.getElementById('rail');
+ART.buddies.forEach((b, i) => {
+  const btn = document.createElement('button');
+  btn.className = 'swatch';
+  btn.type = 'button';
+  btn.id = 'buddy-' + b.key;
+  btn.setAttribute('aria-pressed', String(i === current));
+  const dot = document.createElement('span');
+  dot.className = 'dot';
+  dot.style.background = b.primary;
+  btn.append(dot, document.createTextNode(b.name));
+  btn.addEventListener('click', () => {
+    current = i;
+    for (const other of rail.querySelectorAll('.swatch')) other.setAttribute('aria-pressed', 'false');
+    btn.setAttribute('aria-pressed', 'true');
+    renderAll();
+  });
+  rail.appendChild(btn);
+});
+
+renderAll();
+</script>
