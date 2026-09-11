@@ -1,0 +1,19 @@
+MORNING MISSION v0.4 — WINDOWS BUILD
+
+1. Extract MorningMission-v0.4-source.zip.
+2. In Android Studio choose Open and select the MorningMission-v0.4 folder (the folder containing settings.gradle.kts and app/).
+3. Let Gradle sync finish. If Android Studio asks for Gradle version, choose 9.6.0.
+4. Build > Build App Bundle(s) or APK(s) > Build APK(s).
+5. APK: app\build\outputs\apk\debug\app-debug.apk
+6. Install the APK on the phone. If the previous debug build was signed by the same Android Studio debug key, Android should offer to update it.
+
+FIRST TEST
+- Pick a buddy and a short 1- or 2-minute timer.
+- Tap Start Morning.
+- Confirm Buddy Adventure expands to the large running view.
+- Confirm collectibles disappear/check off as time passes and the buddy moves toward the goal.
+- Tap I DID IT — NEXT TASK to advance tasks.
+- Complete the last task and confirm the timer freezes instantly, the goal unlocks, and the victory dance/music/confetti run.
+- Confirm Parent Unlock still requires the PIN.
+
+Do not provision Device Owner / Full Kid Lock until normal mode and Parent Unlock are tested.

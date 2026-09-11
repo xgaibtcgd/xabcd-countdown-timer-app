@@ -1,0 +1,12 @@
+MORNING MISSION — FULL KID LOCK SETUP (WINDOWS)
+
+1. Test the app in STANDARD mode first.
+2. Install the APK:
+   adb install -r app-debug.apk
+3. For an Android device that is eligible for Device Owner provisioning:
+   adb shell dpm set-device-owner --user 0 com.morningmission.app/.MorningDeviceAdminReceiver
+4. Launch Morning Mission and open Grown-Ups settings. It should show:
+   Full Kid Lock available
+
+NOTE: Android can reject Device Owner provisioning on an already provisioned personal phone.
+A dedicated/spare device is the safest place to test Full Kid Lock.
