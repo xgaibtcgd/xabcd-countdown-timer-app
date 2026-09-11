@@ -298,36 +298,12 @@ final class Theme {
     }
 
     // ------------------------------------------------------------- time formatting
-    // Formatting the countdown allocated a String every frame via String.format.
-    // This writes into a reusable buffer drawn with the char[] overload of drawText.
 
-    private static final char[] timeChars = new char[8];
-
-    /** Formats {@code ms} as m:ss into {@link #timeChars}; returns the character count. */
-    static int formatMMSS(long ms) {
-        long totalSeconds = (Math.max(0L, ms) + 999L) / 1000L;
-        long minutes = totalSeconds / 60L;
-        long seconds = totalSeconds % 60L;
-        int i = 0;
-        if (minutes >= 100) timeChars[i++] = (char) ('0' + (minutes / 100) % 10);
-        if (minutes >= 10)  timeChars[i++] = (char) ('0' + (minutes / 10) % 10);
-        timeChars[i++] = (char) ('0' + minutes % 10);
-        timeChars[i++] = ':';
-        timeChars[i++] = (char) ('0' + seconds / 10);
-        timeChars[i++] = (char) ('0' + seconds % 10);
-        return i;
-    }
-
-    /** Draws a countdown without allocating. */
+    /** Draws a countdown without allocating. See {@link TimeText}. */
     static void drawTime(Canvas c, long ms, float x, float cy,
                          float size, int color, Paint.Align align) {
-        int len = formatMMSS(ms);
+        int len = TimeText.format(ms);
         prepare(size, color, align, true);
-        c.drawText(timeChars, 0, len, x, baselineCenter(TEXT, cy), TEXT);
-    }
-
-    /** Same formatting as {@link #drawTime}, for strings that must be concatenated. */
-    static String timeString(long ms) {
-        return new String(timeChars, 0, formatMMSS(ms));
+        c.drawText(TimeText.BUFFER, 0, len, x, baselineCenter(TEXT, cy), TEXT);
     }
 }

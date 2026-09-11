@@ -24,6 +24,8 @@ public final class SelfTest {
         layoutSweep();
         buddyTable();
         hitMapBasics();
+        engineContract();
+        timeFormatting();
 
         System.out.println("==> SelfTest: " + checks + " checks, " + failures + " failures");
         if (failures > 0) System.exit(1);
@@ -380,6 +382,244 @@ public final class SelfTest {
         return hueGap(x[0], y[0]) >= 6f
             || Math.abs(x[1] - y[1]) >= 0.10f
             || Math.abs(x[2] - y[2]) >= 0.10f;
+    }
+
+    // -------------------------------------------------------------- time formatting
+
+    private static void timeFormatting() {
+        check(TimeText.toText(0L).equals("0:00"), "zero should format as 0:00");
+        check(TimeText.toText(-5000L).equals("0:00"), "negative time should clamp to 0:00");
+        check(TimeText.toText(1000L).equals("0:01"), "one second");
+        check(TimeText.toText(222_000L).equals("3:42"), "the frozen example");
+        check(TimeText.toText(900_000L).equals("15:00"), "fifteen minutes");
+        check(TimeText.toText(3_600_000L).equals("60:00"), "an hour");
+        check(TimeText.toText(7_200_000L).equals("120:00"), "the longest selectable routine");
+        // Part-seconds round up, so a countdown shows 1:00 rather than 0:59 for the last
+        // moment of a minute -- the display never appears to skip the top of a minute.
+        check(TimeText.toText(59_001L).equals("1:00"), "part-seconds should round up");
+        check(TimeText.toText(59_999L).equals("1:00"), "just under a minute still reads 1:00");
+        check(TimeText.toText(60_000L).equals("1:00"), "exactly a minute");
+
+        char[] buf = new char[8];
+        int len = TimeText.format(222_000L, buf);
+        check(len == 4, "3:42 is four characters, got " + len);
+        // The buffer must be reused, not reallocated, or the per-frame draw allocates.
+        check(TimeText.BUFFER == TimeText.BUFFER, "the shared buffer identity must be stable");
+        for (int i = 0; i < 1000; i++) TimeText.format(i * 731L);
+        check(TimeText.BUFFER.length == 8, "the shared buffer must not be resized");
+    }
+
+    // ----------------------------------------------------------------------- engine
+
+    /** A clock the test drives by hand, standing in for SystemClock. */
+    private static final class FakeClock implements Engine.Clock {
+        long now = 1_000_000L;
+        public long nowMs() { return now; }
+        void advance(long ms) { now += ms; }
+    }
+
+    private static final class Recorder implements Engine.Listener {
+        int completions;
+        int missionCompletes;
+        int timeUps;
+        long frozenAt = -1L;
+        int lastIndex = -1;
+        boolean lastWasFinal;
+
+        public void onTaskCompleted(int index, boolean last) {
+            completions++;
+            lastIndex = index;
+            lastWasFinal = last;
+        }
+        public void onMissionComplete(long remainingMs) {
+            missionCompletes++;
+            frozenAt = remainingMs;
+        }
+        public void onTimeUp() { timeUps++; }
+    }
+
+    private static String[] tasks(int n) {
+        String[] out = new String[n];
+        for (int i = 0; i < n; i++) out[i] = "Task " + i;
+        return out;
+    }
+
+    private static String[] keys(int n) {
+        String[] out = new String[n];
+        for (int i = 0; i < n; i++) out[i] = "DRESS";
+        return out;
+    }
+
+    private static void engineContract() {
+        freezeContract();
+        emptyRoutine();
+        timeUpBehaviour();
+        pauseBehaviour();
+        collectibles();
+        routineReconciliation();
+    }
+
+    /**
+     * The behaviour a user would notice if it regressed: finish with 3:42 on the clock
+     * and 3:42 is what stays on screen through the celebration.
+     */
+    private static void freezeContract() {
+        FakeClock clock = new FakeClock();
+        Recorder rec = new Recorder();
+        Engine e = new Engine(clock);
+        e.setListener(rec);
+        e.setRoutine(tasks(5), keys(5));
+
+        check(e.remainingMs() == 15L * 60_000L, "an idle engine should report the full duration");
+        e.start(15);
+        check(e.remainingMs() == 900_000L, "remaining should be 15:00 at the start");
+        check(!e.allDone(), "a fresh routine is not complete");
+
+        clock.advance(678_000L);                       // 11:18 gone, 3:42 left
+        check(e.remainingMs() == 222_000L,
+              "remaining should be 3:42, was " + e.remainingMs());
+
+        for (int i = 0; i < 4; i++) {
+            check(e.completeActive(), "task " + i + " should complete");
+            check(!e.allDone(), "not complete until every task is done");
+        }
+        check(e.completeActive(), "the final task should complete");
+        check(e.allDone(), "every task is done, so the mission is complete");
+        check(e.completionRemainingMs() == 222_000L,
+              "the clock should freeze at 3:42, froze at " + e.completionRemainingMs());
+
+        // The whole point: time keeps passing, the displayed value does not.
+        clock.advance(60_000L);
+        check(e.remainingMs() == 222_000L,
+              "the frozen time must not tick down during the celebration, was " + e.remainingMs());
+        clock.advance(10L * 60_000L);
+        check(e.remainingMs() == 222_000L,
+              "the frozen time must survive running past the original end");
+        check(TimeText.toText(e.remainingMs()).equals("3:42"),
+              "the frozen time should format as 3:42, got " + TimeText.toText(e.remainingMs()));
+
+        check(rec.completions == 5, "five completions should have been reported");
+        check(rec.missionCompletes == 1, "mission complete should fire exactly once");
+        check(rec.frozenAt == 222_000L, "the listener should receive the frozen time");
+        check(rec.lastIndex == 4 && rec.lastWasFinal, "the last completion should be flagged final");
+        check(rec.timeUps == 0, "time up must not fire when the routine finished in time");
+
+        check(!e.completeActive(), "completing again after finishing should do nothing");
+        check(rec.completions == 5, "a no-op completion must not notify");
+
+        e.reset();
+        check(!e.allDone(), "reset should clear completion");
+        check(e.completionRemainingMs() == -1L, "reset should clear the frozen time");
+        check(e.remainingMs() == 900_000L, "reset should restore the full duration");
+        check(!e.isRunning(), "reset should stop the countdown");
+    }
+
+    private static void emptyRoutine() {
+        FakeClock clock = new FakeClock();
+        Engine e = new Engine(clock);
+        e.setRoutine(new String[0], new String[0]);
+        e.start(10);
+        check(!e.allDone(), "an empty routine must never report itself complete");
+        check(!e.completeActive(), "an empty routine has nothing to complete");
+        check(e.taskCount() == 0, "an empty routine has no tasks");
+        check(e.progress() >= 0f && e.progress() <= 1f, "progress must stay in range when empty");
+    }
+
+    private static void timeUpBehaviour() {
+        FakeClock clock = new FakeClock();
+        Recorder rec = new Recorder();
+        Engine e = new Engine(clock);
+        e.setListener(rec);
+        e.setRoutine(tasks(3), keys(3));
+        e.start(1);
+
+        check(!e.pollTimeUp(), "time up must not fire while time remains");
+        clock.advance(61_000L);
+        check(e.isTimeUp(), "the countdown should have reached zero");
+        check(e.pollTimeUp(), "time up should fire once zero is reached");
+        check(!e.pollTimeUp(), "time up must fire only once");
+        check(rec.timeUps == 1, "the listener should have seen exactly one time up");
+        check(e.remainingMs() == 0L, "remaining should clamp at zero, not go negative");
+        check(!e.allDone(), "running out of time is not finishing the routine");
+
+        // Finishing after time ran out freezes at zero rather than a negative number.
+        e.completeActive(); e.completeActive(); e.completeActive();
+        check(e.allDone(), "tasks can still be completed after time is up");
+        check(e.completionRemainingMs() == 0L,
+              "finishing late should freeze at 0:00, got " + e.completionRemainingMs());
+    }
+
+    private static void pauseBehaviour() {
+        FakeClock clock = new FakeClock();
+        Engine e = new Engine(clock);
+        e.setRoutine(tasks(3), keys(3));
+        e.start(10);
+        clock.advance(120_000L);
+        check(e.remainingMs() == 480_000L, "eight minutes should be left before pausing");
+
+        e.pause();
+        check(e.isPaused(), "the engine should report itself paused");
+        clock.advance(300_000L);
+        check(e.remainingMs() == 480_000L,
+              "a paused countdown must not run down, was " + e.remainingMs());
+
+        e.resume();
+        check(!e.isPaused(), "resume should clear the paused state");
+        clock.advance(60_000L);
+        check(e.remainingMs() == 420_000L,
+              "the countdown should resume from where it paused, was " + e.remainingMs());
+
+        e.pause();
+        e.completeActive(); e.completeActive(); e.completeActive();
+        check(e.allDone() && e.completionRemainingMs() == 420_000L,
+              "finishing while paused should freeze the paused time");
+    }
+
+    private static void collectibles() {
+        FakeClock clock = new FakeClock();
+        Engine e = new Engine(clock);
+        e.setRoutine(tasks(5), keys(5));
+
+        int[][] expected = {{1, 1}, {5, 5}, {12, 12}, {15, 12}, {60, 12}, {120, 12}};
+        for (int[] pair : expected) {
+            e.reset();
+            e.start(pair[0]);
+            check(e.collectibleCount() == pair[1],
+                  pair[0] + " minutes should show " + pair[1] + " collectibles, showed "
+                  + e.collectibleCount());
+            e.reset();
+        }
+
+        e.reset();
+        e.start(12);
+        check(e.collectedCount() == 0, "nothing is collected at the start");
+        int previous = 0;
+        for (int minute = 1; minute <= 12; minute++) {
+            clock.advance(60_000L);
+            int now = e.collectedCount();
+            check(now >= previous, "collected count must never go backwards");
+            check(now <= e.collectibleCount(), "collected must never exceed the total");
+            previous = now;
+        }
+        check(previous == e.collectibleCount(), "everything should be collected by the end");
+
+        float f = e.collectibleFraction();
+        check(f >= 0f && f < 1.0001f, "the collectible fraction must stay in range");
+    }
+
+    private static void routineReconciliation() {
+        FakeClock clock = new FakeClock();
+        Engine e = new Engine(clock);
+        // A preference written by an older version can have mismatched name and key
+        // lists; that must reconcile rather than throw.
+        e.setRoutine(new String[]{"A", "B", "C"}, new String[]{"EAT"});
+        check(e.taskCount() == 3, "names should determine the task count");
+        check(e.taskKey(0).equals("EAT"), "an existing key should be kept");
+        check(!e.taskKey(2).isEmpty(), "a missing key should get a default");
+        e.setRoutine(null, null);
+        check(e.taskCount() == 0, "null routine arrays should be treated as empty");
+        check(e.taskName(-1).isEmpty() && e.taskName(99).isEmpty(),
+              "out-of-range task lookups must not throw");
     }
 
     // ---------------------------------------------------------------------- hit map
