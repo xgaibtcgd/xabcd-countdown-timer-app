@@ -72,7 +72,6 @@ final class ScreenBuddyPicker extends Screen {
             stroke.setStrokeWidth(scratch.height() * 0.028f);
             stroke.setColor(theme.primary);
             c.drawRoundRect(scratch, scratch.height() * 0.14f, scratch.height() * 0.14f, stroke);
-            stroke.setStyle(Paint.Style.FILL);
         }
 
         float art = scratch.height() * 0.52f;

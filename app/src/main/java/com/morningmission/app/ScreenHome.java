@@ -91,7 +91,6 @@ final class ScreenHome extends Screen {
         scratch.set(box.centerX() - w, box.bottom - size * 0.55f,
                     box.centerX() + w, box.bottom + size * 0.30f);
         c.drawArc(scratch, 20f, 140f, false, stroke);
-        stroke.setStyle(Paint.Style.FILL);
     }
 
     private void drawHeader(Canvas c, Layout layout, BuddyTheme theme) {
@@ -140,7 +139,6 @@ final class ScreenHome extends Screen {
                 stroke.setStrokeWidth(radius * 0.16f);
                 stroke.setColor(0xFFFFFFFF);
                 c.drawCircle(cx, cy, radius * 1.06f, stroke);
-                stroke.setStyle(Paint.Style.FILL);
             }
             Theme.textCentered(c, Integer.toString(MINUTES[i]), cx, cy,
                                Math.max(20f, radius * 0.82f),
@@ -153,12 +151,13 @@ final class ScreenHome extends Screen {
         scratch.set(box);
         scratch.offset(0f, box.height() * 0.04f * view.pressOn(R_TIMER));
         Theme.card(c, scratch, scratch.height() * 0.30f, 0xF9FFFFFF);
-        Theme.drawTime(c, view.minutes() * 60_000L, scratch.centerX(),
-                       scratch.centerY() - scratch.height() * 0.10f,
-                       Math.min(Theme.D1, scratch.height() * 0.50f), Theme.INK,
-                       Paint.Align.CENTER);
-        Theme.textCentered(c, "Tap to customise", scratch.centerX(),
-                           scratch.bottom - scratch.height() * 0.19f,
+        boolean running = view.engine.isRunning() && !view.engine.allDone();
+        Theme.drawTime(c, running ? view.engine.remainingMs() : view.minutes() * 60_000L,
+                       scratch.centerX(), scratch.centerY() - scratch.height() * 0.10f,
+                       Math.min(Theme.D1, scratch.height() * 0.50f),
+                       running ? Theme.CTA_DEEP : Theme.INK, Paint.Align.CENTER);
+        Theme.textCentered(c, running ? "left to get ready" : "Tap to customise",
+                           scratch.centerX(), scratch.bottom - scratch.height() * 0.19f,
                            Theme.B2, Theme.INK_MUTED, Paint.Align.CENTER, false);
         Icons.glyphIn(c, Art.GLYPH_PENCIL, layout.timerPencil, 0.62f, theme.accent);
     }
@@ -182,6 +181,12 @@ final class ScreenHome extends Screen {
 
     private void drawTasks(Canvas c, Layout layout, BuddyTheme theme) {
         Engine engine = view.engine;
+        if (layout.taskRowCount == 0) {
+            Theme.textCentered(c, "No tasks yet. Add some in Grown-Ups.",
+                               layout.taskBand.centerX(), layout.taskBand.centerY(),
+                               Theme.T2, Theme.INK_MUTED, Paint.Align.CENTER, false);
+            return;
+        }
         c.save();
         c.clipRect(layout.taskBand);
         for (int i = 0; i < layout.taskRowCount; i++) {
@@ -220,7 +225,9 @@ final class ScreenHome extends Screen {
         }
         c.restore();
 
-        if (layout.maxTaskScroll() > 1f) drawScrollHint(c, layout);
+        if (layout.taskRowCount > 0 && layout.maxTaskScroll() > 1f) {
+            drawScrollHint(c, layout);
+        }
     }
 
     private void drawCheckCircle(Canvas c, float cx, float cy, float size,
@@ -238,7 +245,6 @@ final class ScreenHome extends Screen {
             stroke.setStrokeWidth(size * 0.11f);
             stroke.setColor(active ? Theme.WARN : 0xFFD3DCE8);
             c.drawCircle(cx, cy, size * 0.44f, stroke);
-            stroke.setStyle(Paint.Style.FILL);
         }
     }
 
@@ -261,14 +267,19 @@ final class ScreenHome extends Screen {
     private void drawStart(Canvas c, Layout layout) {
         float press = view.pressOn(R_START);
         RectF box = layout.startBtn;
+        // A morning already under way -- a grown-up unlocked and stepped out of it --
+        // gets a way back in rather than a button that looks like it would restart.
+        boolean resuming = view.engine.isRunning() && !view.engine.allDone();
+        String label = resuming ? "BACK TO THE MORNING" : "START MORNING";
         Theme.button(c, box, box.height() * 0.5f, Theme.CTA, Theme.CTA_DEEP, press);
         float cy = box.centerY() + box.height() * 0.04f * press;
         float size = box.height() * 0.40f;
-        float textWidth = Theme.measure("START MORNING", Theme.H2, true);
+        float textSize = resuming ? Theme.T2 : Theme.H2;
+        float textWidth = Theme.measure(label, textSize, true);
         float startX = box.centerX() - (size + 20f + textWidth) * 0.5f;
         Icons.glyph(c, Art.GLYPH_PLAY, startX + size * 0.5f, cy, size, 0xFFFFFFFF);
-        Theme.textCentered(c, "START MORNING", startX + size + 20f, cy,
-                           Theme.H2, 0xFFFFFFFF, Paint.Align.LEFT, true);
+        Theme.textCentered(c, label, startX + size + 20f, cy,
+                           textSize, 0xFFFFFFFF, Paint.Align.LEFT, true);
     }
 
     private void drawNav(Canvas c, Layout layout, BuddyTheme theme) {
@@ -302,10 +313,18 @@ final class ScreenHome extends Screen {
                 view.route(MorningView.SCREEN_BUDDY_PICKER);
                 break;
             case R_MINUTE:
+                if (view.engine.isRunning()) {
+                    view.activity.toast("The morning is already under way.");
+                    break;
+                }
                 view.setMinutes(MINUTES[data]);
                 view.resetRoutine();
                 break;
             case R_TIMER:
+                if (view.engine.isRunning()) {
+                    view.activity.toast("The morning is already under way.");
+                    break;
+                }
                 view.route(MorningView.SCREEN_TIME_PICKER);
                 break;
             case R_EDIT:

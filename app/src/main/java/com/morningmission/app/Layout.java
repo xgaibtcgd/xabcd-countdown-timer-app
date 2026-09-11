@@ -202,8 +202,8 @@ final class Layout {
     /** Adds a band; returns its index. */
     private int band(float min, float max, float grow, float shrink) {
         int i = bandCount++;
-        bandMin[i] = min;
-        bandMax[i] = Math.max(min, max);
+        bandMin[i] = Math.max(0f, min);
+        bandMax[i] = Math.max(bandMin[i], max);
         bandGrow[i] = grow;
         bandShrink[i] = shrink;
         return i;
@@ -292,9 +292,11 @@ final class Layout {
      * or {@link #scrollEditor} instead, which move only the row rectangles.
      *
      * @param taskCount number of tasks in the routine, which sets the task list height
+     * @param editorRowCount rows the routine editor is currently showing, which can differ
+     *                       from {@code taskCount} while edits are unsaved
      */
     void measure(int widthPx, int heightPx, int insetTopPx, int insetBottomPx,
-                 float densityDpi, int taskCount) {
+                 float densityDpi, int taskCount, int editorRowCount) {
         scale = widthPx <= 0 ? 1f : widthPx / W;
         height = heightPx / scale;
         safeTop = insetTopPx / scale + 18f;
@@ -308,14 +310,14 @@ final class Layout {
         measureBuddyPicker();
         measureTimePicker();
         measureGrownUps();
-        measureRoutineEditor(taskCount);
+        measureRoutineEditor(editorRowCount);
     }
 
     // ------------------------------------------------------------------------ home
 
     private void measureHome(int taskCount) {
         taskRowCount = Math.max(0, Math.min(taskCount, MAX_TASK_ROWS));
-        taskContentHeight = taskRowCount * TASK_ROW_PITCH - TASK_ROW_GAP;
+        taskContentHeight = Math.max(0f, taskRowCount * TASK_ROW_PITCH - TASK_ROW_GAP);
 
         begin();
         int bHeader = fixed(176f);
@@ -602,7 +604,7 @@ final class Layout {
     // ------------------------------------------------------------------ grown-ups
 
     private void measureGrownUps() {
-        guContentHeight = GROWN_UP_ROWS * TASK_ROW_PITCH - TASK_ROW_GAP;
+        guContentHeight = Math.max(0f, GROWN_UP_ROWS * TASK_ROW_PITCH - TASK_ROW_GAP);
         begin();
         int bHeader = fixed(180f);
         int g1 = gap();
@@ -648,7 +650,7 @@ final class Layout {
         edTitle.set(edBack.right, bandTop[bHeader], W - 40f, bandBottom(bHeader));
 
         place(bRows, edBand, 48f, W - 48f);
-        edContentHeight = edRowCount * TASK_ROW_PITCH - TASK_ROW_GAP;
+        edContentHeight = Math.max(0f, edRowCount * TASK_ROW_PITCH - TASK_ROW_GAP);
         scrollEditor(edScroll);
         place(bAdd, edAdd, 140f, W - 140f);
         place(bSave, edSave, 90f, W - 90f);

@@ -161,11 +161,21 @@ final class MorningView extends View implements Choreographer.FrameCallback, Eng
         previous = current;
         current = screen;
         routeProgress = 0f;
+        // onEnter first: a screen loads its working state there, and laying out before
+        // that would register hit regions for the state it is replacing. The routine
+        // editor in particular starts empty and fills itself in onEnter.
+        screens[current].onEnter();
         requestLayoutPass();
         rebuildScene();
-        screens[current].onEnter();
         startClock();
         invalidate();
+    }
+
+    /** How many rows the routine editor is showing, which may include unsaved edits. */
+    private int editorRowCount() {
+        Screen editor = screens[SCREEN_EDIT_ROUTINE];
+        return editor instanceof ScreenEditRoutine
+               ? ((ScreenEditRoutine) editor).rowCount() : engine.taskCount();
     }
 
     /** Re-runs the current screen's layout and re-registers its hit regions. */
@@ -173,7 +183,7 @@ final class MorningView extends View implements Choreographer.FrameCallback, Eng
         if (getWidth() == 0 || getHeight() == 0) return;
         layout.measure(getWidth(), getHeight(), insetTopPx, insetBottomPx,
                        getResources().getDisplayMetrics().densityDpi,
-                       engine.taskCount());
+                       engine.taskCount(), editorRowCount());
         measured = true;
         hits.clear();
         screens[current].layout(layout, hits);
@@ -289,7 +299,6 @@ final class MorningView extends View implements Choreographer.FrameCallback, Eng
             stroke.setColor(i == pressedIndex ? 0xFFFF3B30 : 0x8800E5FF);
             c.drawRect(hits.rectAt(i), stroke);
         }
-        stroke.setStyle(Paint.Style.FILL);
     }
 
     // ---------------------------------------------------------------- buddy drawing

@@ -37,6 +37,7 @@ final class ScreenGrownUps extends Screen {
     private final RectF scratch = new RectF();
     private float scroll;
     private float held;
+    private boolean unlockPending;
 
     ScreenGrownUps(MorningView view) {
         super(view);
@@ -160,7 +161,6 @@ final class ScreenGrownUps extends Screen {
                         bead.centerX() + radius * 0.88f, bead.centerY() + radius * 0.88f);
             c.drawArc(scratch, -90f, 360f * fraction, false, stroke);
         }
-        stroke.setStyle(Paint.Style.FILL);
         Icons.glyph(c, Art.GLYPH_LOCK, bead.centerX(), bead.centerY(), radius * 0.86f,
                     theme.ink);
 
@@ -168,9 +168,15 @@ final class ScreenGrownUps extends Screen {
                            panel.centerX(), panel.bottom - panel.height() * 0.16f,
                            Theme.B1, theme.ink, Paint.Align.CENTER, true);
 
-        if (held >= HOLD_SECONDS) {
+        if (held >= HOLD_SECONDS && !unlockPending) {
             held = 0f;
-            view.activity.requestParentUnlock();
+            // Posted rather than called: showing a dialog from inside onDraw re-enters
+            // the view hierarchy mid-frame.
+            unlockPending = true;
+            view.post(() -> {
+                unlockPending = false;
+                view.activity.requestParentUnlock();
+            });
         }
     }
 

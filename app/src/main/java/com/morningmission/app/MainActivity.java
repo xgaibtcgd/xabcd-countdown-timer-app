@@ -4,7 +4,6 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.admin.DevicePolicyManager;
 import android.content.ComponentName;
-import android.content.Context;
 import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.media.AudioAttributes;
@@ -260,8 +259,10 @@ public final class MainActivity extends Activity {
 
     void requestParentUnlock() {
         askForPin("Parent Unlock", "Enter the Grown-Ups PIN to leave Morning Mission.", () -> {
+            // The countdown keeps running and completed tasks stay completed. A grown-up
+            // stepping in to check something should not cost a child their morning's
+            // progress; Home offers a way straight back in.
             stopKidMode();
-            morningView.resetRoutine();
             morningView.route(MorningView.SCREEN_HOME);
         });
     }
@@ -433,9 +434,5 @@ public final class MainActivity extends Activity {
 
     private int dp(int value) {
         return Math.round(value * getResources().getDisplayMetrics().density);
-    }
-
-    static Context context(View view) {
-        return view.getContext();
     }
 }

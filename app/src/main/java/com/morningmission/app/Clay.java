@@ -130,7 +130,7 @@ final class Clay {
      * {@code (cx, cy)} at {@code size} across. Pair with {@link #end}.
      */
     static void begin(Canvas c, float cx, float cy, float size) {
-        c.save();
+        c.save();                                   // canvasbalance: ok - paired with end()
         c.translate(cx, cy);
         float s = size / UNIT;
         c.scale(s, s);
@@ -139,7 +139,7 @@ final class Clay {
 
     /** As {@link #begin}, with a rotation about the shape's centre. */
     static void begin(Canvas c, float cx, float cy, float size, float rotationDegrees) {
-        c.save();
+        c.save();                                   // canvasbalance: ok - paired with end()
         c.translate(cx, cy);
         c.rotate(rotationDegrees);
         float s = size / UNIT;
@@ -148,7 +148,7 @@ final class Clay {
     }
 
     static void end(Canvas c) {
-        c.restore();
+        c.restore();                                // canvasbalance: ok - paired with begin()
     }
 
     // ---------------------------------------------------------------------- passes

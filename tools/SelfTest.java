@@ -66,8 +66,11 @@ public final class SelfTest {
         Layout L = new Layout();
         for (int[] screen : SCREENS) {
             for (int[] inset : INSETS) {
-                for (int tasks = 1; tasks <= Layout.MAX_TASK_ROWS; tasks++) {
-                    L.measure(screen[0], screen[1], inset[0], inset[1], screen[2], tasks);
+                // Zero is included: a child can delete every task in the editor, and a
+                // routine of no tasks previously produced a negative band minimum.
+                for (int tasks = 0; tasks <= Layout.MAX_TASK_ROWS; tasks++) {
+                    L.measure(screen[0], screen[1], inset[0], inset[1], screen[2],
+                              tasks, tasks);
                     for (float scroll : new float[]{0f, 250f, 99999f}) {
                         L.scrollTasks(scroll);
                         L.scrollGrownUps(scroll);

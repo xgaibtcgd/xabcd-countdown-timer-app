@@ -82,6 +82,7 @@ final class Theme {
     // defensively reset before use.
 
     static final Paint FILL   = new Paint(Paint.ANTI_ALIAS_FLAG);
+    /** Always {@code Style.STROKE}. Set the width and colour; never change the style. */
     static final Paint STROKE = new Paint(Paint.ANTI_ALIAS_FLAG);
     static final Paint TEXT   = new Paint(Paint.ANTI_ALIAS_FLAG);
     static final Paint BMP    = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
@@ -228,6 +229,9 @@ final class Theme {
     private static void prepare(float size, int color, Paint.Align align, boolean bold) {
         TEXT.setShader(null);
         TEXT.clearShadowLayer();
+        // wordmark() strokes a halo pass; reset defensively so a later plain draw is
+        // never accidentally outlined.
+        TEXT.setStyle(Paint.Style.FILL);
         TEXT.setTypeface(bold ? ROUND_BOLD : ROUND);
         TEXT.setTextSize(size);
         TEXT.setColor(color);

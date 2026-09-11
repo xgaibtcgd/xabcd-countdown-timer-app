@@ -388,7 +388,6 @@ final class Scene {
                 c.restore();
             }
         }
-        stroke.setStyle(Paint.Style.FILL);
     }
 
     /** A fern canopy across the top, which is how a tall screen gets filled. */
@@ -517,7 +516,6 @@ final class Scene {
             scratch.set(cx - rr, cy - rr, cx + rr, cy + rr);
             c.drawArc(scratch, 195f, 150f, false, stroke);
         }
-        stroke.setStyle(Paint.Style.FILL);
     }
 
     private void drawGroundDetail(Canvas c, BuddyTheme theme, float t) {

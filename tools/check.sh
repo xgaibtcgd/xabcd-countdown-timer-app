@@ -79,6 +79,9 @@ fi
 # ------------------------------------------------ region reachability gate
 python3 "$ROOT/tools/regioncheck.py" "$PKG"/Screen*.java
 
+# --------------------------------------------------- canvas save/restore gate
+python3 "$ROOT/tools/canvasbalance.py" "$PKG"/*.java
+
 # ------------------------------------------------- per-frame allocation gate
 python3 "$ROOT/tools/allocgate.py" \
   "$PKG"/Screen*.java "$PKG"/Scene.java "$PKG"/Icons.java "$PKG"/Glyphs.java \
