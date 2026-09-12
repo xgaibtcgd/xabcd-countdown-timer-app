@@ -197,6 +197,7 @@
 <script>
 const BUDDY_IMAGES = [];
 const CHEER_IMAGES = [];
+const RIG_IMAGES = [];
 const BACKDROPS = { home: null, adventure: [] };
 const PROPS = {};
 let currentBuddy = 3;      // Splash Buddy, the default on a new install
@@ -414,6 +415,15 @@ KEYS.forEach((key, i) => {
   cheering.onload = cheering.onerror = done;
   cheering.src = 'buddies/' + key + '_cheer.png';
   CHEER_IMAGES[i] = cheering;
+
+  const rigData = DATA.buddies[i].rig;
+  if (rigData) {
+    RIG_IMAGES[i] = rigData.parts.map(part => {
+      const im = new Image();
+      im.src = 'buddies/' + key + '_part_' + part.name.replace('signature', 'wings') + '.png';
+      return im;
+    });
+  }
 
   const scene = new Image();
   scene.onload = scene.onerror = done;

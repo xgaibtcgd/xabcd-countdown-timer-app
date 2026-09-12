@@ -117,8 +117,23 @@ collectible and glyph. `Scene` still contains a complete procedural environment
 per buddy, used when no artwork is present and for the celebration, which has
 none.
 
+Queen Bee is the first character built from parts rather than one flat bitmap:
+`buddy_bee_part_{head,torso,arm_l,arm_r,wings}.png`, placed by the table in
+`Rig.java`. The parts are drawn INSIDE the outer transform `drawSprite` already
+applies, so the bob, squash, contact shadow and the one-shot feast and poke moves
+keep working untouched, and the other seven take exactly the path they took
+before. It costs less than what it replaces: five parts trimmed to their own
+alpha bounds are 1.19 MB decoded against 2.07 MB for the flat sprite.
+
+What a rig buys is lag — the wings trailing the body rather than moving with it.
+`Anim.solve` is a pure function of time, so "where the body was a beat ago" is
+the same call at `t - Anim.RIG_LAG`, with no history to keep and nothing to reset
+when the screen changes. The wings beat by squashing toward their root rather
+than rotating, because they arrived as one bitmap of a pair and rotating that
+see-saws it.
+
 The eight `buddy_<key>_cheer.png` are the same characters with their arms up, on
-the Complete screen. They are fitted to the walking sprite's own framing rather
+the Complete screen. A rigged buddy skips them and poses its own arms instead. They are fitted to the walking sprite's own framing rather
 than to their own bounding box -- a cheer is a different shape from a stand, so
 normalising by bounds makes a character change size the moment it celebrates.
 The placement was solved by maximising silhouette overlap against the walking

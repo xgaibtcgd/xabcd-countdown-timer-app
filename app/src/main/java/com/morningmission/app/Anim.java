@@ -750,6 +750,62 @@ final class Anim {
      *
      * @param cheerRemaining seconds left of a completion cheer, or zero
      */
+    // ------------------------------------------------------------------------- rigs
+
+    /**
+     * How far behind the body an appendage trails, in seconds.
+     *
+     * <p>The whole reason a rig is worth building. {@link #solve} is a pure function of
+     * time, so "where the body was a beat ago" costs one more call and no state at all --
+     * no history buffer to keep, nothing to reset when the screen changes, and it stays
+     * correct through a pause because the clock it reads is already paused.
+     */
+    static final float RIG_LAG = 0.13f;
+
+    /**
+     * Vertical scale for one rigged part, about its own pivot. 1 leaves it alone.
+     *
+     * <p>This is what makes the wings beat. A wing PAIR supplied as a single bitmap
+     * cannot flap by rotating -- that see-saws it -- but squashing it toward its root
+     * reads exactly as a downstroke seen from the front, which is the view the app has.
+     * It is also how the beat stays symmetric without asking for two more drawables.
+     */
+    static float partScaleY(int part, float t, float beat) {
+        if (part != Rig.SIGNATURE) return 1f;
+        return 1f - 0.34f * (0.5f + 0.5f * (float) Math.sin(t * beat));
+    }
+
+    /**
+     * Extra rotation for one rigged part, in degrees, on top of its rest angle.
+     *
+     * @param trail how fast the body is rising or falling: the difference between its
+     *              vertical offset now and {@link #RIG_LAG} ago
+     * @param bodyRotation the body's own rotation this frame, which the head resists
+     */
+    static float partAngle(int part, Temperament how, float t, float trail,
+                           float bodyRotation, float beat, float sweep) {
+        switch (part) {
+            case Rig.SIGNATURE:
+                // A gentle bank, not a beat. The wings are ONE bitmap, so rotating them
+                // see-saws the pair -- one up, one down -- which is not what a bee does.
+                // The beat itself is a vertical squash; see partScaleY.
+                return sweep * 0.30f * (float) Math.sin(t * beat * 0.5f) - trail * 0.40f;
+            case Rig.ARM_L:
+            case Rig.ARM_R:
+                // Both arms swing together rather than in opposition: this is a hovering
+                // character, not a walking one, and opposed arms on a bee read as a
+                // mistake. The phase lags the body's own by half a radian.
+                return -(12f * (float) Math.sin(t * how.tempo * 2.6f - 0.9f)
+                         - trail * 0.22f);
+            case Rig.HEAD:
+                // Resists the body's tilt and its rise, which is what keeps a head
+                // looking heavy instead of welded on.
+                return -0.28f * bodyRotation - trail * 0.14f;
+            default:
+                return 0f;
+        }
+    }
+
     static int stateFor(Engine engine, boolean danceEnabled, float cheerRemaining,
                         boolean running) {
         // Reaching the treasure chest is a dance, not a meal, and it keeps dancing --

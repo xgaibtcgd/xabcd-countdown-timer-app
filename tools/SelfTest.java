@@ -374,6 +374,11 @@ public final class SelfTest {
             check(b.victoryRes != b.soundRes && b.victoryRes != b.eatRes,
                   "BuddyTheme " + b.key + " celebrates with one of its own blips");
             check(b.backdropRes != 0, "BuddyTheme " + b.key + " has no backdrop");
+            // Added in the same change that added the field, which shipped without it.
+            check(b.cheerRes != 0, "BuddyTheme " + b.key + " has no cheer pose");
+            check(b.cheerRes != b.artRes,
+                  "BuddyTheme " + b.key + " cheers with its own walking sprite");
+            if (b.rig != null) rigTable(b);
             check(opaque(b.primary) && opaque(b.accent) && opaque(b.light)
                   && opaque(b.ink) && opaque(b.dark) && opaque(b.body),
                   "BuddyTheme " + b.key + " has a non-opaque palette colour");
@@ -394,7 +399,7 @@ public final class SelfTest {
                 BuddyTheme a = BuddyTheme.ALL[i], b = BuddyTheme.ALL[j];
                 check(a.artRes != b.artRes && a.soundRes != b.soundRes
                       && a.eatRes != b.eatRes && a.victoryRes != b.victoryRes
-                      && a.backdropRes != b.backdropRes,
+                      && a.backdropRes != b.backdropRes && a.cheerRes != b.cheerRes,
                       a.key + " and " + b.key + " share a resource");
             }
         }
@@ -1873,6 +1878,82 @@ public final class SelfTest {
     }
 
     // ---------------------------------------------------------------------- hit map
+
+    /**
+     * A rigged character's placement table.
+     *
+     * <p>Five parts drawn from authored numbers, and the numbers are the whole thing --
+     * there is no artwork to check them against, so a transposed digit is a wing in the
+     * wrong county and nothing else notices. Every part has to carry a drawable, sit
+     * inside its own frame, and turn about a pivot that is actually on it.
+     */
+    private static void rigTable(BuddyTheme b) {
+        Rig rig = b.rig;
+        String who = "rig " + b.key;
+        check(rig.res.length == Rig.PART_COUNT,
+              who + " has " + rig.res.length + " drawables for " + Rig.PART_COUNT + " parts");
+        check(rig.layout.length == Rig.PART_COUNT * Rig.STRIDE,
+              who + " layout is " + rig.layout.length + " floats, expected "
+              + (Rig.PART_COUNT * Rig.STRIDE));
+        check(Rig.NAMES.length == Rig.PART_COUNT && Rig.FIELDS.length == Rig.STRIDE,
+              "the rig name tables have fallen out of step with the layout");
+        check(rig.aspect > 0f, who + " has a non-positive frame aspect");
+        check(rig.signatureBeat > 0f && rig.signatureSweep >= 0f,
+              who + " has a signature part that cannot move");
+
+        for (int part = 0; part < Rig.PART_COUNT; part++) {
+            String what = who + " " + Rig.NAMES[part];
+            check(rig.res[part] != 0, what + " has no drawable");
+            for (int other = part + 1; other < Rig.PART_COUNT; other++) {
+                check(rig.res[part] != rig.res[other],
+                      what + " and " + Rig.NAMES[other] + " are the same drawable");
+            }
+            check(rig.width(part) > 0.01f && rig.height(part) > 0.01f,
+                  what + " has no size");
+            // Inside the frame, with a little room: a part may overhang slightly (the
+            // bee's wings are wider than its body) but not float off the sprite.
+            float left = rig.cx(part) - rig.width(part) * 0.5f;
+            float right = rig.cx(part) + rig.width(part) * 0.5f;
+            float top = rig.cy(part) - rig.height(part) * 0.5f;
+            float bottom = rig.cy(part) + rig.height(part) * 0.5f;
+            check(left > -0.15f && right < 1.15f && top > -0.15f && bottom < 1.15f,
+                  what + " sits outside the frame: x[" + left + ".." + right
+                  + "] y[" + top + ".." + bottom + "]");
+            check(rig.pivotX(part) >= 0f && rig.pivotX(part) <= 1f
+                  && rig.pivotY(part) >= 0f && rig.pivotY(part) <= 1f,
+                  what + " turns about a pivot that is not on it");
+            check(Math.abs(rig.rest(part)) <= 180f,
+                  what + " has a rest angle of " + rig.rest(part) + " degrees");
+        }
+
+        // The parts have to add up to a character, not a scatter: something must cover
+        // the middle of the frame, and the top must be above the middle.
+        check(rig.topFraction() < 0.5f,
+              who + " starts below the middle of its own frame");
+        check(rig.cy(Rig.HEAD) < rig.cy(Rig.TORSO),
+              who + " wears its head below its body");
+
+        // The animation has to actually move the parts it claims to, and leave the torso
+        // alone -- a rig whose every angle came back zero would pass everything above.
+        float moved = 0f;
+        for (float t = 0f; t < 4f; t += 0.05f) {
+            for (int part = 0; part < Rig.PART_COUNT; part++) {
+                float a = Anim.partAngle(part, b.temperament, t, 0.4f, 3f,
+                                         rig.signatureBeat, rig.signatureSweep);
+                check(a > -180f && a < 180f,
+                      who + " " + Rig.NAMES[part] + " swung " + a + " degrees at t=" + t);
+                if (part == Rig.TORSO) {
+                    check(a == 0f, who + " rotates its own torso inside the rig");
+                } else {
+                    moved += Math.abs(a);
+                }
+            }
+            float squash = Anim.partScaleY(Rig.SIGNATURE, t, rig.signatureBeat);
+            check(squash > 0.2f && squash <= 1f,
+                  who + " squashed its signature part to " + squash);
+        }
+        check(moved > 100f, who + " has parts that never move");
+    }
 
     private static void hitMapBasics() {
         HitMap h = new HitMap();

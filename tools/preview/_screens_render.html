@@ -21,6 +21,7 @@
 const KEYS = DATA.buddies.map(b => b.key);
 const BUDDY_IMAGES = [];
 const CHEER_IMAGES = [];
+const RIG_IMAGES = [];
 const BACKDROPS = { home: null, adventure: [] };
 const PROPS = {};
 window.READY = new Promise(resolve => {
@@ -31,6 +32,14 @@ window.READY = new Promise(resolve => {
     b.src = 'buddies/' + key + '.png'; BUDDY_IMAGES[i] = b;
     const ch = new Image(); ch.onload = ch.onerror = done;
     ch.src = 'buddies/' + key + '_cheer.png'; CHEER_IMAGES[i] = ch;
+    const rig = DATA.buddies[i].rig;
+    if (rig) {
+      RIG_IMAGES[i] = rig.parts.map(part => {
+        const im = new Image();
+        im.src = 'buddies/' + key + '_part_' + part.name.replace('signature', 'wings') + '.png';
+        return im;
+      });
+    }
     const s = new Image(); s.onload = s.onerror = done;
     s.src = 'backdrops/adventure_' + key + '.jpg'; BACKDROPS.adventure[i] = s;
   });

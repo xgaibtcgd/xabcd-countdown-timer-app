@@ -46,8 +46,26 @@ public final class ExportArt {
               .append(",\"light\":").append(hex(b.light))
               .append(",\"dark\":").append(hex(b.dark))
               .append(",\"ink\":").append(hex(b.ink))
-              .append(",\"body\":").append(hex(b.body))
-              .append("}");
+              .append(",\"body\":").append(hex(b.body));
+            // The rig, exported so the browser preview draws the same character the app
+            // does. Absent for a buddy that is still one flat bitmap.
+            if (b.rig != null) {
+                sb.append(",\"rig\":{\"aspect\":").append(round(b.rig.aspect))
+                  .append(",\"beat\":").append(round(b.rig.signatureBeat))
+                  .append(",\"sweep\":").append(round(b.rig.signatureSweep))
+                  .append(",\"parts\":[");
+                for (int part = 0; part < Rig.PART_COUNT; part++) {
+                    if (part > 0) sb.append(",");
+                    sb.append("{\"name\":").append(str(Rig.NAMES[part]));
+                    for (int f = 0; f < Rig.STRIDE; f++) {
+                        sb.append(",\"").append(Rig.FIELDS[f]).append("\":")
+                          .append(fine(b.rig.layout[part * Rig.STRIDE + f]));
+                    }
+                    sb.append("}");
+                }
+                sb.append("]}");
+            }
+            sb.append("}");
         }
         sb.append("\n],\n");
 
@@ -133,6 +151,11 @@ public final class ExportArt {
      * artwork gets judged on. Six digits is still the normal case, so nothing that parses
      * these with a plain {@code slice(1, 7)} changes.
      */
+    /** Two decimals is plenty for a temperament dial and unreadable for a rig offset. */
+    private static float fine(float v) {
+        return Math.round(v * 100000f) / 100000f;
+    }
+
     private static float round(float v) {
         return Math.round(v * 100f) / 100f;
     }

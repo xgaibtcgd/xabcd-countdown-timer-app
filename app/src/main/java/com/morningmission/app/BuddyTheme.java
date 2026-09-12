@@ -59,6 +59,15 @@ final class BuddyTheme {
     /** The illustrated world this buddy's adventure happens in. */
     int backdropRes;
 
+    /**
+     * Five parts instead of one flat bitmap, or null for a character not yet rigged.
+     *
+     * <p>Nullable on purpose: rigging is being rolled out one character at a time, and
+     * a half-rigged cast has to keep working. Everything that draws a buddy falls back
+     * to {@link #artRes} when this is null. See {@link Rig}.
+     */
+    Rig rig;
+
     /** The character's signature colour. Drives scenery, accents and buttons. */
     int primary;
     /** Secondary colour, for the accent element of an icon. */
@@ -108,6 +117,12 @@ final class BuddyTheme {
         return this;
     }
 
+    /** Gives this character a rig. Only the bee has one so far. */
+    private BuddyTheme rigged(Rig rig) {
+        this.rig = rig;
+        return this;
+    }
+
     private BuddyTheme assets(int artRes, int cheerRes, int soundRes, int eatRes,
                               int victoryRes, int backdropRes) {
         this.artRes = artRes;
@@ -148,6 +163,7 @@ final class BuddyTheme {
             .assets(R.drawable.buddy_bee, R.drawable.buddy_bee_cheer,
                     R.raw.buddy_bee_sound, R.raw.buddy_bee_eat,
                     R.raw.victory_bee, R.drawable.bg_adventure_bee)
+            .rigged(Rig.BEE)
             .palette(0xFFFBD638, 0xFFEAA815, 0xFF8DCCF7, 0xFFFEF8DB, 0xFFFFFDF0, 0xFF6B4E05, 0xFF271A17),
 
         new BuddyTheme(2, "pug")

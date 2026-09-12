@@ -169,22 +169,90 @@ function partBounds(d) {
 // allowed to getImageData its own sprites -- the same reason the backdrop skies are
 // sampled at build time rather than in the browser.
 function cheerTopFraction(index) {
+  const rig = DATA.buddies[index].rig;
+  if (rig) {
+    // Mirrors Rig.topFraction: a rig has no bitmap to scan, but it knows where its
+    // parts are, so the topmost one gives the same number.
+    return rig.parts.reduce((top, p) => Math.min(top, p.cy - p.h / 2), 1);
+  }
   return DATA.buddies[index].cheerTop || 0;
 }
 
 // Mirrors MorningView.drawBuddyCheering: the cheer art is fitted to the walking
 // sprite's own framing, so it is the same call with a different bitmap.
-function drawBuddyCheering(ctx, index, cx, feetY, height, bob = 0) {
+function drawBuddyCheering(ctx, index, cx, feetY, height, bob = 0, t = 0) {
+  // A rigged buddy poses its own arms rather than swapping to a cheer bitmap.
+  if (DATA.buddies[index].rig) {
+    drawBuddy(ctx, index, cx, feetY, height, bob, 0, t);
+    return;
+  }
   const img = CHEER_IMAGES[index];
   if (!img || !img.complete || !img.naturalWidth) {
-    drawBuddy(ctx, index, cx, feetY, height, bob);
+    drawBuddy(ctx, index, cx, feetY, height, bob, 0, t);
     return;
   }
   contactShadow(ctx, cx, feetY + height * 0.02, height * 0.36, height * 0.055, 0.9);
   ctx.drawImage(img, cx - height / 2, feetY - height + bob, height, height);
 }
 
-function drawBuddy(ctx, index, cx, feetY, height, bob = 0, rotation = 0) {
+// Mirrors Anim.partAngle and MorningView.drawRig. A rigged buddy draws five parts
+// inside the same outer transform a flat one gets, each turning about its own pivot,
+// and appendages trail the body by Anim.RIG_LAG rather than moving with it.
+const RIG_LAG = 0.13;
+
+function partAngle(part, buddy, rig, t, trail, bodyRotation) {
+  // signature: a bank, not a beat -- one bitmap of two wings see-saws if rotated
+  if (part === 0) return rig.sweep * 0.30 * Math.sin(t * rig.beat * 0.5) - trail * 0.40;
+  if (part === 2 || part === 3) {                                            // arms
+    return -(12 * Math.sin(t * buddy.tempo * 2.6 - 0.9) - trail * 0.22);
+  }
+  if (part === 4) return -0.28 * bodyRotation - trail * 0.14;                // head
+  return 0;
+}
+
+// The beat itself: a squash toward the wing root, which reads as a downstroke.
+function partScaleY(part, t, beat) {
+  if (part !== 0) return 1;
+  return 1 - 0.34 * (0.5 + 0.5 * Math.sin(t * beat));
+}
+
+function drawRig(ctx, index, buddy, height, t, bodyRotation) {
+  const rig = buddy.rig, imgs = RIG_IMAGES[index];
+  if (!rig || !imgs) return false;
+  const width = height * rig.aspect;
+  // The lagged sample: the same bob function a beat ago, differenced.
+  const trail = bodyBob(buddy, t, 8, 2.6) - bodyBob(buddy, t - RIG_LAG, 8, 2.6);
+  for (let i = 0; i < rig.parts.length; i++) {
+    const img = imgs[i];
+    if (!img || !img.complete || !img.naturalWidth) continue;
+    const p = rig.parts[i];
+    const w = p.w * width, h = p.h * height;
+    const px = (p.pvx - 0.5) * w, py = (p.pvy - 0.5) * h;
+    const deg = p.rest + partAngle(i, buddy, rig, t, trail, bodyRotation);
+    ctx.save();
+    ctx.translate((p.cx - 0.5) * width, (p.cy - 0.5) * height);
+    ctx.translate(px, py);
+    ctx.rotate(deg * Math.PI / 180);
+    const squash = partScaleY(i, t, rig.beat);
+    if (squash !== 1) ctx.scale(1, squash);
+    ctx.translate(-px, -py);
+    ctx.drawImage(img, -w / 2, -h / 2, w, h);
+    ctx.restore();
+  }
+  return true;
+}
+
+function drawBuddy(ctx, index, cx, feetY, height, bob = 0, rotation = 0, t = 0) {
+  const buddy = DATA.buddies[index];
+  if (buddy.rig) {
+    contactShadow(ctx, cx, feetY + height * 0.02, height * 0.36, height * 0.055, 0.9);
+    ctx.save();
+    ctx.translate(cx, feetY - height / 2 + bob);
+    if (rotation) ctx.rotate(rotation * Math.PI / 180);
+    drawRig(ctx, index, buddy, height, t, rotation);
+    ctx.restore();
+    return;
+  }
   const img = BUDDY_IMAGES[index];
   if (!img || !img.complete) return;
   contactShadow(ctx, cx, feetY + height * 0.02, height * 0.36, height * 0.055, 0.9);
@@ -298,7 +366,7 @@ function screenHome(ctx, L, buddy, t) {
   ctx.stroke();
 
   drawBuddy(ctx, buddy.index, rcx(L.buddySlot), L.buddySlot[3] - rh(L.buddySlot) * 0.06,
-            rh(L.buddySlot) * 0.82, bodyBob(buddy, t, 7, 1.15));
+            rh(L.buddySlot) * 0.82, bodyBob(buddy, t, 7, 1.15), 0, t);
 
   // minute bubbles
   text(ctx, 'MINUTES', rcx(L.minutesLabel), rcy(L.minutesLabel), DATA.type.c1, '#5C7086', 'center', true);
@@ -489,7 +557,7 @@ function screenAdventure(ctx, L, buddy, t) {
   const feast = feastTransform(buddy.feastKind, chompP, chompStrength);
   const bx = walkX + bodySway(buddy, t, rw(L.advScene) * 0.016, 1.5) + feast.dx;
   drawBuddy(ctx, buddy.index, bx, rcy(trail), height,
-            bodyBob(buddy, t, 8, 2.6) + feast.dy, feast.rotation);
+            bodyBob(buddy, t, 8, 2.6) + feast.dy, feast.rotation, t);
 
   if (beat >= 0 && beat < 0.72) {
     const bw = DATA.metrics.designWidth * 0.24, bh = bw * 0.42;
@@ -612,7 +680,7 @@ function screenComplete(ctx, L, buddy, t) {
   const cx = stage[0] + rw(stage) * 0.40;
   const feet = stage[3] - rh(stage) * 0.06;
   const bob = bodyBob(buddy, t, 20, 6.4);
-  drawBuddyCheering(ctx, buddy.index, cx, feet, height, bob);
+  drawBuddyCheering(ctx, buddy.index, cx, feet, height, bob, t);
   const crest = feet - height * (1 - cheerTopFraction(buddy.index));
   drawGlyph(ctx, 'crown', cx, crest + bob - height * 0.06, height * 0.26, DATA.tokens.gold);
 
@@ -714,7 +782,7 @@ function screenBuddyPicker(ctx, L, buddy, t) {
     }
     const art = rh(box) * 0.52;
     drawBuddy(ctx, i, rcx(box), box[1] + rh(box) * 0.66, art,
-              Math.sin(t * 6.4 + i * 0.7) * art * 0.05);
+              Math.sin(t * 6.4 + i * 0.7) * art * 0.05, 0, t + i * 0.7);
     text(ctx, b.name, rcx(box), box[3] - rh(box) * 0.27,
          Math.min(DATA.type.t2, rw(box) * 0.10), b.ink, 'center', true);
 

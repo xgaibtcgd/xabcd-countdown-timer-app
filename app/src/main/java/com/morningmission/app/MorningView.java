@@ -68,6 +68,8 @@ final class MorningView extends View implements Choreographer.FrameCallback, Eng
     /** Solved separately so a collectible action can be composed onto the walk. */
     private final Anim.Transform feastMotion = new Anim.Transform();
     private final Anim.Transform motion = new Anim.Transform();
+    /** Where the body was a beat ago; what a rigged appendage trails against. */
+    private final Anim.Transform laggedMotion = new Anim.Transform();
     private final int[] palette = new int[6];
     private final RectF scratch = new RectF();
 
@@ -78,6 +80,10 @@ final class MorningView extends View implements Choreographer.FrameCallback, Eng
     // One slot, not eight: exactly one buddy ever cheers, on one screen.
     private Bitmap cheerBitmap;
     private int cheerIndex = -1;
+    // One rigged buddy at a time. Five trimmed parts come to less than the flat sprite
+    // they replace, so this is a saving rather than a cost.
+    private final Bitmap[] rigBitmap = new Bitmap[Rig.PART_COUNT];
+    private int rigIndex = -1;
     private float cheerTop;
     private int[] scanRow;
     private final Bitmap[] props = new Bitmap[PROP_COUNT];
@@ -398,8 +404,11 @@ final class MorningView extends View implements Choreographer.FrameCallback, Eng
     /** The same, with the action scaled -- see {@link Anim#move(int, float, float, Anim.Transform)}. */
     void drawBuddy(Canvas c, int buddyIndex, float cx, float feetY, float height,
                    boolean withShadow, int moveId, float movePhase, float moveStrength) {
-        Bitmap bitmap = art(buddyIndex, buddyIndex == buddy().index);
-        if (bitmap == null || bitmap.isRecycled()) return;
+        // A rigged buddy draws its parts instead; passing null is what selects that.
+        Bitmap bitmap = BuddyTheme.of(buddyIndex).rig != null
+                ? null : art(buddyIndex, buddyIndex == buddy().index);
+        if (bitmap == null && BuddyTheme.of(buddyIndex).rig == null) return;
+        if (bitmap != null && bitmap.isRecycled()) return;
         drawSprite(c, bitmap, buddyIndex, cx, feetY, height, withShadow,
                    moveId, movePhase, moveStrength);
     }
@@ -420,7 +429,32 @@ final class MorningView extends View implements Choreographer.FrameCallback, Eng
             motion.scaleX *= feastMotion.scaleX;
             motion.scaleY *= feastMotion.scaleY;
         }
-        float width = height * bitmap.getWidth() / (float) bitmap.getHeight();
+        paintSprite(c, bitmap, buddyIndex, cx, feetY, height, withShadow, time,
+                    blend.state());
+    }
+
+    /**
+     * Contact shadow, outer transform, and whatever fills the frame.
+     *
+     * <p>Split out of {@link #drawSprite} because {@link #drawBuddyPose} used to carry
+     * its own copy of this transform chain, and two copies of a chain this fiddly drift.
+     * Everything above the split decides the motion; everything below paints it.
+     *
+     * @param bitmap the flat sprite, or null to let a rigged buddy draw its parts
+     * @param at     the clock the part animation reads; the picker offsets it per card
+     * @param animState the state the part animation reads. The picker passes its own
+     *                  rather than the blend's, for the same reason it solves its own
+     *                  motion: eight cards must not disturb the state the app is riding.
+     */
+    private void paintSprite(Canvas c, Bitmap bitmap, int buddyIndex, float cx, float feetY,
+                             float height, boolean withShadow, float at, int animState) {
+        BuddyTheme theme = BuddyTheme.of(buddyIndex);
+        Rig rig = bitmap == null ? theme.rig : null;
+        if (rig == null && bitmap == null) return;
+
+        float width = rig != null
+                ? height * rig.aspect
+                : height * bitmap.getWidth() / (float) bitmap.getHeight();
         float centreY = feetY - height * 0.5f + motion.dy;
 
         if (withShadow) {
@@ -434,10 +468,48 @@ final class MorningView extends View implements Choreographer.FrameCallback, Eng
         c.translate(cx + motion.dx, centreY);
         c.rotate(motion.rotation);
         c.scale(motion.scaleX, motion.scaleY, 0f, height * 0.42f);
-        scratch.set(-width * 0.5f, -height * 0.5f, width * 0.5f, height * 0.5f);
         Theme.BMP.setAlpha(255);
-        c.drawBitmap(bitmap, null, scratch, Theme.BMP);
+        if (rig != null) {
+            drawRig(c, rig, theme, buddyIndex, width, height, at, animState);
+        } else {
+            scratch.set(-width * 0.5f, -height * 0.5f, width * 0.5f, height * 0.5f);
+            c.drawBitmap(bitmap, null, scratch, Theme.BMP);
+        }
         c.restore();
+    }
+
+    /**
+     * Five parts inside the outer transform, each turning about its own pivot.
+     *
+     * <p>The lag -- an appendage trailing the body rather than moving with it -- comes
+     * from sampling the same motion function {@link Anim#RIG_LAG} seconds ago and
+     * differencing. No history is kept, so nothing has to be reset when the screen
+     * changes and a paused clock stays correct for free.
+     */
+    private void drawRig(Canvas c, Rig rig, BuddyTheme theme, int buddyIndex,
+                         float width, float height, float at, int animState) {
+        Anim.solve(animState, theme.temperament, at - Anim.RIG_LAG, laggedMotion);
+        float trail = motion.dy - laggedMotion.dy;
+
+        for (int part = 0; part < Rig.PART_COUNT; part++) {
+            Bitmap piece = rigPart(rig, buddyIndex, part);
+            if (piece == null || piece.isRecycled()) continue;
+            float w = rig.width(part) * width;
+            float h = rig.height(part) * height;
+            float px = (rig.pivotX(part) - 0.5f) * w;
+            float py = (rig.pivotY(part) - 0.5f) * h;
+            float degrees = rig.rest(part)
+                    + Anim.partAngle(part, theme.temperament, at, trail, motion.rotation,
+                                     rig.signatureBeat, rig.signatureSweep);
+            c.save();
+            c.translate((rig.cx(part) - 0.5f) * width, (rig.cy(part) - 0.5f) * height);
+            c.rotate(degrees, px, py);
+            float squash = Anim.partScaleY(part, at, rig.signatureBeat);
+            if (squash != 1f) c.scale(1f, squash, px, py);
+            scratch.set(-w * 0.5f, -h * 0.5f, w * 0.5f, h * 0.5f);
+            c.drawBitmap(piece, null, scratch, Theme.BMP);
+            c.restore();
+        }
     }
 
     /**
@@ -450,6 +522,12 @@ final class MorningView extends View implements Choreographer.FrameCallback, Eng
      */
     void drawBuddyCheering(Canvas c, int buddyIndex, float cx, float feetY, float height,
                            boolean withShadow) {
+        // A rigged buddy has no cheer bitmap and does not need one: its arms are their
+        // own parts, and Anim.DANCE already has them up.
+        if (BuddyTheme.of(buddyIndex).rig != null) {
+            drawBuddy(c, buddyIndex, cx, feetY, height, withShadow);
+            return;
+        }
         Bitmap bitmap = cheer(buddyIndex);
         if (bitmap == null || bitmap.isRecycled()) {
             drawBuddy(c, buddyIndex, cx, feetY, height, withShadow);
@@ -461,18 +539,14 @@ final class MorningView extends View implements Choreographer.FrameCallback, Eng
     /** Draws a buddy with a fixed pose, for the picker where seven dance at once. */
     void drawBuddyPose(Canvas c, int buddyIndex, float cx, float feetY, float height,
                        int state, float phaseOffset) {
-        Bitmap bitmap = art(buddyIndex, false);
-        if (bitmap == null || bitmap.isRecycled()) return;
-        Anim.solve(state, BuddyTheme.of(buddyIndex).temperament, time + phaseOffset, motion);
-        float width = height * bitmap.getWidth() / (float) bitmap.getHeight();
-        c.save();
-        c.translate(cx + motion.dx, feetY - height * 0.5f + motion.dy);
-        c.rotate(motion.rotation);
-        c.scale(motion.scaleX, motion.scaleY, 0f, height * 0.42f);
-        scratch.set(-width * 0.5f, -height * 0.5f, width * 0.5f, height * 0.5f);
-        Theme.BMP.setAlpha(255);
-        c.drawBitmap(bitmap, null, scratch, Theme.BMP);
-        c.restore();
+        BuddyTheme theme = BuddyTheme.of(buddyIndex);
+        Bitmap bitmap = theme.rig != null ? null : art(buddyIndex, false);
+        if (bitmap == null && theme.rig == null) return;
+        // Solved statelessly, so the eight dancing cards cannot disturb the blend the
+        // rest of the app is riding.
+        Anim.solve(state, theme.temperament, time + phaseOffset, motion);
+        paintSprite(c, bitmap, buddyIndex, cx, feetY, height, false, time + phaseOffset,
+                    state);
     }
 
     /**
@@ -643,7 +717,44 @@ final class MorningView extends View implements Choreographer.FrameCallback, Eng
      * walking sprite, and this is only ever used to nudge something downward.
      */
     float cheerTopFraction(int index) {
+        Rig rig = BuddyTheme.of(index).rig;
+        if (rig != null) return rig.topFraction();
         return cheer(index) == null ? 0f : cheerTop;
+    }
+
+    /**
+     * Decodes one part of the rigged buddy's artwork.
+     *
+     * <p>Guarded like {@link #cheer} rather than like {@link #art}: a failed decode
+     * returns null and that part is skipped, which is a bee missing a wing rather than
+     * a crash. Switching buddy drops the whole set at once, since the parts are only
+     * meaningful together.
+     */
+    private Bitmap rigPart(Rig rig, int index, int part) {
+        int i = BuddyTheme.clampIndex(index);
+        if (rigIndex != i) {
+            releaseRig();
+            rigIndex = i;
+        }
+        if (rigBitmap[part] != null && !rigBitmap[part].isRecycled()) return rigBitmap[part];
+        try {
+            // allocgate: ok - decode path, reached once per part per buddy
+            BitmapFactory.Options options = new BitmapFactory.Options();
+            options.inPreferredConfig = Bitmap.Config.ARGB_8888;
+            rigBitmap[part] = BitmapFactory.decodeResource(
+                    getResources(), rig.res[part], options);
+        } catch (OutOfMemoryError | Exception e) {
+            rigBitmap[part] = null;
+        }
+        return rigBitmap[part];
+    }
+
+    private void releaseRig() {
+        for (int i = 0; i < Rig.PART_COUNT; i++) {
+            if (rigBitmap[i] != null && !rigBitmap[i].isRecycled()) rigBitmap[i].recycle();
+            rigBitmap[i] = null;
+        }
+        rigIndex = -1;
     }
 
     /** Decodes an illustrated background, keeping the last two. */
@@ -675,6 +786,7 @@ final class MorningView extends View implements Choreographer.FrameCallback, Eng
     }
 
     private void releaseArt() {
+        releaseRig();
         if (cheerBitmap != null && !cheerBitmap.isRecycled()) cheerBitmap.recycle();
         cheerBitmap = null;
         cheerIndex = -1;
