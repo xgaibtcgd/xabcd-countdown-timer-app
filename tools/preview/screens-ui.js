@@ -492,57 +492,52 @@ function screenAdventure(ctx, L, buddy, t) {
   // Engine.feastBeat drives it, on a four-second segment, so with motion on the preview
   // actually plays the loop instead of freezing one arbitrary frame of it.
   const trail = L.advTrail;
-  const total = 12;
-  const SEGMENT = 4.0;                          // seconds between collectibles here
-  const since = t % SEGMENT;                    // seconds since the last one
-  const until = SEGMENT - since;
-  // Eight steps, the last of which lands on the chest, so the preview loop actually
-  // plays the finale instead of circling three collectibles short of it.
-  const STEPS = 8;
-  const step = Math.floor(t / SEGMENT) % STEPS;
-  const collected = Math.min(total, total - (STEPS - 1) + step);
+  // Twenty-three, which is what a sixty-minute morning gives: round(60/3)+3. The loop
+  // plays that whole morning, so the preview shows the journey the app shows rather
+  // than a couple of collectibles near the end of it.
+  const total = 23;
+  const LOOP = 44.0;                            // seconds for a whole morning here
+  const progress = (t % LOOP) / LOOP;
+  const exact = progress * total;
+  const collected = Math.min(total, Math.floor(exact));
+  const fraction = exact - Math.floor(exact);
   const atPrize = collected >= total;
-  const prizeTurn = atPrize ? Math.min(1, since / 1.4) : 0;    // PRIZE_SECONDS
-  const fraction = since / SEGMENT;
+  const prizeTurn = atPrize ? Math.min(1, (t % LOOP - LOOP * (total - 1) / total) / 1.4) : 0;
   // No feast on the chest: it is danced at, not eaten, so the beat stops at the prize.
+  const SEGMENT = LOOP / total;
+  const since = fraction * SEGMENT, until = SEGMENT - since;
   const beat = atPrize ? -1
              : until <= FEAST_LEAD ? (FEAST_LEAD - until) / FEAST_SECONDS
              : (since + FEAST_LEAD) / FEAST_SECONDS < 1
                ? (since + FEAST_LEAD) / FEAST_SECONDS : -1;
-  const progress = 0.20 + 0.58 * Math.min(1, (step + (atPrize ? 0 : fraction)) / (STEPS - 1));
-  const walkX = trail[0] + rw(trail) * progress;
   const height = Math.min(rh(L.advScene) * 0.46, DATA.metrics.designWidth * 0.42);
 
-  const cSize = Math.min(rh(L.advScene) * 0.20, DATA.metrics.designWidth * 0.19);
-  const spacing = cSize * 1.35;
-  const ground = rcy(trail) - height * 0.38;
-  const itemBase = walkX + height * 0.30;
-  const itemY = index => ground + Math.sin(t * 1.6 + index) * cSize * 0.06;
-  for (let k = 1; k <= 4; k++) {
-    const index = collected + k;
-    if (index < 1 || index >= total) continue;   // the last one is the chest
-    const x = itemBase + (k - fraction) * spacing;
-    if (x < -cSize || x > trail[2] + cSize * 0.35) continue;
-    drawCollectible(ctx, buddy.index, x, itemY(index), cSize, true, 0, false);
-  }
-
+  // Mirrors ScreenAdventure's lane: a WORLD the buddy travels, not a strip that slides
+  // along with it. Drops sit at fixed positions and one camera turns world into screen.
+  // Sized from the LANE, not the scene: what matters is how many are on screen at once.
+  const VISIBLE_DROPS = 6;
+  const cSize = Math.min(rw(trail) / Math.min(total, VISIBLE_DROPS) / 1.35,
+                         Math.min(rh(L.advScene) * 0.20, DATA.metrics.designWidth * 0.19));
+  const spacing = Math.max(cSize * 1.35, rw(trail) / total);
+  const MOUTH_AHEAD = 0.30, CAMERA_ANCHOR = 0.28;
+  const span = total * spacing;
+  const mouthWorld = progress * span;
+  const furthest = span - rw(trail) < 1 ? 0 : span - rw(trail);
+  const camera = Math.max(0, Math.min(mouthWorld - rw(trail) * CAMERA_ANCHOR, furthest));
+  const laneX = world => trail[0] + world - camera;
+  const walkX = laneX(mouthWorld) - height * MOUTH_AHEAD;
   const goalBox = L.advGoal;
   const goalSize = Math.min(rw(goalBox), rh(goalBox));
-  drawGoal(ctx, buddy.index, rcx(goalBox), rcy(goalBox), goalSize, prizeTurn,
-           Math.min(1, prizeTurn * 2.2));
-  if (!atPrize) {
-    const lock = goalSize * 0.22;
-    const lockY = rcy(goalBox) + goalSize * 0.08;
-    ctx.fillStyle = 'rgba(80,98,125,.80)';
-    ctx.beginPath(); ctx.arc(rcx(goalBox), lockY, lock, 0, Math.PI * 2); ctx.fill();
-    drawGlyph(ctx, 'lock', rcx(goalBox), lockY, goalSize * 0.26, '#ffffff');
-  } else if (prizeTurn < 1) {
-    // The star climbing out, matching ScreenAdventure.drawGoal.
-    const rise = Math.sin(prizeTurn * Math.PI * 0.5);
-    const a = prizeTurn < 0.72 ? 1 : Math.max(0, 1 - (prizeTurn - 0.72) / 0.28);
-    drawProp(ctx, 'star', rcx(goalBox),
-             rcy(goalBox) - goalSize * (0.06 + 0.72 * rise),
-             goalSize * (0.30 + 0.30 * rise), Math.sin(prizeTurn * 7) * 12, a);
+  const chestX = laneX(span + (rcx(goalBox) - trail[2]));
+
+  const ground = rcy(trail) - height * 0.38;
+  const itemY = index => ground + Math.sin(t * 1.6 + index) * cSize * 0.06;
+  const eating = beat >= 0 ? collected + 1 : -1;
+  for (let index = Math.max(1, collected); index < total; index++) {
+    if (index === eating) continue;              // drawn in front of the buddy, below
+    const x = laneX(index * spacing);
+    if (x < -cSize || x > trail[2] + cSize * 0.35) continue;
+    drawCollectible(ctx, buddy.index, x, itemY(index), cSize, true, 0, false);
   }
 
   // Three goes at the item, each less committed than the last.
@@ -573,15 +568,27 @@ function screenAdventure(ctx, L, buddy, t) {
 
   // The item in the buddy's mouth, drawn over it: the bites come out of the side the
   // buddy is standing on, so behind it nothing missing would ever show.
-  if (collected >= 1 && collected <= total) {
+  if (eating >= 1 && eating < total) {
     const bites = biteAt(beat);
     if (bites < BITE_COUNT) {
-      const lane = beat >= 0 ? 0 : -fraction;
       const eaten = eatPhase(beat);
-      const pop = beat < 0 ? 0 : Math.max(0, 1 - Math.abs(eaten - bites) * 6);
-      drawCollectible(ctx, buddy.index, itemBase + lane * spacing, itemY(collected),
+      const pop = Math.max(0, 1 - Math.abs(eaten - bites) * 6);
+      drawCollectible(ctx, buddy.index, laneX(eating * spacing), itemY(eating),
                       cSize, true, pop, false, bites);
     }
+  }
+
+  // The chest last, so it is never hidden behind the buddy at the one moment its lid
+  // and the star climbing out are the thing worth looking at. No padlock: a closed
+  // chest already reads as shut, and the disc sat over the best of the artwork.
+  drawGoal(ctx, buddy.index, chestX, rcy(goalBox), goalSize, prizeTurn,
+           Math.min(1, prizeTurn * 2.2));
+  if (atPrize && prizeTurn < 1) {
+    const rise = Math.sin(prizeTurn * Math.PI * 0.5);
+    const a = prizeTurn < 0.72 ? 1 : Math.max(0, 1 - (prizeTurn - 0.72) / 0.28);
+    drawProp(ctx, 'star', chestX,
+             rcy(goalBox) - goalSize * (0.06 + 0.72 * rise),
+             goalSize * (0.30 + 0.30 * rise), Math.sin(prizeTurn * 7) * 12, a);
   }
 
   drawSceneForeground(ctx, scene, t, true);
@@ -603,8 +610,6 @@ function screenAdventure(ctx, L, buddy, t) {
            Math.min(DATA.type.d1, rh(clock) * 0.52), DATA.tokens.ink, 'center');
   text(ctx, 'Keep going!', rcx(clock), clock[3] - rh(clock) * 0.19,
        DATA.type.b2, DATA.tokens.inkMuted, 'center', true);
-
-  drawTreatBoard(ctx, L, buddy, total, collected, t);
 
   // the tally: one collectible at a size you can see, and the count
   const band = L.advTally;
@@ -810,54 +815,6 @@ function screenBuddyPicker(ctx, L, buddy, t) {
   labelFit(ctx, 'Use ' + buddy.name,
            [confirm[0] + rh(confirm) * 0.25, confirm[1], confirm[2] - rh(confirm) * 0.25, confirm[3]],
            buttonLabelSize(confirm), 18, '#ffffff', 'center');
-}
-
-/** ScreenAdventure.drawTreatBoard: every treat in the morning, in rows. */
-function drawTreatBoard(ctx, L, buddy, total, collected, t) {
-  if (total <= 0) return;
-  const top = L.advTally[3] + 24;
-  const bottom = rcy(L.advTrail)
-    - Math.min(rh(L.advScene) * 0.46, DATA.metrics.designWidth * 0.42) - 24;
-  const left = L.advScene[0] + 70, right = L.advScene[2] - 70;
-  if (bottom - top < 60 || right - left < 60) return;
-
-  const boardW = right - left, boardH = bottom - top;
-  const maxCell = DATA.metrics.designWidth * 0.115 / 0.82;
-  let bestCols = 1, bestCell = 0;
-  for (let c2 = 1; c2 <= total; c2++) {
-    const rows = Math.ceil(total / c2);
-    const cell = Math.min(boardW / c2, boardH / rows);
-    if (cell > bestCell) { bestCell = cell; bestCols = c2; }
-  }
-  const target = Math.min(bestCell, maxCell);
-  let cols = bestCols;
-  for (let c2 = total; c2 >= 1; c2--) {
-    if (Math.min(boardW / c2, boardH / Math.ceil(total / c2)) >= target - 0.01) {
-      cols = c2; break;
-    }
-  }
-  const rows = Math.ceil(total / cols);
-  cols = Math.ceil(total / rows);          // even the rows out
-  const size = Math.min(Math.min(boardW / cols, boardH / rows) * 0.82,
-                        DATA.metrics.designWidth * 0.115);
-  const cellW = boardW / cols, cellH = Math.min(boardH / rows, size * 1.5);
-  const gridTop = top + (boardH - cellH * rows) / 2;
-
-  for (let i = 0; i < total; i++) {
-    const row = Math.floor(i / cols), col = i % cols;
-    const inRow = Math.min(cols, total - row * cols);
-    const rowLeft = left + (boardW - inRow * cellW) / 2;
-    const x = rowLeft + col * cellW + cellW / 2;
-    const y = gridTop + row * cellH + cellH / 2 + Math.sin(t * 1.3 + i * 0.7) * size * 0.05;
-    const got = i < collected;
-    if (i === total - 1) {
-      // The last tile is the chest, matching the goal at the end of the lane.
-      drawProp(ctx, got ? 'chest_3' : 'chest_0', x, y, size * 1.15, 0,
-               got ? 1 : 105 / 255);
-    } else {
-      drawCollectible(ctx, buddy.index, x, y, size, got, 0, false);
-    }
-  }
 }
 
 /* =============================================================== TIME PICKER */

@@ -15,14 +15,27 @@ final class ScreenAdventure extends Screen {
     private final RectF scratch = new RectF();
 
     /**
-     * How many upcoming collectibles are laid out ahead of the buddy.
+     * How far along the lane the buddy sits before the view starts following it.
      *
-     * <p>They are placed relative to the buddy rather than spread over the whole trail,
-     * so the spacing -- and therefore the size -- stays the same whether the morning has
-     * three things to find or eighteen. A longer morning gives you more of them, not
-     * smaller ones.
+     * <p>A fraction of the lane's width. Below it the buddy walks out from the left edge
+     * with the whole lane ahead; past it the buddy holds station and the lane slides by.
      */
-    private static final int LOOKAHEAD = 4;
+    private static final float CAMERA_ANCHOR = 0.28f;
+
+    /**
+     * How far in front of the buddy's centre its mouth is, as a fraction of its height.
+     *
+     * <p>A treat has to land at the muzzle, not behind a sprite half the screen wide --
+     * drawn on the buddy's own centre the bites, which are the whole point of them, were
+     * never visible. Burger Buddy is already holding a burger of its own.
+     */
+    private static final float MOUTH_AHEAD = 0.30f;
+
+    /** How far either side of the buddy a tap still counts as a poke, in body heights. */
+    private static final float POKE_REACH = 0.45f;
+
+    /** How many treats a long morning shows on the lane at once. */
+    private static final int VISIBLE_DROPS = 6;
 
     /**
      * Seconds a poke lasts. Long enough for the buddy to complete its own move, short
@@ -104,26 +117,25 @@ final class ScreenAdventure extends Screen {
         } else if (!prizeOpened) {
             prizeOpened = true;
             prizeRemaining = PRIZE_SECONDS;
-            firePrizeBurst(layout, theme);
+            firePrizeBurst(layout, theme, engine);
         }
 
         view.scene.drawBackground(c, theme, t);
-        // Trail first: the goal stands at the end of the lane, so items still to be
-        // reached slide out from behind it rather than floating across its lid.
+        // Treats still ahead go behind the buddy; the one in its mouth goes in front,
+        // because the bites come out of the side the buddy is standing on.
         drawTrail(c, layout, theme, engine, t, false);
-        drawGoal(c, layout, theme, engine);
         drawBuddy(c, layout, theme, engine, t);
-        // The one in the buddy's mouth goes on top of it. The bites come out of the
-        // item's left side, which is the side the buddy is standing on, so drawn behind
-        // it the only part ever missing was the part already hidden.
         drawTrail(c, layout, theme, engine, t, true);
+        // The chest last of all. Drawn before the buddy it spent the finale hidden
+        // behind it, which is the one moment its lid and the star climbing out of it are
+        // the thing worth looking at. Treats still to come pass behind it, as they did.
+        drawGoal(c, layout, theme, engine);
         view.scene.drawForeground(c, theme, t, true);
 
         drawTopBar(c, layout, theme);
         drawMute(c, layout, theme);
         drawClock(c, layout, theme, engine);
         drawTally(c, layout, theme, engine);
-        drawTreatBoard(c, layout, theme, engine, t);
         drawProgress(c, layout, theme, engine);
         drawTaskCard(c, layout, theme, engine);
         drawAction(c, layout, engine);
@@ -300,8 +312,13 @@ final class ScreenAdventure extends Screen {
     static void laneBounds(Layout layout, RectF out) {
         float height = buddyHeight(layout);
         RectF trail = layout.advTrail;
-        out.set(trail.left - height * 0.5f, trail.centerY() - height * 1.15f,
-                trail.right + height * 0.5f, trail.bottom + height * 0.15f);
+        // Derived from the poke's own reach rather than guessed, because the two have to
+        // agree: a tap onBuddy accepts but this region does not contain never arrives at
+        // onPressDown at all. The buddy's centre runs from trail.left - MOUTH_AHEAD to
+        // trail.right - MOUTH_AHEAD, and a poke lands POKE_REACH either side of it.
+        float slack = height * (MOUTH_AHEAD + POKE_REACH);
+        out.set(trail.left - slack, trail.centerY() - height * 1.15f,
+                trail.right + slack, trail.bottom + height * 0.15f);
     }
 
     /**
@@ -318,13 +335,114 @@ final class ScreenAdventure extends Screen {
         float height = buddyHeight(layout);
         float bx = walkX(layout, engine);
         float by = layout.advTrail.centerY() - height * 0.5f;
-        return Math.abs(x - bx) <= height * 0.45f && Math.abs(y - by) <= height * 0.60f;
+        return Math.abs(x - bx) <= height * POKE_REACH
+            && Math.abs(y - by) <= height * 0.60f;
     }
 
     /** Where along the trail the buddy has walked to, without its idle bob. */
-    private static float walkX(Layout layout, Engine engine) {
+    // ------------------------------------------------------------------- the lane
+    //
+    // The lane is a WORLD, not a strip of screen. Every collectible has a fixed position
+    // along it, the buddy travels past them, and one camera turns world into screen.
+    //
+    // It used to be the other way round: the collectibles were placed relative to the
+    // buddy, a fixed few units ahead of it, so the whole line of them slid along as the
+    // buddy walked and it never actually travelled past anything. On a sixty-minute
+    // morning the tally said twenty-three and the lane showed two, because two of the
+    // four it drew were behind a sprite two hundred units wide.
+
+    /**
+     * The drawn size of one collectible.
+     *
+     * <p>Sized from the LANE rather than from the scene, because what matters is how many
+     * of them are on screen at once. At the old size -- a fifth of a scene that is 1304
+     * units tall, so 205 wide -- only two and a half fitted the 724-unit lane, which is
+     * how a morning with twenty-three of them came to show two.
+     *
+     * <p>A morning with fewer treats than {@link #VISIBLE_DROPS} sizes for the number it
+     * actually has, so three of them are three good big treats rather than three small
+     * ones with a lot of grass between.
+     */
+    static float itemSize(Layout layout, Engine engine) {
+        int visible = Math.min(Math.max(1, engine.collectibleCount()), VISIBLE_DROPS);
+        float fit = layout.advTrail.width() / visible / 1.35f;
+        return Math.min(fit, Math.min(layout.advScene.height() * 0.20f, Layout.W * 0.19f));
+    }
+
+    /**
+     * The gap between neighbouring collectibles, in world units.
+     *
+     * <p>The {@code max} is what makes one rule serve both ends of the range. A long
+     * morning holds its spacing and the lane runs off the side of the screen to be
+     * scrolled; a short one stretches until its handful of treats fill the lane, so
+     * three of them are a walk rather than a huddle by the left edge. Neither is a
+     * special case.
+     */
+    static float laneSpacing(Layout layout, Engine engine) {
+        int total = Math.max(1, engine.collectibleCount());
+        return Math.max(itemSize(layout, engine) * 1.35f, layout.advTrail.width() / total);
+    }
+
+    /** Where collectible {@code index} (1-based) sits along the lane. */
+    static float itemWorldX(Layout layout, Engine engine, int index) {
+        return index * laneSpacing(layout, engine);
+    }
+
+    /**
+     * Where the chest sits: past the last treat, far enough that when the lane has
+     * finished scrolling it comes to rest exactly on {@code advGoal} -- which is where
+     * the prize burst and the climbing star are aimed.
+     */
+    static float chestWorldX(Layout layout, Engine engine) {
+        return engine.collectibleCount() * laneSpacing(layout, engine)
+             + (layout.advGoal.centerX() - layout.advTrail.right);
+    }
+
+    /**
+     * How far along the lane the buddy's MOUTH has travelled.
+     *
+     * <p>The mouth rather than the middle, because the mouth is what has to arrive at a
+     * treat. {@code progress() * total} is the collectible number the engine is on, so
+     * multiplying by the spacing lands the mouth exactly on treat {@code i} at the moment
+     * the engine counts it collected. That equality is the contract between what the
+     * tally says and what the screen shows, and tools/SelfTest.java asserts it.
+     */
+    static float mouthWorldX(Layout layout, Engine engine) {
+        return engine.progress() * engine.collectibleCount() * laneSpacing(layout, engine);
+    }
+
+    /** How far the lane has slid, in world units. */
+    static float camera(Layout layout, Engine engine) {
         RectF trail = layout.advTrail;
-        return trail.left + trail.width() * engine.progress();
+        float span = engine.collectibleCount() * laneSpacing(layout, engine);
+        float furthest = span - trail.width();
+        // A lane that fits, or misses fitting by less than a pixel, does not scroll at
+        // all. Without the rounding a five-drop morning on a small screen -- where the
+        // spacing stretches to exactly the lane width -- crept by a fraction of a unit
+        // for the whole morning, which is not a scroll, just noise.
+        if (furthest < 1f) furthest = 0f;
+        // Clamped by hand rather than through Theme.clamp: touching Theme runs its class
+        // initialiser, which builds a Typeface, which is native-backed and cannot be
+        // reached off-device -- and tools/SelfTest.java has to be able to call this.
+        float want = mouthWorldX(layout, engine) - trail.width() * CAMERA_ANCHOR;
+        return want < 0f ? 0f : (want > furthest ? furthest : want);
+    }
+
+    /** A point on the lane, in screen units. */
+    static float laneScreenX(Layout layout, Engine engine, float worldX) {
+        return layout.advTrail.left + worldX - camera(layout, engine);
+    }
+
+    /**
+     * Where the buddy is on screen.
+     *
+     * <p>Package-visible because tools/SelfTest.java needs to tap it. It used to
+     * recompute the formula itself, and when the lane became a world the copy in the
+     * test went on pointing at where the buddy no longer was.
+     */
+    static float walkX(Layout layout, Engine engine) {
+        return laneScreenX(layout, engine, mouthWorldX(layout, engine))
+             - buddyHeight(layout) * MOUTH_AHEAD;
     }
 
     private static float buddyHeight(Layout layout) {
@@ -345,50 +463,43 @@ final class ScreenAdventure extends Screen {
      * slides left by exactly one spacing over each segment and the next item arrives
      * under the buddy at the moment the engine counts it as collected.
      */
+    /**
+     * The treats lying along the lane.
+     *
+     * <p>Drawn at their own world positions, so they stand still and the buddy walks up
+     * to each one. Two passes: everything still ahead goes behind the buddy, and the one
+     * currently being eaten goes in front of it, because the bites come out of the side
+     * the buddy is standing on.
+     */
     private void drawTrail(Canvas c, Layout layout, BuddyTheme theme, Engine engine,
                            float t, boolean inMouth) {
         int total = engine.collectibleCount();
         if (total <= 0) return;
         int collected = engine.collectedCount();
-        float fraction = engine.allDone() ? 1f : engine.collectibleFraction();
 
-        float size = Math.min(layout.advScene.height() * 0.20f, Layout.W * 0.19f);
-        float spacing = size * 1.35f;
-        // Items arrive in FRONT of the buddy, not on top of it. Landing them on the
-        // buddy's own x put the thing being eaten behind a sprite half the screen wide,
-        // so the bites -- the whole point of them -- were never visible. Offsetting by
-        // a third of the buddy's height puts it at the muzzle rather than behind the
-        // sprite's own middle -- Burger Buddy is already holding a burger of its own.
+        float size = itemSize(layout, engine);
         float height = buddyHeight(layout);
-        float base = walkX(layout, engine) + height * 0.30f;
         // Held at about the height the buddy's hands are, so reaching one is a lean
         // rather than a squat -- at ankle height no amount of tilt looked like eating.
         float ground = layout.advTrail.centerY() - height * 0.38f;
         float beat = engine.feastBeat();
+        int eating = beat >= 0f ? collected + 1 : -1;
 
-        for (int k = inMouth ? 0 : 1; k <= (inMouth ? 0 : LOOKAHEAD); k++) {
-            int index = collected + k;                  // 1-based item number
-            // The last one is the chest at the end of the lane, drawn by drawGoal. It is
-            // counted as a collectible -- the tally says "12 of 12" -- but it is never a
-            // treat lying on the ground and it is never eaten.
-            if (index < 1 || index >= total) continue;
-            // The item being eaten stays at the buddy's mouth rather than sliding on
-            // with the rest of the line: it is being held. Letting it drift by the
-            // segment fraction carried it back behind the buddy mid-bite, and on a short
-            // timer -- where a segment is only a few seconds long -- it slid far enough
-            // that the bites were never on screen at all.
-            float lane = (k == 0 && beat >= 0f) ? 0f : k - fraction;
-            float x = base + lane * spacing;
-            // Items belong to the lane, so they stop where it does. Clipping at the
-            // goal's box instead cut them a good deal earlier than the chest actually
-            // reaches, since its art does not fill that box.
-            if (x < -size || x > layout.advTrail.right + size * 0.35f) continue;
+        float left = -size, right = layout.advTrail.right + size * 0.35f;
+        // The last one is the chest at the end of the lane, drawn by drawGoal. It counts
+        // as a collectible -- the tally says "23 of 23" -- but it is never a treat lying
+        // on the ground and it is never eaten.
+        for (int index = Math.max(1, collected); index < total; index++) {
+            boolean chewing = index == eating;
+            if (chewing != inMouth) continue;
+            float x = laneScreenX(layout, engine, itemWorldX(layout, engine, index));
+            if (x < left || x > right) continue;
 
             float y = ground + (float) Math.sin(t * 1.6f + index) * size * 0.06f;
-            if (k == 0) {
-                // The one being eaten: whole, then a bite gone, then two, then nothing.
-                // Each bite pops as it lands, which is what makes it read as a bite
-                // rather than the item quietly changing shape.
+            if (chewing) {
+                // Whole, then a bite gone, then two, then nothing. Each bite pops as it
+                // lands, which is what makes it read as a bite rather than the treat
+                // quietly changing shape.
                 int bites = Engine.bitesTaken(beat);
                 if (bites >= Art.BITE_COUNT) continue;
                 float eaten = Engine.eatPhase(beat);
@@ -399,7 +510,12 @@ final class ScreenAdventure extends Screen {
             }
         }
 
-        if (inMouth) fireBurst(layout, theme, engine, collected, base, ground);
+        if (inMouth) {
+            fireBurst(layout, theme, engine, collected,
+                      laneScreenX(layout, engine,
+                                  itemWorldX(layout, engine, Math.max(1, collected))),
+                      ground);
+        }
     }
 
     /** One confetti burst per item reached, at the item, in the buddy's own colours. */
@@ -429,7 +545,12 @@ final class ScreenAdventure extends Screen {
         RectF box = layout.advGoal;
         float size = Math.min(box.width(), box.height());
         boolean open = engine.atPrize();
-        float cx = box.centerX(), cy = box.centerY();
+        // On the lane like everything else, so it slides in from the right as the
+        // morning goes rather than sitting parked at the edge from the first second.
+        // Its world position is chosen so the scroll runs out exactly as it reaches
+        // advGoal, which is where the burst and the climbing star are aimed.
+        float cx = laneScreenX(layout, engine, chestWorldX(layout, engine));
+        float cy = box.centerY();
 
         // 0 while the padlock holds, then it runs through the opening frames once and
         // stays open. prizeRemaining counts DOWN from PRIZE_SECONDS, so this counts up.
@@ -450,9 +571,9 @@ final class ScreenAdventure extends Screen {
         }
         Clay.contactShadow(c, cx, cy + size * 0.42f, size * 0.40f, size * 0.12f, 1f);
         view.drawProp(c, MorningView.chestFrame(turn), cx, cy, size, 0f, 255);
-        if (!open) {
-            Icons.goalLocked(c, cx, cy + size * 0.08f, size);
-        } else if (prizeRemaining > 0f) {
+        // No padlock badge. A closed chest already reads as shut, and the disc sat over
+        // the best part of the artwork.
+        if (open && prizeRemaining > 0f) {
             // The star climbing out. Eased so it leaves fast and settles, and it fades
             // rather than stopping dead -- the chest keeps its own star either way.
             float p = 1f - prizeRemaining / PRIZE_SECONDS;
@@ -466,13 +587,14 @@ final class ScreenAdventure extends Screen {
     }
 
     /** Gold and the buddy's own colours, thrown up out of the chest as it opens. */
-    private void firePrizeBurst(Layout layout, BuddyTheme theme) {
+    private void firePrizeBurst(Layout layout, BuddyTheme theme, Engine engine) {
         RectF box = layout.advGoal;
+        float cx = laneScreenX(layout, engine, chestWorldX(layout, engine));
         burstPalette[0] = Theme.GOLD;
         burstPalette[1] = 0xFFFFF06A;
         burstPalette[2] = theme.primary;
         burstPalette[3] = 0xFFFFFFFF;
-        view.particles.burst(26, box.centerX(), box.centerY() - box.height() * 0.10f,
+        view.particles.burst(26, cx, box.centerY() - box.height() * 0.10f,
                              -90f, 128f,
                              layout.advScene.height() * 0.45f,
                              layout.advScene.height() * 0.95f, burstPalette);
@@ -534,93 +656,6 @@ final class ScreenAdventure extends Screen {
         }
         Theme.textCentered(c, caption, box.centerX(), box.bottom - box.height() * 0.19f,
                            Theme.B2, colour, Paint.Align.CENTER, true);
-    }
-
-    /**
-     * The score: one large collectible and how many have been eaten.
-     *
-     * <p>A row of one thumbnail per item was the old shape, and it could not survive a
-     * long morning -- eighteen of anything across a phone is eighteen things too small
-     * to recognise. A single item at a size you can actually see, with a count beside
-     * it, says the same thing and keeps saying it however long the timer runs.
-     */
-    /**
-     * Every treat in the morning, laid out in rows above the lane.
-     *
-     * <p>The trail only ever shows the two or three the buddy is walking between, so a
-     * ninety-minute morning with two dozen treats in it looked exactly like a five-minute
-     * one. This is the whole set at once: eaten ones in full colour with their check,
-     * the rest waiting in grey, filling the empty sky the scene otherwise wastes.
-     *
-     * <p>The grid is solved rather than fixed. Every column count is tried and the one
-     * giving the largest tile wins, so three treats are big and two dozen still fit.
-     */
-    private void drawTreatBoard(Canvas c, Layout layout, BuddyTheme theme, Engine engine,
-                                float t) {
-        int total = engine.collectibleCount();
-        if (total <= 0) return;
-        int collected = engine.collectedCount();
-
-        // The sky between the tally chip and the top of the buddy.
-        float top = layout.advTally.bottom + 24f;
-        float bottom = layout.advTrail.centerY() - buddyHeight(layout) - 24f;
-        float left = layout.advScene.left + 70f;
-        float right = layout.advScene.right - 70f;
-        if (bottom - top < 60f || right - left < 60f) return;
-
-        float boardW = right - left, boardH = bottom - top;
-        // Capped so a three-treat morning does not show three dinner plates.
-        float maxCell = Layout.W * 0.115f / 0.82f;
-
-        int bestCols = 1;
-        float bestCell = 0f;
-        for (int cols = 1; cols <= total; cols++) {
-            int rows = (total + cols - 1) / cols;
-            float cell = Math.min(boardW / cols, boardH / rows);
-            if (cell > bestCell) { bestCell = cell; bestCols = cols; }
-        }
-        // Once the tile is at its cap, a taller grid buys nothing and just stacks three
-        // treats into a ragged two-by-two. Among the layouts that still reach the size
-        // we are going to draw at, take the widest -- the fewest rows.
-        float target = Math.min(bestCell, maxCell);
-        int cols = bestCols;
-        for (int candidate = total; candidate >= 1; candidate--) {
-            int rows = (total + candidate - 1) / candidate;
-            if (Math.min(boardW / candidate, boardH / rows) >= target - 0.01f) {
-                cols = candidate;
-                break;
-            }
-        }
-        int rows = (total + cols - 1) / cols;
-        // Even the rows out: eight treats read better as four and four than six and two.
-        cols = (total + rows - 1) / rows;
-        float size = Math.min(Math.min(boardW / cols, boardH / rows) * 0.82f,
-                              Layout.W * 0.115f);
-        float cellW = boardW / cols;
-        float cellH = Math.min(boardH / rows, size * 1.5f);
-        float gridTop = top + (boardH - cellH * rows) * 0.5f;
-
-        for (int i = 0; i < total; i++) {
-            int row = i / cols, col = i % cols;
-            int inRow = Math.min(cols, total - row * cols);
-            float rowLeft = left + (boardW - inRow * cellW) * 0.5f;
-            float x = rowLeft + col * cellW + cellW * 0.5f;
-            float y = gridTop + row * cellH + cellH * 0.5f
-                    + (float) Math.sin(t * 1.3f + i * 0.7f) * size * 0.05f;
-            // No check badge here: on a board of two dozen the green discs swamped the
-            // treats themselves, and colour against grey already says which are gone.
-            boolean got = i < collected;
-            if (i == total - 1) {
-                // The last tile is the chest, not a treat. Faded until it is reached,
-                // which is the whole point of showing the board -- a child can see what
-                // the morning is walking toward.
-                view.drawProp(c, got ? MorningView.PROP_CHEST_FULL
-                                     : MorningView.PROP_CHEST_0,
-                              x, y, size * 1.15f, 0f, got ? 255 : 105);
-            } else {
-                Icons.collectible(c, theme.index, x, y, size, got, 0f, false);
-            }
-        }
     }
 
     private void drawTally(Canvas c, Layout layout, BuddyTheme theme, Engine engine) {

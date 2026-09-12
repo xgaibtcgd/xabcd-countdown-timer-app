@@ -80,6 +80,7 @@ public final class SelfTest {
                         checkHome(L, at);
                         checkAdventure(L, at);
                         buddyPoke(L, at);
+                        lane(L, at);
                         checkOtherScreens(L, at);
                     }
                 }
@@ -212,6 +213,94 @@ public final class SelfTest {
      * which never reach onPressDown at all -- and neither shows up as anything but a
      * buddy that ignores you somewhere along the trail.
      */
+    /**
+     * The lane, which is a world the buddy travels rather than a strip that slides with
+     * it.
+     *
+     * <p>The contract being held here is the one the screen kept breaking: the tally says
+     * "23 of 23" and the lane has to actually contain twenty-three drops that the buddy
+     * actually reaches. Before this the drops were placed a fixed distance ahead of the
+     * buddy, so the whole line moved with it, the character never travelled past
+     * anything, and two of the four drawn were hidden behind a sprite two hundred units
+     * wide.
+     */
+    private static void lane(Layout L, String at) {
+        for (int seconds : new int[]{MorningView.MIN_DURATION_SECONDS, 60, 5 * 60,
+                                     15 * 60, 60 * 60, MorningView.MAX_DURATION_SECONDS}) {
+            FakeClock clock = new FakeClock();
+            Engine e = new Engine(clock);
+            e.setRoutine(tasks(3), keys(3));
+            e.start(seconds);
+
+            String who = seconds + "s @ " + at;
+            int total = e.collectibleCount();
+            RectF trail = L.advTrail;
+            float spacing = ScreenAdventure.laneSpacing(L, e);
+            float span = total * spacing;
+
+            check(spacing > 0f, who + ": the lane has no spacing");
+            // A short morning stretches until its handful of drops fill the lane rather
+            // than huddling by the left edge; a long one holds its spacing and scrolls.
+            check(span >= trail.width() - 0.5f,
+                  who + ": " + total + " drops span " + span + " of a "
+                  + trail.width() + " lane, so the walk stops short");
+
+            float previous = -1f;
+            for (int i = 1; i <= total; i++) {
+                float world = ScreenAdventure.itemWorldX(L, e, i);
+                check(world > previous, who + ": drop " + i + " is not past drop " + (i - 1));
+                previous = world;
+            }
+            check(ScreenAdventure.chestWorldX(L, e) > previous,
+                  who + ": the chest is not past the last drop");
+
+            // THE contract: the buddy's mouth is on drop i exactly when the engine counts
+            // drop i collected. Everything else on this screen hangs off that.
+            long durationMs = seconds * 1000L;
+            for (int i = 1; i <= total; i++) {
+                clock.now = 1_000_000L + durationMs * i / total;
+                float mouth = ScreenAdventure.walkX(L, e)
+                            + Math.min(L.advScene.height() * 0.46f, Layout.W * 0.42f) * 0.30f;
+                float drop = ScreenAdventure.laneScreenX(L, e,
+                                 ScreenAdventure.itemWorldX(L, e, i));
+                check(Math.abs(mouth - drop) < 1.5f,
+                      who + ": at drop " + i + " of " + total + " the mouth is at "
+                      + mouth + " and the drop at " + drop);
+            }
+
+            // The camera starts still, only ever moves forward, and stops at its clamp.
+            float furthest = Math.max(0f, span - trail.width());
+            float last = -1f;
+            boolean[] seen = new boolean[total + 1];
+            for (int step = 0; step <= 600; step++) {
+                clock.now = 1_000_000L + durationMs * step / 600;
+                float cam = ScreenAdventure.camera(L, e);
+                check(cam >= -0.01f && cam <= furthest + 0.01f,
+                      who + ": the camera left its clamp at " + cam);
+                check(cam >= last - 0.01f, who + ": the camera went backwards");
+                last = cam;
+                // Every drop has to be on the lane at some point, or the morning counts
+                // one the child never saw.
+                for (int i = 1; i <= total; i++) {
+                    float x = ScreenAdventure.laneScreenX(L, e,
+                                  ScreenAdventure.itemWorldX(L, e, i));
+                    if (x >= trail.left - 1f && x <= trail.right + 1f) seen[i] = true;
+                }
+            }
+            for (int i = 1; i <= total; i++) {
+                check(seen[i], who + ": drop " + i + " of " + total + " is never on the lane");
+            }
+
+            clock.now = 1_000_000L;
+            check(ScreenAdventure.camera(L, e) == 0f, who + ": the camera starts moved");
+            if (span <= trail.width() + 0.5f) {
+                clock.now = 1_000_000L + durationMs;
+                check(ScreenAdventure.camera(L, e) == 0f,
+                      who + ": a lane that already fits should never scroll");
+            }
+        }
+    }
+
     private static void buddyPoke(Layout L, String at) {
         FakeClock clock = new FakeClock();
         Engine e = new Engine(clock);
@@ -225,7 +314,10 @@ public final class SelfTest {
         float feet = L.advTrail.centerY();
         for (int step = 0; step <= 10; step++) {
             if (step > 0) clock.advance(60_000L);
-            float x = L.advTrail.left + L.advTrail.width() * e.progress();
+            // Ask the screen where the buddy is rather than keeping a second copy of
+            // the formula here. The copy that used to live on this line was the old
+            // straight-line walk, and it went stale the moment the lane got a camera.
+            float x = ScreenAdventure.walkX(L, e);
             float body = feet - Math.min(L.advScene.height() * 0.46f, Layout.W * 0.42f) * 0.5f;
 
             check(ScreenAdventure.onBuddy(L, e, x, body),
