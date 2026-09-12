@@ -338,10 +338,39 @@ public final class SelfTest {
                   b.key + " light tint is too close to its own primary");
         }
 
-        check(BuddyTheme.of(3).collectibleNoun(1).equals("fish"), "shark singular noun");
-        check(BuddyTheme.of(3).collectibleNoun(4).equals("fish"), "shark plural noun");
-        check(BuddyTheme.of(4).collectibleNoun(1).equals("leaf"), "dino singular noun");
-        check(BuddyTheme.of(4).collectibleNoun(4).equals("leaves"), "dino plural noun");
+        // Every buddy's treat is named after the thing its art actually draws. Only the
+        // two irregular plurals were pinned before, which left the copy-paste that gave
+        // Sweet Kitty the shark's words undefended: it drew a heart and counted "fish
+        // treats" on screen for as long as that row existed.
+        String[][] nouns = {
+            {"mini burger", "mini burgers"},   // a mini burger
+            {"honey drop", "honey drops"},     // a honey drop
+            {"bone", "bones"},                 // a bone
+            {"fish", "fish"},                  // a fish
+            {"leaf", "leaves"},                // a leaf
+            {"star", "stars"},                 // a star
+            {"heart", "hearts"},               // a heart
+        };
+        check(nouns.length == BuddyTheme.COUNT, "the treat-noun table is the wrong length");
+        for (int i = 0; i < BuddyTheme.COUNT; i++) {
+            BuddyTheme b = BuddyTheme.of(i);
+            check(b.collectibleNoun(1).equals(nouns[i][0]),
+                  b.key + " singular treat noun is \"" + b.collectibleNoun(1)
+                  + "\", expected \"" + nouns[i][0] + "\"");
+            check(b.collectibleNoun(4).equals(nouns[i][1]),
+                  b.key + " plural treat noun is \"" + b.collectibleNoun(4)
+                  + "\", expected \"" + nouns[i][1] + "\"");
+        }
+
+        // And no two buddies share a treat noun, which is what a copy-paste looks like.
+        for (int a = 0; a < BuddyTheme.COUNT; a++) {
+            for (int b = a + 1; b < BuddyTheme.COUNT; b++) {
+                check(!BuddyTheme.of(a).collectibleNoun(4)
+                          .equals(BuddyTheme.of(b).collectibleNoun(4)),
+                      BuddyTheme.of(a).key + " and " + BuddyTheme.of(b).key
+                      + " count the same treat");
+            }
+        }
     }
 
     private static boolean notBlank(String s) { return s != null && !s.trim().isEmpty(); }

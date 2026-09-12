@@ -112,7 +112,7 @@ final class BuddyTheme {
             .palette(0xFFFBD638, 0xFFEAA815, 0xFF8DCCF7, 0xFFFEF8DB, 0xFFFFFDF0, 0xFF6B4E05, 0xFF271A17),
 
         new BuddyTheme(2, "pug")
-            .words("Pug Pal", "ruff!", "NOM!", "pup treat", "pup treats")
+            .words("Pug Pal", "ruff!", "NOM!", "bone", "bones")
             .feast(Anim.FEAST_POUNCE)
             .assets(R.drawable.buddy_pug, R.raw.buddy_pug_sound,
                     R.drawable.bg_adventure_pug)
@@ -140,7 +140,7 @@ final class BuddyTheme {
             .palette(0xFF57B9F3, 0xFF3798E4, 0xFFFFFFFF, 0xFFF0F7FF, 0xFFF5FBFF, 0xFF1D6FA8, 0xFF45A8EB),
 
         new BuddyTheme(6, "kitty")
-            .words("Sweet Kitty", "meow!", "PURR!", "fish treat", "fish treats")
+            .words("Sweet Kitty", "meow!", "PURR!", "heart", "hearts")
             .feast(Anim.FEAST_NIBBLE)
             .assets(R.drawable.buddy_kitty, R.raw.buddy_kitty_sound,
                     R.drawable.bg_adventure_kitty)
