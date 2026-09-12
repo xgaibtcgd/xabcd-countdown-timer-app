@@ -28,6 +28,13 @@ package com.morningmission.app;
  * authored in a tool whose positive angle went the other way, and transcribing it
  * unflipped put both of the bee's arms across its front like folded arms.
  *
+ * <p>Nor are the two arms a mirror of each other -- their bitmaps differ, 162x160
+ * against 160x151 -- so mirroring the placement did not mirror the join, and the right
+ * arm hung off the body with a seam showing. What settles it is how much of an arm is
+ * tucked behind the head and torso together: the left is 51% covered, the right was 12%,
+ * and it is 49% now. Measuring against the abdomen alone says 13% and 0%, which points
+ * the wrong way -- on a character this round the shoulder lands on the head.
+ *
  * <h2>Where the numbers came from</h2>
  *
  * <p>The generator supplied the parts laid out separately on a sheet rather than in
@@ -132,7 +139,7 @@ final class Rig {
             0.5450f, 0.4291f, 0.7642f, 0.3538f,    0f,    0.50f, 0.86f,   // wings
             0.5450f, 0.6566f, 0.5417f, 0.5071f,    0f,    0.50f, 0.50f,   // torso
             0.3175f, 0.5483f, 0.2517f, 0.2481f,   78f,    0.74f, 0.26f,   // left arm
-            0.7725f, 0.5483f, 0.2481f, 0.2335f,  -78f,    0.26f, 0.26f,   // right arm
+            0.7000f, 0.5483f, 0.2481f, 0.2335f,  -78f,    0.26f, 0.26f,   // right arm
             0.5450f, 0.3316f, 0.5326f, 0.4815f,    0f,    0.50f, 0.92f,   // head
         },
         1f, 15f, 17f);
