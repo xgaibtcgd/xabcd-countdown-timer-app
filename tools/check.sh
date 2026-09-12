@@ -91,6 +91,7 @@ python3 "$ROOT/tools/checksounds.py" "$ROOT/app/src/main/res/raw"
 # ------------------------------------------------- per-frame allocation gate
 python3 "$ROOT/tools/allocgate.py" \
   "$PKG"/Screen*.java "$PKG"/Scene.java "$PKG"/Icons.java "$PKG"/Glyphs.java \
+  "$PKG"/Celebration.java \
   "$PKG"/Clay.java "$PKG"/Particles.java "$PKG"/Anim.java "$PKG"/MorningView.java \
   "$PKG"/Theme.java
 

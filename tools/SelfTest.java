@@ -24,6 +24,7 @@ public final class SelfTest {
         layoutSweep();
         routeVariety();
         titleMusic();
+        celebration();
         buddyTable();
         hitMapBasics();
         engineContract();
@@ -570,6 +571,154 @@ public final class SelfTest {
         check(playing == 1,
               "the title song plays under " + playing + " screens; it is the title"
               + " screen's song and should play under one");
+    }
+
+    /**
+     * The celebration: a different one each morning, and none of them a strobe.
+     *
+     * <p>The screen had one celebration and a child doing this every morning had seen
+     * it by the end of the first week. There are five now, chosen from the morning's
+     * seed.
+     *
+     * <p>The half of this that matters is the flash rate. Fireworks and a disco are
+     * exactly the effects photosensitivity guidance is written about, and this app is
+     * pointed at a five-year-old first thing in the morning. Reading the constants and
+     * agreeing they look small is not a check -- the frequencies are SAMPLED here, by
+     * counting peaks in the brightness over a forty-second run, so a rate that gets
+     * nudged up during a tuning session is caught even if it never passes through the
+     * one helper that was supposed to hold it.
+     */
+    private static void celebration() {
+        // -- a different one each morning, and every one of them reachable
+        boolean[] seen = new boolean[Celebration.MODE_COUNT];
+        int distinct = 0;
+        for (int i = 0; i < 512; i++) {
+            long seed = 1_000_000L + i * 7919L;
+            int mode = Celebration.modeFor(seed);
+            check(mode >= 0 && mode < Celebration.MODE_COUNT,
+                  "seed " + seed + " chose celebration " + mode + ", off the end");
+            if (mode >= 0 && mode < Celebration.MODE_COUNT && !seen[mode]) {
+                seen[mode] = true;
+                distinct++;
+            }
+            check(Celebration.modeFor(seed) == mode, "the same seed chose two celebrations");
+        }
+        check(distinct == Celebration.MODE_COUNT,
+              "only " + distinct + " of " + Celebration.MODE_COUNT
+              + " celebrations are reachable; one is dead code a child never sees");
+
+        // -- and it holds still for the morning it belongs to
+        FakeClock clock = new FakeClock();
+        Engine e = new Engine(clock);
+        e.setRoutine(tasks(3), keys(3));
+        clock.now = 4_242_000L;
+        e.start(30 * 60);
+        int chosen = Celebration.modeFor(e.routeSeed());
+        clock.advance(90_000L);
+        e.pause();
+        e.resume();
+        e.completeActive();
+        check(Celebration.modeFor(e.routeSeed()) == chosen,
+              "the celebration changed mid-morning, after a pause and a task");
+
+        // -- nothing here flashes faster than the limit, measured not assumed
+        for (int mode = 0; mode < Celebration.MODE_COUNT; mode++) {
+            String who = Celebration.NAMES[mode];
+            float lo = 2f, hi = -1f;
+            for (float t = 0f; t <= 40f; t += 0.002f) {
+                float g = Celebration.glow(mode, t);
+                check(g >= 0f && g <= 1f, who + " glowed to " + g + ", outside 0..1");
+                if (g < lo) lo = g;
+                if (g > hi) hi = g;
+            }
+            float hz = peakRateHz(mode);
+            check(hz <= Celebration.MAX_FLASH_HZ + 0.02f,
+                  who + " flashes at " + hz + " Hz, over the "
+                  + Celebration.MAX_FLASH_HZ + " it is held to");
+            // A swell, not a blink. The guidance is about how much the brightness
+            // moves as well as how often.
+            check(hi - lo <= 0.35f,
+                  who + " swings its brightness by " + (hi - lo) + ", which reads as a blink");
+        }
+        // -- and one mode in the rotation does nothing sudden at all
+        check(peakRateHz(Celebration.MODE_STARFALL) == 0f
+              && Celebration.glow(Celebration.MODE_STARFALL, 0f)
+                 == Celebration.glow(Celebration.MODE_STARFALL, 7.3f),
+              "the gentle celebration is not gentle: its brightness moves");
+
+        // -- the lights go down once, smoothly, and never come back up and down again
+        for (int mode = 0; mode < Celebration.MODE_COUNT; mode++) {
+            String who = Celebration.NAMES[mode];
+            float prev = Celebration.dusk(mode, 0f);
+            check(prev == 0f, who + " starts already dimmed, with no transition");
+            float top = 0f;
+            for (float t = 0f; t <= 30f; t += 0.004f) {
+                float d = Celebration.dusk(mode, t);
+                check(d >= prev - 1e-4f,
+                      who + " brought the lights back up at t=" + t
+                      + "; a dim that reverses is a flash however slow it is");
+                check(d >= 0f && d <= 0.70f,
+                      who + " dimmed to " + d + ", past what a celebration should");
+                prev = d;
+                if (d > top) top = d;
+            }
+            check(Celebration.dusk(mode, 60f) == Celebration.dusk(mode, 30f),
+                  who + " is still dimming half a minute in");
+            // The gentle mode and the plain confetti stay in daylight.
+            if (mode == Celebration.MODE_STARFALL || mode == Celebration.MODE_CONFETTI) {
+                check(top == 0f, who + " dims the screen; it is meant to stay bright");
+            } else {
+                check(top > 0.30f, who + " barely dims, so its lights will not read");
+            }
+        }
+
+        // -- a firework's flash comes up over a ramp rather than instantly
+        check(Celebration.burstFlash(-0.1f) == 0f && Celebration.burstFlash(9f) == 0f,
+              "a firework flash is lit outside its own life");
+        float peak = 0f, peakAt = 0f;
+        for (float age = 0f; age <= Celebration.FLASH_LIFE; age += 0.001f) {
+            float v = Celebration.burstFlash(age);
+            check(v >= 0f && v <= 1f, "a firework flash reached " + v);
+            if (v > peak) { peak = v; peakAt = age; }
+        }
+        // Against an absolute floor, NOT against Celebration.FLASH_RISE. Reading the
+        // bound out of the thing being bounded is not a test: shortening the constant
+        // to a millisecond moved the assertion along with it and the gate stayed green.
+        check(peakAt >= 0.05f,
+              "a firework hits full brightness in " + peakAt
+              + "s, which is the instantaneous onset the limit exists for");
+
+        // -- and nobody spends particles that do not exist
+        for (int mode = 0; mode < Celebration.MODE_COUNT; mode++) {
+            int spend = Celebration.volley(mode);
+            if (mode == Celebration.MODE_FIREWORKS) {
+                spend += Celebration.SHELL_PIECES * Celebration.SHELLS;
+            }
+            check(spend <= Particles.CAPACITY,
+                  Celebration.NAMES[mode] + " spends " + spend + " particles of "
+                  + Particles.CAPACITY + "; the pool drops the rest silently");
+        }
+    }
+
+    /**
+     * How often the mode's brightness peaks, in cycles a second.
+     *
+     * <p>Counted from samples rather than read off a constant, which is the whole point:
+     * a frequency that gets typed straight into an envelope, bypassing the helper meant
+     * to bound it, still shows up here.
+     */
+    private static float peakRateHz(int mode) {
+        final float span = 40f, step = 0.002f;
+        int peaks = 0;
+        float prev = Celebration.glow(mode, 0f);
+        float cur = Celebration.glow(mode, step);
+        for (float t = 2f * step; t <= span; t += step) {
+            float next = Celebration.glow(mode, t);
+            if (cur > prev && cur >= next) peaks++;
+            prev = cur;
+            cur = next;
+        }
+        return peaks / span;
     }
 
     private static void checkOtherScreens(Layout L, String at) {

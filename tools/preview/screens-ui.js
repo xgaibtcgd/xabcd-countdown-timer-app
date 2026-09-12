@@ -720,6 +720,14 @@ function screenComplete(ctx, L, buddy, t) {
   wordmark(ctx, 'Mission', rcx(title), title[1] + rh(title) * 0.32, size, '#2879ED');
   wordmark(ctx, 'Complete!', rcx(title), title[1] + rh(title) * 0.80, size * 1.08, '#EC4777');
 
+  // Which celebration. In the app this comes from the morning's seed; here it comes
+  // from window.CELEBRATION so the shoot script can render the whole rotation rather
+  // than whichever one a lucky seed happened to pick.
+  const CMODES = ['confetti', 'fireworks', 'disco', 'chase', 'starfall'];
+  const cmode = (typeof window !== 'undefined' && window.CELEBRATION) || 'confetti';
+  const party = !(typeof window !== 'undefined' && window.CELEBRATION_OFF);
+  if (party) { drawDusk(ctx, L, cmode, t); drawPartyLights(ctx, L, buddy, t, cmode); }
+
   const stage = L.cmpStage;
   const goalSize = Math.min(rh(stage) * 0.42, DATA.metrics.designWidth * 0.30);
   const gx = stage[2] - goalSize * 0.62, gy = stage[3] - goalSize * 0.55;
@@ -749,8 +757,10 @@ function screenComplete(ctx, L, buddy, t) {
               height * 0.075 * twinkle, alpha(DATA.tokens.gold, twinkle * 0.86));
   }
 
+  if (party && cmode === 'fireworks') drawFireworks(ctx, L.play, buddy, t);
+  if (party && cmode === 'starfall') drawStarfall(ctx, L.play, t);
   drawSceneForeground(ctx, scene, t, false);
-  drawConfetti(ctx, L.play, buddy, t);
+  if (party && cmode !== 'fireworks') drawConfetti(ctx, L.play, buddy, t);
 
   const box = L.cmpCard;
   card(ctx, box, rh(box) * 0.20, 'rgba(255,255,255,.98)');
@@ -798,6 +808,166 @@ function labelledButton(ctx, r, g, text, face, edge, colour, glow = 0) {
 }
 
 /** A still frame of the particle system: two corner cannons under gravity. */
+/**
+ * Celebration.glow, ported. The preview has to agree on the brightness because that
+ * is the number the flash limit is written on -- a preview that pulsed harder than
+ * the app would be showing a screen the app will not draw.
+ */
+function celebrationGlow(mode, t) {
+  const wave = hz => 0.5 + 0.5 * Math.sin(t * hz * 2 * Math.PI);
+  if (mode === 'disco') return 0.72 + 0.28 * wave(1.6);
+  if (mode === 'chase') return 0.80 + 0.20 * wave(0.9);
+  return 1;
+}
+
+const DISCO_WHEEL = ['#FF6B6B', '#FFC857', '#7BE38B', '#5ED6F2', '#9B7BFF', '#FF8ED4'];
+
+/** Celebration.dusk: the lights going down, once, for the modes that need darkness. */
+function celebrationDusk(mode, t) {
+  const target = mode === 'disco' ? 0.62 : mode === 'chase' ? 0.46
+               : mode === 'fireworks' ? 0.52 : 0;
+  if (!target || t <= 0) return 0;
+  const RISE = 0.85;
+  if (t >= RISE) return target;
+  const p = t / RISE;
+  return target * p * p * (3 - 2 * p);
+}
+
+function drawDusk(ctx, L, mode, t) {
+  const d = celebrationDusk(mode, t);
+  if (d <= 0) return;
+  const [r, g, b] = rgb('#141A3A');
+  ctx.fillStyle = `rgba(${r},${g},${b},${d})`;
+  ctx.fillRect(L.play[0], L.play[1], rw(L.play), rh(L.play));
+}
+
+/** ScreenComplete.drawLights: cones and washes for disco, a bulb border for chase. */
+function drawPartyLights(ctx, L, buddy, t, mode) {
+  const play = L.play, glow = celebrationGlow(mode, t);
+  const w = rw(play), h = rh(play);
+  if (mode === 'disco') {
+    const cx = rcx(play), cy = play[1] + h * 0.06;
+    for (let i = 0; i < 4; i++) {
+      const deg = i * 90 + 26 * (0.5 + 0.5 * Math.sin(t * 0.31 * 2 * Math.PI));
+      let hue = (t * 0.19) % 1 + i * 0.25; hue -= Math.floor(hue);
+      const tint = DISCO_WHEEL[Math.floor(hue * DISCO_WHEEL.length) % DISCO_WHEEL.length];
+      const [tr, tg, tb] = rgb(tint);
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(deg * Math.PI / 180);
+      radialBlob(ctx, 0, h * 0.36, w * 0.17, h * 0.36, 0.34 * glow, tint);
+      radialBlob(ctx, 0, h * 0.30, w * 0.075, h * 0.30, 0.40 * glow, tint);
+      ctx.restore();
+      const px = cx + Math.sin(deg * Math.PI / 180) * w * 0.30;
+      const [r, g, b] = [tr, tg, tb];
+      ctx.fillStyle = `rgba(${r},${g},${b},${(110 * glow) / 255})`;
+      ctx.beginPath();
+      ctx.arc(px, play[3] - h * 0.16, w * 0.15, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  } else if (mode === 'chase') {
+    // Inset from the stage, so the string frames the buddy rather than hugging the edge.
+    const ins = w * 0.05;
+    const stage = [L.cmpStage[0] + ins, L.cmpStage[1] + ins,
+                   L.cmpStage[2] - ins, L.cmpStage[3] - ins];
+    const phase = (t * 0.42) % 1, N = 44;
+    const sw = rw(stage), sh = rh(stage), per = 2 * (sw + sh);
+    for (let i = 0; i < N; i++) {
+      const f = i / N;
+      let along = f - phase; along -= Math.floor(along);
+      const lit = along < 0.18 ? 1 - along / 0.18 : 0.25;
+      const d = f * per;
+      let x, y;
+      if (d < sw) { x = stage[0] + d; y = stage[1]; }
+      else if (d < sw + sh) { x = stage[2]; y = stage[1] + (d - sw); }
+      else if (d < 2 * sw + sh) { x = stage[2] - (d - sw - sh); y = stage[3]; }
+      else { x = stage[0]; y = stage[3] - (d - 2 * sw - sh); }
+      const bulb = i % 2 === 0 ? DATA.tokens.gold : buddy.accent;
+      const [r, g, b] = rgb(bulb);
+      if (lit > 0.30) radialBlob(ctx, x, y, w * 0.045, w * 0.045, 0.55 * lit * glow, bulb);
+      ctx.fillStyle = `rgba(${r},${g},${b},${(0.35 + 0.65 * lit) * glow})`;
+      ctx.beginPath();
+      ctx.arc(x, y, w * (0.0090 + 0.0075 * lit), 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+}
+
+/** A soft radial blob, standing in for Clay.contactShadow's cached gradient. */
+function radialBlob(ctx, cx, cy, rx, ry, strength, colour) {
+  const [r, g, b] = rgb(colour);
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.scale(1, ry / rx);
+  const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, rx);
+  grad.addColorStop(0, `rgba(${r},${g},${b},${strength})`);
+  grad.addColorStop(1, `rgba(${r},${g},${b},0)`);
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.arc(0, 0, rx, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+/** Big slow stars drifting down, the gentle mode. Closed-form, like drawConfetti. */
+function drawStarfall(ctx, area, t) {
+  const w = rw(area), h = rh(area);
+  for (let i = 0; i < 22; i++) {
+    const lane = ((i * 2654435761) >>> 8 & 0xFFFF) / 65535;
+    const speed = 0.055 + (((i * 40503) >>> 4 & 0xFF) / 255) * 0.045;
+    let p = (t * speed + i * 0.137) % 1;
+    const x = area[0] + w * (0.10 + 0.80 * lane) + Math.sin(t * 0.6 + i) * w * 0.02;
+    const y = area[1] - h * 0.03 + p * h * 1.06;
+    const twinkle = 0.45 + 0.55 * Math.abs(Math.sin(t * 1.4 + i));
+    drawGlyph(ctx, 'star', x, y, w * 0.075 * (0.7 + 0.3 * twinkle),
+              alpha(DATA.tokens.gold, twinkle * 0.9));
+  }
+}
+
+/**
+ * A still of the fireworks: three shells on a loop, each shown wherever its own
+ * phase has got to. Closed-form, the way drawConfetti already is.
+ */
+function drawFireworks(ctx, area, buddy, t) {
+  const w = rw(area), h = rh(area);
+  const RISE = 1.15, LIFE = 0.62, CYCLE = RISE + LIFE + 1.6;
+  for (let i = 0; i < 3; i++) {
+    const phase = (t + i * 0.75) % CYCLE;
+    const x = area[0] + w * (0.22 + 0.28 * i);
+    if (phase < RISE) {
+      const p = phase / RISE;
+      const y = area[3] - h * 0.62 * (p * (2 - p));       // ease out, as gravity does
+      const [r, g, b] = rgb(DATA.tokens.gold);
+      ctx.fillStyle = `rgba(${r},${g},${b},.82)`;
+      ctx.beginPath(); ctx.arc(x, y, w * 0.010, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = `rgba(${r},${g},${b},.27)`;
+      ctx.beginPath(); ctx.arc(x, y + h * 0.02, w * 0.006, 0, Math.PI * 2); ctx.fill();
+      continue;
+    }
+    const age = phase - RISE;
+    const y = area[3] - h * 0.62;
+    if (age < LIFE) {
+      const flash = age < 0.09 ? age / 0.09
+                  : Math.pow(1 - (age - 0.09) / (LIFE - 0.09), 2);
+      radialBlob(ctx, x, y, w * 0.26, w * 0.26, 0.42 * flash, '#FFFFFF');
+    }
+    // The ring of sparks the burst threw, falling under gravity.
+    const cols = [buddy.primary, buddy.accent, DATA.tokens.gold, '#FF6B6B', '#5ED6F2', '#9B7BFF'];
+    for (let k = 0; k < 34; k++) {
+      const ang = (k / 34) * Math.PI * 2 + i;
+      const speed = 300 + ((k * 37) % 100) * 3.2;
+      const drag = (1 - Math.exp(-1.6 * age)) / 1.6;
+      const sx = x + Math.cos(ang) * speed * drag;
+      const sy = y + Math.sin(ang) * speed * drag + 450 * age * age;
+      if (sy > area[3] + 40) continue;
+      const fade = Math.max(0, 1 - age / 2.4);
+      const [r, g, b] = rgb(cols[k % cols.length]);
+      ctx.fillStyle = `rgba(${r},${g},${b},${fade})`;
+      ctx.beginPath(); ctx.arc(sx, sy, w * 0.006, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+}
+
 function drawConfetti(ctx, area, buddy, t) {
   const palette = [buddy.primary, buddy.accent, DATA.tokens.gold, '#FF6B6B', '#5ED6F2', '#9B7BFF'];
   const w = rw(area), h = rh(area);

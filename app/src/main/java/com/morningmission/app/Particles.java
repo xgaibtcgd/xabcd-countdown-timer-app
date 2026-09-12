@@ -24,7 +24,8 @@ final class Particles {
     /** An {@link Art} glyph -- a heart, a star, a Z -- rather than a scrap of paper. */
     static final int SHAPE_GLYPH = 3;
 
-    private static final int CAPACITY = 220;
+    /** Package-visible so tools/SelfTest.java can hold a celebration's volley to it. */
+    static final int CAPACITY = 220;
     private static final float GRAVITY = 900f;
     private static final float DRAG = 1.6f;
 

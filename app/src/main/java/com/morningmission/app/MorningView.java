@@ -987,7 +987,15 @@ final class MorningView extends View implements Choreographer.FrameCallback, Eng
         final int who = buddy().index;
         postDelayed(() -> activity.playVictory(who), 420L);
         if (pref("confetti", true)) {
-            particles.celebrate(layout.play, buddy(), palette);
+            // The opening volley, fired here on the COUNTDOWN screen 1.2s before the
+            // route, and still in the air when the celebration screen appears -- the
+            // pool is not cleared in between. So it has to be the volley the morning's
+            // celebration actually wants, or the handover shows a seam: paper confetti
+            // for a beat and then a firework display.
+            int mode = Celebration.modeFor(engine.routeSeed());
+            if (mode != Celebration.MODE_FIREWORKS) {
+                particles.celebrate(layout.play, buddy(), palette);
+            }
         }
         postDelayed(this::celebrate, 1200L);
     }

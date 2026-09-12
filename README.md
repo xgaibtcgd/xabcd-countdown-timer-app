@@ -178,6 +178,39 @@ the morning (`Engine.atPrize`, `Engine.PRIZE_LEAD_MS`). The frames are
 registered on the chest's own base, so the box holds still and only the lid
 moves.
 
+## The celebration
+
+`Celebration.java` decides what Mission Complete does, and it is a different one
+each morning: confetti, fireworks, a disco, a chase of fairground bulbs, or a
+slow starfall. The mode comes from `Engine.routeSeed` through its own mixing
+constant, so it holds still for the morning it belongs to and is independent of
+the route.
+
+Everything in that class is a pure function of time. Nothing in it draws. That
+is not tidiness -- it is what lets `SelfTest` sample the brightness of every
+effect over a forty-second run and **measure** how fast it flashes, rather than
+reading the constants and agreeing they look small. Fireworks and a disco are
+exactly what photosensitivity guidance is written about, and this app is pointed
+at a five-year-old first thing in the morning. Nothing exceeds 2.6 Hz, nothing
+swings its brightness by more than a third, the firework flash comes up over a
+ramp rather than instantly, and the starfall does not flash at all -- so one
+morning in five is always calm. All of that is asserted, and the assertions are
+mutation-tested. One of them was a tautology on the first pass: it read its
+bound out of the constant it was bounding, and shortening that constant to a
+millisecond moved the gate along with it.
+
+The lights go down for the three modes that need darkness. That was not the
+plan; it came out of the first render, where four disco cones and three firework
+flashes had been drawn in white on a near-white gold sky and all five modes came
+out looking identical. A dim is a large luminance change, so it happens once,
+ramps over 0.85s, and never reverses -- `SelfTest` holds it to being monotonic.
+
+Fireworks are shells owned by `ScreenComplete`, not particles. A particle in the
+pool has no fuse and cannot explode into more of itself, and giving it one would
+mean new physics in a system every screen shares. A shell is four floats the
+screen integrates, and it calls the pool's ordinary `burst` at apex. The pool
+holds 220 and drops silently once full, so each mode's spend is gated too.
+
 ## The route
 
 `Route.java` decides where the treats go and how the buddy gets to them. The
