@@ -1,0 +1,56 @@
+{
+  "buddies": {
+    "burger": [
+      "idle",
+      "walk",
+      "cheer_loop",
+      "hurry"
+    ],
+    "bee": [
+      "idle",
+      "walk",
+      "cheer_loop",
+      "hurry"
+    ],
+    "pug": [
+      "idle",
+      "walk",
+      "cheer_loop",
+      "hurry"
+    ],
+    "shark": [
+      "idle",
+      "walk",
+      "cheer_loop",
+      "hurry"
+    ],
+    "dino": [
+      "idle",
+      "walk",
+      "cheer_loop",
+      "hurry"
+    ],
+    "cloud": [
+      "idle",
+      "walk",
+      "cheer_loop",
+      "hurry"
+    ],
+    "kitty": [
+      "idle",
+      "walk",
+      "cheer_loop",
+      "hurry"
+    ],
+    "trike": [
+      "idle",
+      "walk",
+      "cheer_loop",
+      "hurry"
+    ]
+  },
+  "formats": [
+    "gif",
+    "webp"
+  ]
+}
