@@ -93,7 +93,7 @@ public final class ExportArt {
         String[] glyphNames = {
             "gear", "chevron-left", "chevron-right", "pause", "check", "star", "play",
             "close", "pencil", "home", "list", "people", "lock", "drag", "plus",
-            "speaker", "refresh", "crown", "heart", "minus"
+            "speaker", "refresh", "crown", "heart", "minus", "note"
         };
         sb.append("\"glyphs\":[");
         for (int i = 0; i < Art.GLYPH_COUNT; i++) {

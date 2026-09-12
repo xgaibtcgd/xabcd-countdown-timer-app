@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Synthesises the buddies' tap sounds.
+"""Synthesises the buddies' tap sounds and the title-screen song.
 
 The seven that shipped were quarter-second synthetic blips -- pleasant enough, but a
 bee and a pug made much the same noise, and none of them sounded like the animal on
@@ -139,25 +139,28 @@ def apply_env(sig, env):
     return [s * e for s, e in zip(sig, env)]
 
 
-def normalise(sig, peak=0.82):
+def normalise(sig, peak=0.82, loop=False):
     hi = max(1e-9, max(abs(s) for s in sig))
     gain = peak / hi
     # A short fade at each end so nothing clicks when SoundPool starts or stops it.
-    fade = int(0.006 * RATE)
+    # Never on a looping track: that fade would land on the seam and pump the volume
+    # down and back up once every time round.
+    fade = 0 if loop else int(0.006 * RATE)
     out = []
     n = len(sig)
     for i, s in enumerate(sig):
         g = gain
-        if i < fade:
-            g *= i / fade
-        if i > n - fade:
-            g *= max(0.0, (n - i) / fade)
+        if fade:
+            if i < fade:
+                g *= i / fade
+            if i > n - fade:
+                g *= max(0.0, (n - i) / fade)
         out.append(max(-1.0, min(1.0, s * g)))
     return out
 
 
-def write_wav(path, sig):
-    data = array.array("h", (int(s * 32767) for s in normalise(sig)))
+def write_wav(path, sig, loop=False):
+    data = array.array("h", (int(s * 32767) for s in normalise(sig, loop=loop)))
     with wave.open(path, "wb") as w:
         w.setnchannels(1)
         w.setsampwidth(2)
@@ -276,7 +279,154 @@ def burger():
     return chomp(0.13, 210, 19) + [0.0] * seconds(0.05) + chomp(0.16, 170, 41)
 
 
+# --------------------------------------------------------------------- the song
+#
+# A loop for the title screen. Music box over a plucked bass and a soft shaker, in
+# C major at a walking tempo -- the point is that it can run for ten minutes behind a
+# child choosing a buddy without anyone in the house wanting it to stop.
+#
+# The tune is its own: an eight-bar phrase over I-IV-ii-V-I-vi-IV/V-I, with the melody
+# sitting on chord tones. It resolves on the downbeat of bar eight and then turns
+# around on the dominant, which is what carries the ear back to the top -- an earlier
+# draft simply held the last note for the whole bar and left two beats of silence at
+# the loop point, so the music appeared to stop and start every eighteen seconds.
+# The tail past the loop is folded back over the opening, so the seam is inaudible.
+
+BPM = 108
+BEAT = 60.0 / BPM
+
+# Semitones above middle C, or None for a rest.
+NOTES = {"C": 0, "D": 2, "E": 4, "F": 5, "G": 7, "A": 9, "B": 11}
+
+
+def pitch(name):
+    """'E5' -> hertz. Octave 4 holds middle C."""
+    if name is None:
+        return None
+    step = NOTES[name[0]]
+    octave = int(name[1])
+    return 261.625565 * (2.0 ** ((step + (octave - 4) * 12) / 12.0))
+
+
+# (note, beats). Two bars per line.
+MELODY = [
+    ("C5", 1), ("E5", 1), ("G5", 1), ("E5", 1),      # I
+    ("F5", 1), ("E5", 1), ("D5", 2),                 # IV
+    ("D5", 1), ("F5", 1), ("A5", 1), ("F5", 1),      # ii
+    ("G5", 1), ("F5", 1), ("E5", 2),                 # V
+    ("E5", 1), ("G5", 1), ("C6", 1), ("G5", 1),      # I
+    ("A5", 1), ("G5", 1), ("E5", 2),                 # vi
+    ("F5", 1), ("E5", 1), ("D5", 1), ("G4", 1),      # IV then V
+    ("C5", 2), ("G4", 1), ("B4", 1),                 # I, then a turnaround home
+]
+
+# One chord a bar, under everything. Every other voice here is plucked, so without
+# this the loop thinned to near silence at the end of each two-bar phrase, three times
+# a lap -- a texture that reads as the music cutting out rather than breathing.
+CHORDS = [
+    (["C4", "E4", "G4"], 4),   (["F3", "A3", "C4"], 4),
+    (["D4", "F4", "A4"], 4),   (["G3", "B3", "D4"], 4),
+    (["C4", "E4", "G4"], 4),   (["A3", "C4", "E4"], 4),
+    (["F3", "A3", "C4"], 2),   (["G3", "B3", "D4"], 2),
+    (["C4", "E4", "G4"], 2),   (["G3", "B3", "D4"], 2),
+]
+
+BASS = [
+    ("C3", 2), ("G3", 2), ("F3", 2), ("C4", 2),
+    ("D3", 2), ("A3", 2), ("G3", 2), ("D4", 2),
+    ("C3", 2), ("G3", 2), ("A3", 2), ("E4", 2),
+    ("F3", 2), ("G3", 2), ("C3", 2), ("G3", 2),
+]
+
+
+def musicbox(freq, dur):
+    """A struck-metal ping: a few harmonics, each decaying faster than the last."""
+    n = seconds(dur)
+    out = [0.0] * n
+    for mult, gain, decay in ((1.0, 1.0, 0.62), (2.0, 0.34, 0.30),
+                              (4.01, 0.13, 0.16), (6.0, 0.05, 0.10)):
+        v = apply_env(osc([freq * mult] * n, "sine"), envelope(n, 0.003, decay * dur))
+        for i, x in enumerate(v):
+            out[i] += x * gain
+    return out
+
+
+def pluck(freq, dur):
+    n = seconds(dur)
+    body = osc([freq] * n, "triangle")
+    body = lowpass(body, sweep([(0, 1800), (1, 500)], n))
+    return apply_env(body, envelope(n, 0.006, 0.34 * dur))
+
+
+def pad(freq, dur):
+    """A soft held tone: two slightly detuned triangles, filtered down and eased in."""
+    n = seconds(dur)
+    a = osc([freq] * n, "triangle")
+    b = osc([freq] * n, "triangle", detune=0.6)
+    body = lowpass([0.5 * (x + y) for x, y in zip(a, b)], 1100)
+    # Held, not plucked: a long hold and a short release. Shaped as a decay it faded
+    # out well before its own bar was over and did nothing for the gaps it is here for.
+    return apply_env(body, envelope(n, 0.16, 0.30, dur * 0.72))
+
+
+def shaker(dur, seed):
+    n = seconds(dur)
+    return apply_env(highpass(noise(n, seed), 4200), envelope(n, 0.002, 0.045))
+
+
+def place(track, start, layer, gain):
+    end = start + len(layer)
+    if end > len(track):
+        track.extend([0.0] * (end - len(track)))
+    for i, v in enumerate(layer):
+        track[start + i] += v * gain
+
+
+def title_song():
+    total_beats = sum(d for _, d in MELODY)
+    length = seconds(total_beats * BEAT)
+    # Room past the loop point for the final note's tail, folded back in below.
+    track = [0.0] * (length + seconds(1.2))
+
+    at = 0.0
+    for name, beats in MELODY:
+        f = pitch(name)
+        if f is not None:
+            # Ring into the next note rather than stopping dead on it.
+            place(track, seconds(at * BEAT), musicbox(f, beats * BEAT + 0.45), 0.5)
+        at += beats
+
+    at = 0.0
+    for names, beats in CHORDS:
+        for name in names:
+            place(track, seconds(at * BEAT), pad(pitch(name), beats * BEAT + 0.3), 0.13)
+        at += beats
+
+    at = 0.0
+    for name, beats in BASS:
+        place(track, seconds(at * BEAT), pluck(pitch(name), beats * BEAT * 0.9), 0.42)
+        at += beats
+
+    # Shaker on the offbeats, a touch softer on the weak ones.
+    half = 0
+    while half < total_beats * 2:
+        gain = 0.16 if half % 4 == 2 else 0.09
+        place(track, seconds(half * BEAT * 0.5), shaker(0.09, 700 + half), gain)
+        half += 1
+
+    # Fold the tail back over the start so the loop seam is continuous.
+    body = track[:length]
+    for i, v in enumerate(track[length:]):
+        if i < len(body):
+            body[i] += v
+    return body
+
+
+#: Tracks MediaPlayer plays on repeat, which must not carry an edge fade.
+LOOPING = {"title_song"}
+
 SOUNDS = {
+    "title_song": title_song,
     "buddy_bee_sound": bee,
     "buddy_pug_sound": pug,
     "buddy_kitty_sound": kitty,
@@ -295,7 +445,7 @@ def main():
     os.makedirs(out_dir, exist_ok=True)
     for name, make in sorted(SOUNDS.items()):
         path = os.path.join(out_dir, name + ".wav")
-        samples = write_wav(path, make())
+        samples = write_wav(path, make(), loop=name in LOOPING)
         print("%-22s %5d samples  %5.2fs  %6d bytes"
               % (name, samples, samples / RATE, os.path.getsize(path)))
 

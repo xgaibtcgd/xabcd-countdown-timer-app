@@ -45,6 +45,9 @@ public final class MainActivity extends Activity {
     private boolean kidLocked;
 
     private MediaPlayer victoryPlayer;
+    /** The title-screen loop. Held open while Home is showing, released otherwise. */
+    private MediaPlayer titlePlayer;
+    private boolean titleMusicWanted;
     private SoundPool soundPool;
     private final int[] soundIds = new int[BuddyTheme.COUNT];
 
@@ -86,16 +89,20 @@ public final class MainActivity extends Activity {
     @Override protected void onPause() {
         // The old build's frame loop ran forever, including after the activity was gone.
         if (morningView != null) morningView.stopClock();
+        // Music must not keep playing out of a backgrounded kids' app.
+        releaseTitleMusic();
         super.onPause();
     }
 
     @Override protected void onResume() {
         super.onResume();
         if (morningView != null) morningView.startClock();
+        if (titleMusicWanted) startTitleMusic();
     }
 
     @Override protected void onStop() {
         releaseVictory();
+        releaseTitleMusic();
         super.onStop();
     }
 
@@ -126,6 +133,7 @@ public final class MainActivity extends Activity {
         // The shark is the buddy every mockup leads with, so it is what a new install
         // opens on. Previously it opened on the burger.
         if (!prefs.contains("buddy")) prefs.edit().putInt("buddy", 3).apply();
+        if (!prefs.contains("music")) prefs.edit().putBoolean("music", true).apply();
         if (!prefs.contains("task_names")) saveRoutine(DEFAULT_TASK_NAMES, DEFAULT_TASK_KEYS);
     }
 
@@ -191,6 +199,49 @@ public final class MainActivity extends Activity {
             if (victoryPlayer != null) victoryPlayer.start();
         } catch (Exception ignored) {
         }
+    }
+
+    /**
+     * Turns the title loop on or off as screens change.
+     *
+     * <p>Remembers what was asked for even when it cannot act on it, so coming back
+     * from the background restores whatever the current screen wanted rather than
+     * leaving the title screen silent.
+     */
+    void setTitleMusic(boolean wanted) {
+        titleMusicWanted = wanted;
+        if (wanted) startTitleMusic(); else releaseTitleMusic();
+    }
+
+    private void startTitleMusic() {
+        if (!prefs.getBoolean("music", true)) return;
+        if (titlePlayer != null) return;
+        try {
+            titlePlayer = MediaPlayer.create(this, R.raw.title_song);
+            if (titlePlayer == null) return;
+            titlePlayer.setLooping(true);
+            // Well under the tap sounds: this runs for as long as the screen is open.
+            titlePlayer.setVolume(0.34f, 0.34f);
+            titlePlayer.start();
+        } catch (Exception ignored) {
+            titlePlayer = null;
+        }
+    }
+
+    private void releaseTitleMusic() {
+        if (titlePlayer == null) return;
+        try {
+            if (titlePlayer.isPlaying()) titlePlayer.stop();
+            titlePlayer.release();
+        } catch (Exception ignored) {
+        }
+        titlePlayer = null;
+    }
+
+    /** Re-reads the music preference, for the Grown-Ups toggle. */
+    void refreshTitleMusic() {
+        if (titleMusicWanted && prefs.getBoolean("music", true)) startTitleMusic();
+        else releaseTitleMusic();
     }
 
     private void releaseVictory() {

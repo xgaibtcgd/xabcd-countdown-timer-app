@@ -153,11 +153,12 @@ public final class ExportScreens {
         sb.append("],\n");
 
         sb.append("\"grownUpRows\":[");
-        String[] labels = {"Edit Routine", "Choose Buddy", "Sounds", "Celebration",
+        String[] labels = {"Edit Routine", "Choose Buddy", "Sounds", "Music", "Celebration",
                            "Timer Settings", "Kid Lock", "Reset Progress", "About"};
-        int[] glyphs = {Art.GLYPH_LIST, Art.GLYPH_HEART, Art.GLYPH_SPEAKER, Art.GLYPH_STAR,
-                        Art.GLYPH_REFRESH, Art.GLYPH_LOCK, Art.GLYPH_REFRESH, Art.GLYPH_PEOPLE};
-        String[] values = {null, "@buddy", "On", "On", "@minutes", "Off", null, null};
+        int[] glyphs = {Art.GLYPH_LIST, Art.GLYPH_HEART, Art.GLYPH_SPEAKER, Art.GLYPH_NOTE,
+                        Art.GLYPH_STAR, Art.GLYPH_REFRESH, Art.GLYPH_LOCK, Art.GLYPH_REFRESH,
+                        Art.GLYPH_PEOPLE};
+        String[] values = {null, "@buddy", "On", "On", "On", "@minutes", "Off", null, null};
         for (int i = 0; i < labels.length; i++) {
             if (i > 0) sb.append(",");
             sb.append("{\"label\":").append(str(labels[i]))

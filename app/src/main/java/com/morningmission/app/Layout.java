@@ -137,7 +137,7 @@ final class Layout {
 
     // ------------------------------------------------------------------ grown-ups
 
-    static final int GROWN_UP_ROWS = 8;
+    static final int GROWN_UP_ROWS = 9;
     final RectF guBack = new RectF();
     final RectF guTitle = new RectF();
     final RectF guPanel = new RectF();

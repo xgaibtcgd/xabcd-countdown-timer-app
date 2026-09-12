@@ -722,7 +722,8 @@ final class Art {
                      GLYPH_CLOSE = 7, GLYPH_PENCIL = 8, GLYPH_HOME = 9, GLYPH_LIST = 10,
                      GLYPH_PEOPLE = 11, GLYPH_LOCK = 12, GLYPH_DRAG = 13, GLYPH_PLUS = 14,
                      GLYPH_SPEAKER = 15, GLYPH_REFRESH = 16, GLYPH_CROWN = 17,
-                     GLYPH_HEART = 18, GLYPH_MINUS = 19, GLYPH_COUNT = 20;
+                     GLYPH_HEART = 18, GLYPH_MINUS = 19, GLYPH_NOTE = 20,
+                     GLYPH_COUNT = 21;
 
     static final float[][] GLYPHS = new float[GLYPH_COUNT][];
 
@@ -815,5 +816,15 @@ final class Art {
             .close().build();
 
         GLYPHS[GLYPH_HEART] = b().heart(50, 52, 80, 74).build();
+
+        // A quaver: two note heads tilted the way a written one leans, their stems
+        // joined by a beam. Music was borrowing the star, which Celebration already had.
+        GLYPHS[GLYPH_NOTE] = b()
+            .oval(14, 62, 42, 84)
+            .oval(58, 52, 86, 74)
+            .rrect(36, 16, 44, 74, 4)
+            .rrect(80, 6, 88, 64, 4)
+            .move(36, 16).line(88, 6).line(88, 24).line(36, 34).close()
+            .build();
     }
 }

@@ -19,16 +19,18 @@ final class ScreenGrownUps extends Screen {
 
     private static final int R_BACK = 1, R_ROW = 2, R_UNLOCK = 3;
 
-    static final int ROW_ROUTINE = 0, ROW_BUDDY = 1, ROW_SOUNDS = 2, ROW_CELEBRATION = 3,
-                     ROW_TIMER = 4, ROW_KID_LOCK = 5, ROW_RESET = 6, ROW_ABOUT = 7;
+    static final int ROW_ROUTINE = 0, ROW_BUDDY = 1, ROW_SOUNDS = 2, ROW_MUSIC = 3,
+                     ROW_CELEBRATION = 4, ROW_TIMER = 5, ROW_KID_LOCK = 6, ROW_RESET = 7,
+                     ROW_ABOUT = 8;
 
     private static final String[] LABELS = {
-        "Edit Routine", "Choose Buddy", "Sounds", "Celebration",
+        "Edit Routine", "Choose Buddy", "Sounds", "Music", "Celebration",
         "Timer Settings", "Kid Lock", "Reset Progress", "About"
     };
     private static final int[] GLYPHS = {
-        Art.GLYPH_LIST, Art.GLYPH_HEART, Art.GLYPH_SPEAKER, Art.GLYPH_STAR,
-        Art.GLYPH_REFRESH, Art.GLYPH_LOCK, Art.GLYPH_REFRESH, Art.GLYPH_PEOPLE
+        Art.GLYPH_LIST, Art.GLYPH_HEART, Art.GLYPH_SPEAKER, Art.GLYPH_NOTE,
+        Art.GLYPH_STAR, Art.GLYPH_REFRESH, Art.GLYPH_LOCK, Art.GLYPH_REFRESH,
+        Art.GLYPH_PEOPLE
     };
 
     /** How long the unlock panel must be held. */
@@ -123,6 +125,7 @@ final class ScreenGrownUps extends Screen {
         switch (index) {
             case ROW_BUDDY: return view.buddy().name;
             case ROW_SOUNDS: return view.pref("song", true) ? "On" : "Off";
+            case ROW_MUSIC: return view.pref("music", true) ? "On" : "Off";
             case ROW_CELEBRATION: return view.pref("confetti", true) ? "On" : "Off";
             case ROW_TIMER: return TimeText.describe(view.durationSeconds());
             case ROW_KID_LOCK: return view.activity.isKidLocked() ? "On" : "Off";
@@ -133,6 +136,7 @@ final class ScreenGrownUps extends Screen {
     private boolean valueIsOn(int index) {
         switch (index) {
             case ROW_SOUNDS: return view.pref("song", true);
+            case ROW_MUSIC: return view.pref("music", true);
             case ROW_CELEBRATION: return view.pref("confetti", true);
             case ROW_KID_LOCK: return view.activity.isKidLocked();
             default: return false;
@@ -208,6 +212,10 @@ final class ScreenGrownUps extends Screen {
             case ROW_ROUTINE: view.route(MorningView.SCREEN_EDIT_ROUTINE); break;
             case ROW_BUDDY: view.route(MorningView.SCREEN_BUDDY_PICKER); break;
             case ROW_SOUNDS: view.setPref("song", !view.pref("song", true)); break;
+            case ROW_MUSIC:
+                view.setPref("music", !view.pref("music", true));
+                view.activity.refreshTitleMusic();
+                break;
             case ROW_CELEBRATION:
                 boolean on = !view.pref("confetti", true);
                 view.setPref("confetti", on);

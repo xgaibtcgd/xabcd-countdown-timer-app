@@ -55,7 +55,7 @@
   "guPanel":[90.0,1846.0,990.0,2206.0],
   "guUnlock":[446.4,1880.0,633.6,2067.2],
   "guBand":[48.0,334.0,1032.0,1800.0],
-  "guRow":[[48.0,334.0,1032.0,502.0],[48.0,520.0,1032.0,688.0],[48.0,706.0,1032.0,874.0],[48.0,892.0,1032.0,1060.0],[48.0,1078.0,1032.0,1246.0],[48.0,1264.0,1032.0,1432.0],[48.0,1450.0,1032.0,1618.0],[48.0,1636.0,1032.0,1804.0]],
+  "guRow":[[48.0,334.0,1032.0,502.0],[48.0,520.0,1032.0,688.0],[48.0,706.0,1032.0,874.0],[48.0,892.0,1032.0,1060.0],[48.0,1078.0,1032.0,1246.0],[48.0,1264.0,1032.0,1432.0],[48.0,1450.0,1032.0,1618.0],[48.0,1636.0,1032.0,1804.0],[48.0,1822.0,1032.0,1990.0]],
   "edBack":[40.0,122.0,190.0,272.0],
   "edTitle":[190.0,108.0,890.0,288.0],
   "edBand":[48.0,334.0,1032.0,1774.0],
@@ -67,7 +67,7 @@
   "height":2400.0,
   "minTouch":144.0,
   "taskContentHeight":912.0,
-  "guContentHeight":1470.0
+  "guContentHeight":1656.0
 }},
 {"name":"Tall phone","widthPx":1080,"heightPx":2640,"dpi":480,"insetTop":110,"insetBottom":130,"layout":{
   "play":[0.0,128.0,1080.0,2492.0],
@@ -124,7 +124,7 @@
   "guPanel":[90.0,2086.0,990.0,2446.0],
   "guUnlock":[446.4,2120.0,633.6,2307.2],
   "guBand":[48.0,354.0,1032.0,2040.0],
-  "guRow":[[48.0,354.0,1032.0,522.0],[48.0,540.0,1032.0,708.0],[48.0,726.0,1032.0,894.0],[48.0,912.0,1032.0,1080.0],[48.0,1098.0,1032.0,1266.0],[48.0,1284.0,1032.0,1452.0],[48.0,1470.0,1032.0,1638.0],[48.0,1656.0,1032.0,1824.0]],
+  "guRow":[[48.0,354.0,1032.0,522.0],[48.0,540.0,1032.0,708.0],[48.0,726.0,1032.0,894.0],[48.0,912.0,1032.0,1080.0],[48.0,1098.0,1032.0,1266.0],[48.0,1284.0,1032.0,1452.0],[48.0,1470.0,1032.0,1638.0],[48.0,1656.0,1032.0,1824.0],[48.0,1842.0,1032.0,2010.0]],
   "edBack":[40.0,142.0,190.0,292.0],
   "edTitle":[190.0,128.0,890.0,308.0],
   "edBand":[48.0,354.0,1032.0,2014.0],
@@ -136,7 +136,7 @@
   "height":2640.0,
   "minTouch":144.0,
   "taskContentHeight":912.0,
-  "guContentHeight":1470.0
+  "guContentHeight":1656.0
 }},
 {"name":"Older 16:9","widthPx":1080,"heightPx":1920,"dpi":480,"insetTop":72,"insetBottom":48,"layout":{
   "play":[0.0,90.0,1080.0,1854.0],
@@ -193,7 +193,7 @@
   "guPanel":[90.0,1448.0,990.0,1808.0],
   "guUnlock":[446.4,1482.0,633.6,1669.2],
   "guBand":[48.0,316.0,1032.0,1402.0],
-  "guRow":[[48.0,316.0,1032.0,484.0],[48.0,502.0,1032.0,670.0],[48.0,688.0,1032.0,856.0],[48.0,874.0,1032.0,1042.0],[48.0,1060.0,1032.0,1228.0],[48.0,1246.0,1032.0,1414.0],[48.0,1432.0,1032.0,1600.0],[48.0,1618.0,1032.0,1786.0]],
+  "guRow":[[48.0,316.0,1032.0,484.0],[48.0,502.0,1032.0,670.0],[48.0,688.0,1032.0,856.0],[48.0,874.0,1032.0,1042.0],[48.0,1060.0,1032.0,1228.0],[48.0,1246.0,1032.0,1414.0],[48.0,1432.0,1032.0,1600.0],[48.0,1618.0,1032.0,1786.0],[48.0,1804.0,1032.0,1972.0]],
   "edBack":[40.0,104.0,190.0,254.0],
   "edTitle":[190.0,90.0,890.0,270.0],
   "edBand":[48.0,316.0,1032.0,1376.0],
@@ -205,7 +205,7 @@
   "height":1920.0,
   "minTouch":144.0,
   "taskContentHeight":912.0,
-  "guContentHeight":1470.0
+  "guContentHeight":1656.0
 }},
 {"name":"Small phone","widthPx":720,"heightPx":1280,"dpi":320,"insetTop":60,"insetBottom":40,"layout":{
   "play":[0.0,108.0,1080.0,1842.0],
@@ -262,7 +262,7 @@
   "guPanel":[90.0,1436.0,990.0,1796.0],
   "guUnlock":[446.4,1470.0,633.6,1657.2],
   "guBand":[48.0,334.0,1032.0,1390.0],
-  "guRow":[[48.0,334.0,1032.0,502.0],[48.0,520.0,1032.0,688.0],[48.0,706.0,1032.0,874.0],[48.0,892.0,1032.0,1060.0],[48.0,1078.0,1032.0,1246.0],[48.0,1264.0,1032.0,1432.0],[48.0,1450.0,1032.0,1618.0],[48.0,1636.0,1032.0,1804.0]],
+  "guRow":[[48.0,334.0,1032.0,502.0],[48.0,520.0,1032.0,688.0],[48.0,706.0,1032.0,874.0],[48.0,892.0,1032.0,1060.0],[48.0,1078.0,1032.0,1246.0],[48.0,1264.0,1032.0,1432.0],[48.0,1450.0,1032.0,1618.0],[48.0,1636.0,1032.0,1804.0],[48.0,1822.0,1032.0,1990.0]],
   "edBack":[40.0,122.0,190.0,272.0],
   "edTitle":[190.0,108.0,890.0,288.0],
   "edBand":[48.0,334.0,1032.0,1364.0],
@@ -274,12 +274,12 @@
   "height":1920.0,
   "minTouch":144.0,
   "taskContentHeight":912.0,
-  "guContentHeight":1470.0
+  "guContentHeight":1656.0
 }}
 ],
 "tokens":{"ink":"#17345F","inkMuted":"#6E7FA1","inkFaint":"#9AA9BF","surface":"#FFFFFF","surfaceTint":"#F7FBFF","scrim":"rgba(14,53,96,0.69)","cta":"#FF7C43","ctaDeep":"#E2561F","success":"#30C764","successDeep":"#24864E","link":"#2879ED","gold":"#FFC857","warn":"#FF944E"},
 "type":{"d1":78.0,"d2":56.0,"h1":45.0,"h2":33.0,"t1":30.0,"t2":26.0,"b1":22.0,"b2":19.0,"c1":17.0},
-"metrics":{"designWidth":1080.0,"taskRowHeight":168.0,"taskRowPitch":186.0,"chip":150.0,"navItems":4,"grownUpRows":8},
+"metrics":{"designWidth":1080.0,"taskRowHeight":168.0,"taskRowPitch":186.0,"chip":150.0,"navItems":4,"grownUpRows":9},
 "environments":[
 {"name":"Picnic meadow","skyTop":"#BFE9FF","skyMid":"#DDF4FF","skyLow":"#E8F8E4","groundNear":"#9DDD71","groundFar":"#7FCB5C","horizon":0.6,"scrim":51},
 {"name":"Flower meadow","skyTop":"#B7E6FB","skyMid":"#D9F2F6","skyLow":"#E9F8EC","groundNear":"#A8DE74","groundFar":"#85CC57","horizon":0.58,"scrim":51},
@@ -290,5 +290,5 @@
 {"name":"Blossom meadow","skyTop":"#FFDCEA","skyMid":"#FFEAF2","skyLow":"#FFF4F8","groundNear":"#C7ECA8","groundFar":"#A8DC85","horizon":0.58,"scrim":51}
 ],
 "defaultRoutine":[{"name":"Get Dressed","kind":2,"subtitle":"Ready for the day!"},{"name":"Breakfast","kind":3,"subtitle":"Fuel up!"},{"name":"Brush Teeth","kind":4,"subtitle":"Sparkly and clean!"},{"name":"Shoes On","kind":7,"subtitle":"Almost there!"},{"name":"Backpack","kind":8,"subtitle":"Ready for adventure!"}],
-"grownUpRows":[{"label":"Edit Routine","glyph":10,"value":null},{"label":"Choose Buddy","glyph":18,"value":"@buddy"},{"label":"Sounds","glyph":15,"value":"On"},{"label":"Celebration","glyph":5,"value":"On"},{"label":"Timer Settings","glyph":16,"value":"@minutes"},{"label":"Kid Lock","glyph":12,"value":"Off"},{"label":"Reset Progress","glyph":16,"value":null},{"label":"About","glyph":11,"value":null}]
+"grownUpRows":[{"label":"Edit Routine","glyph":10,"value":null},{"label":"Choose Buddy","glyph":18,"value":"@buddy"},{"label":"Sounds","glyph":15,"value":"On"},{"label":"Music","glyph":20,"value":"On"},{"label":"Celebration","glyph":5,"value":"On"},{"label":"Timer Settings","glyph":16,"value":"@minutes"},{"label":"Kid Lock","glyph":12,"value":"Off"},{"label":"Reset Progress","glyph":16,"value":null},{"label":"About","glyph":11,"value":null}]
 }

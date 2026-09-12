@@ -189,6 +189,7 @@ final class MorningView extends View implements Choreographer.FrameCallback, Eng
         // that would register hit regions for the state it is replacing. The routine
         // editor in particular starts empty and fills itself in onEnter.
         screens[current].onEnter();
+        activity.setTitleMusic(current == SCREEN_HOME);
         requestLayoutPass();
         rebuildScene();
         startClock();
