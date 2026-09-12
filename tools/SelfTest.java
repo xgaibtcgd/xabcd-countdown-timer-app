@@ -996,19 +996,7 @@ public final class SelfTest {
                 checkShape(coll[i], name + " collectible part " + i);
             }
 
-            float[][] goal = Art.GOAL_SHAPES[buddy];
-            check(goal != null && goal.length > 0, name + " has no goal");
-            check(goal.length == Art.GOAL_COLORS[buddy].length
-                  && goal.length == Art.GOAL_FLAGS[buddy].length,
-                  name + " goal has mismatched arrays");
-            for (int i = 0; i < goal.length; i++) {
-                checkShape(goal[i], name + " goal part " + i);
-            }
-            int lid = Art.GOAL_LID[buddy];
-            check(lid == -1 || (lid >= 0 && lid < goal.length),
-                  name + " goal names a lid part that does not exist: " + lid);
         }
-        check(Art.GOAL_NAMES.length == BuddyTheme.COUNT, "goal name list is the wrong length");
 
         bites();
 
@@ -1490,6 +1478,7 @@ public final class SelfTest {
 
         feastBeat();
         biteEvents();
+        prizeIsDanced();
         clockCues();
     }
 
@@ -1563,6 +1552,180 @@ public final class SelfTest {
             check(e.pollBite() < 0, "a paused morning must not keep crunching");
             clock.advance(16L);
         }
+    }
+
+    /**
+     * The last collectible is a treasure chest, and a chest is not food.
+     *
+     * <p>Three things have to agree about that or the finale reads as a bug: the chest
+     * must not be chomped, the buddy must dance rather than drop back to its hurry
+     * jiggle, and the chest art must run forwards through its frames and stop. They are
+     * in three different files.
+     *
+     * <p>The no-chomping half is a property of collectible TIMING, not of the guard in
+     * {@link Engine#pollBite}, which is unreachable today and says so. So this polls
+     * whole mornings frame by frame, exactly as the app does, across the range of
+     * durations it offers -- that is what would catch spacing which let a feast beat run
+     * into the prize window.
+     */
+    private static void prizeIsDanced() {
+        // Seconds, not minutes: the window is clamped on a short morning and the
+        // collectible count on a long one, so both ends of the range need walking.
+        for (int seconds : new int[]{MorningView.MIN_DURATION_SECONDS, 30, 60, 96,
+                                     5 * 60, 15 * 60, 94 * 60,
+                                     MorningView.MAX_DURATION_SECONDS}) {
+            FakeClock clock = new FakeClock();
+            Engine e = new Engine(clock);
+            e.setRoutine(tasks(3), keys(3));
+            e.start(seconds);
+
+            String at = seconds + "s";
+            check(!e.atPrize(), at + ": a morning does not start at the prize");
+
+            long durationMs = seconds * 1000L;
+            boolean reached = false;
+            long reachedAt = -1L;
+            int bitesBefore = 0;
+            for (long now = 0; now <= durationMs; now += 16L) {
+                boolean prize = e.atPrize();
+                // Polled every frame whatever the state, because that is how the app
+                // polls it and pollBite carries edge-detection state between calls.
+                int bite = e.pollBite();
+                if (prize && !reached) { reached = true; reachedAt = now; }
+                check(!(reached && !prize),
+                      at + ": the prize was reached and then un-reached at " + now + "ms");
+                // One check covers the chomp and the crunch: pollBite drives both.
+                check(!(prize && bite >= 0),
+                      at + ": something took a bite out of the chest at " + now + "ms");
+                if (bite >= 0) bitesBefore++;
+                if (prize) {
+                    check(Anim.stateFor(e, true, 0f, true) == Anim.DANCE,
+                          at + ": the buddy should dance at the chest");
+                    check(Anim.stateFor(e, false, 0f, true) == Anim.CHEER,
+                          at + ": with dancing off the buddy should still cheer, not jiggle");
+                }
+                clock.advance(16L);
+            }
+            // Every treat but the chest gets its full set of bites. Without this the
+            // check above passes just as well on a morning that ate nothing at all.
+            check(bitesBefore == (e.collectibleCount() - 1) * Art.BITE_COUNT,
+                  at + ": " + bitesBefore + " bites for " + (e.collectibleCount() - 1)
+                  + " treats, expected " + ((e.collectibleCount() - 1) * Art.BITE_COUNT));
+            check(reached, at + ": the morning never reached the prize");
+            check(reachedAt > durationMs * 0.5,
+                  at + ": the prize arrived at " + reachedAt + "ms of " + durationMs
+                  + ", far too early");
+            // Wide enough to see. The first cut of this tied the window to the last
+            // collectible's own beat and it came out under half a second -- long enough
+            // for the chest to start opening and nothing else.
+            long window = durationMs - reachedAt;
+            check(window >= (long) (ScreenAdventure.PRIZE_SECONDS * 1000f),
+                  at + ": the prize window is " + window + "ms, too short for a chest that"
+                  + " takes " + (long) (ScreenAdventure.PRIZE_SECONDS * 1000f) + "ms to open");
+            // Sampled at 60fps, so the first frame inside the window lands up to one
+            // frame late -- never early, and never a frame's width more than one late.
+            check(window <= e.prizeLeadMs() && window > e.prizeLeadMs() - 16L,
+                  at + ": the prize window measured " + window + "ms but prizeLeadMs says "
+                  + e.prizeLeadMs());
+        }
+
+        // The cue fires once, on the frame the prize is reached, and never again --
+        // including across a pause, which is where a naive edge detector repeats.
+        for (int seconds : new int[]{60, 5 * 60}) {
+            FakeClock clock = new FakeClock();
+            Engine e = new Engine(clock);
+            e.setRoutine(tasks(3), keys(3));
+            e.start(seconds);
+            int fired = 0;
+            long firedAt = -1L;
+            for (long now = 0; now <= seconds * 1000L + 30_000L; now += 16L) {
+                if (e.pollPrize()) { fired++; if (firedAt < 0) firedAt = now; }
+                if (now == seconds * 500L) e.pause();           // halfway, then resume
+                if (now == seconds * 500L + 4_000L) e.resume();
+                clock.advance(16L);
+            }
+            check(fired == 1, seconds + "s: the prize cue fired " + fired + " times");
+            check(firedAt > 0L, seconds + "s: the prize cue fired on the first frame");
+        }
+
+        // Paused at the prize, the cue waits: it is the arrival that is worth a sound,
+        // and behind the paused veil the buddy has not arrived yet.
+        FakeClock held = new FakeClock();
+        Engine paused = new Engine(held);
+        paused.setRoutine(tasks(2), keys(2));
+        paused.start(60);
+        held.advance(59_000L);
+        paused.pause();
+        for (int i = 0; i < 100; i++) {
+            check(!paused.pollPrize(), "a paused morning must not open the chest");
+            held.advance(16L);
+        }
+        paused.resume();
+        check(paused.pollPrize(), "resuming at the prize should open the chest");
+
+        // The shortest morning the app offers still has to fit the whole opening in.
+        for (int seconds : new int[]{MorningView.MIN_DURATION_SECONDS, 30, 60, 300,
+                                     MorningView.MAX_DURATION_SECONDS}) {
+            FakeClock shortClock = new FakeClock();
+            Engine shortest = new Engine(shortClock);
+            shortest.setRoutine(tasks(2), keys(2));
+            shortest.start(seconds);
+            check(shortest.prizeLeadMs() >= (long) (ScreenAdventure.PRIZE_SECONDS * 1000f),
+                  "a " + seconds + "s morning gives the chest only "
+                  + shortest.prizeLeadMs() + "ms to open");
+            check(shortest.prizeLeadMs() <= Engine.PRIZE_LEAD_MS,
+                  "a " + seconds + "s morning dances for " + shortest.prizeLeadMs()
+                  + "ms, past the " + Engine.PRIZE_LEAD_MS + "ms cap");
+            // On anything but a sprint the dance must not swallow the hurry stretch,
+            // which is the last fifth of the clock.
+            if (seconds >= 60) {
+                check(shortest.prizeLeadMs() < seconds * 1000L / 5L,
+                      "a " + seconds + "s morning spends its whole hurry stretch dancing");
+            }
+        }
+
+        // Every task ticked off early still counts as the prize, however much clock is
+        // left -- that is the Complete screen's chest, and it must be open on it.
+        FakeClock clock = new FakeClock();
+        Engine e = new Engine(clock);
+        e.setRoutine(tasks(4), keys(4));
+        e.start(90 * 60);
+        for (int i = 0; i < 4; i++) e.completeActive();
+        check(e.allDone() && e.atPrize(), "finishing every task should reach the prize");
+
+        // The art: forwards through every frame, no frame skipped, and held at the end.
+        check(MorningView.chestFrame(0f) == MorningView.PROP_CHEST_0,
+              "a shut chest should be frame 0");
+        check(MorningView.chestFrame(1f) == MorningView.PROP_CHEST_OPEN,
+              "a finished opening should rest on the last frame");
+        check(MorningView.PROP_CHEST_OPEN == MorningView.PROP_CHEST_FRAMES - 1,
+              "the resting frame should be the last of the opening");
+        check(MorningView.PROP_CHEST_FULL < MorningView.PROP_CHEST_OPEN,
+              "the lit-treasure frame comes before the chest settles");
+        boolean[] seen = new boolean[MorningView.PROP_CHEST_FRAMES];
+        int previous = -1;
+        for (int step = 0; step <= 2000; step++) {
+            float turn = step / 2000f;
+            int frame = MorningView.chestFrame(turn);
+            check(frame >= 0 && frame < MorningView.PROP_CHEST_FRAMES,
+                  "chest frame " + frame + " is off the end at turn " + turn);
+            check(frame >= previous,
+                  "the chest lid went backwards at turn " + turn + ": " + previous
+                  + " then " + frame);
+            seen[frame] = true;
+            previous = frame;
+        }
+        for (int frame = 0; frame < seen.length; frame++) {
+            check(seen[frame], "chest frame " + frame + " is never drawn");
+        }
+        // Past the end and before the start are both held rather than wrapping.
+        check(MorningView.chestFrame(-0.5f) == MorningView.PROP_CHEST_0,
+              "a negative opening should hold the shut chest");
+        check(MorningView.chestFrame(4f) == MorningView.PROP_CHEST_OPEN,
+              "an over-run opening should hold the last frame");
+        check(MorningView.PROP_STAR >= MorningView.PROP_CHEST_FRAMES
+              && MorningView.PROP_COUNT > MorningView.PROP_STAR,
+              "the star should sit past the chest frames, inside the prop table");
     }
 
     /**

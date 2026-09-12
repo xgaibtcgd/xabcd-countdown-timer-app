@@ -2,7 +2,7 @@
 
 A morning-routine countdown timer for children. Pick a buddy and a length, press
 Start Morning, and work through the routine while an animated buddy travels
-through its world collecting things on the way to a goal.
+through its world collecting things on the way to a treasure chest.
 
 Everything runs on the device. No account, no server, no internet permission.
 
@@ -72,8 +72,8 @@ Studio before shipping.**
 
 `tools/preview/` has two browser previews, for looking at the app without building it.
 
-- `index.html` -- every icon, collectible, goal and glyph, re-tintable across every
-  buddy.
+- `index.html` -- every icon, collectible and glyph, re-tintable across every buddy,
+  plus the chest's opening frames.
 - `screens.html` -- all seven screens, across four device shapes.
 
 Both render from data exported out of the app's own classes, so they cannot
@@ -113,9 +113,18 @@ worlds. They are 9:16; `Scene.layoutBackdrop` draws them at full width anchored
 to the bottom and extends the sky above with the artwork's own top-row colour, so
 a 20:9 phone crops nothing. Everything drawn over them -- light shafts, bubbles,
 petals, falling leaves, drifting clouds -- is code, as is every icon,
-collectible, goal and glyph. `Scene` still contains a complete procedural
-environment per buddy, used when no artwork is present and for the celebration,
-which has none.
+collectible and glyph. `Scene` still contains a complete procedural environment
+per buddy, used when no artwork is present and for the celebration, which has
+none.
+
+`prize_chest_0..4.png` and `prize_star.png` are the finale. The chest is the
+last collectible and the destination at once, shared by all eight characters
+where each used to have its own goal drawn from `float[]` geometry -- a basket,
+a hive, a volcano. It is not eaten: the buddy arrives, the chest swings open
+through its five frames, a star climbs out, and the buddy dances for the rest of
+the morning (`Engine.atPrize`, `Engine.PRIZE_LEAD_MS`). The frames are
+registered on the chest's own base, so the box holds still and only the lid
+moves.
 
 ## Sound
 

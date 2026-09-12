@@ -25,11 +25,8 @@ final class Icons {
     private static final Path[][] ACTIVITY = new Path[Art.ACT_COUNT][];
     /** [buddy][bites taken 0..2][part] -- the bitten variants are compiled once here. */
     private static final Path[][][] COLLECTIBLE = new Path[BuddyTheme.COUNT][][];
-    private static final Path[][] GOAL = new Path[BuddyTheme.COUNT][];
     private static final Path[] GLYPH = new Path[Art.GLYPH_COUNT];
     /** Where each goal's lid hinges, in unit coordinates. */
-    private static final float[] GOAL_HINGE_X = new float[BuddyTheme.COUNT];
-    private static final float[] GOAL_HINGE_Y = new float[BuddyTheme.COUNT];
 
     private static final RectF BOUNDS = new RectF();
     private static final RectF SCRATCH = new RectF();
@@ -40,13 +37,6 @@ final class Icons {
         }
         for (int i = 0; i < BuddyTheme.COUNT; i++) {
             COLLECTIBLE[i] = biteVariants(Art.COLLECTIBLE_SHAPES[i]);
-            GOAL[i] = Clay.compileAll(Art.GOAL_SHAPES[i]);
-            int lid = Art.GOAL_LID[i];
-            if (lid >= 0 && lid < GOAL[i].length) {
-                GOAL[i][lid].computeBounds(BOUNDS, true);
-                GOAL_HINGE_X[i] = BOUNDS.left;
-                GOAL_HINGE_Y[i] = BOUNDS.bottom;
-            }
         }
         for (int i = 0; i < Art.GLYPH_COUNT; i++) {
             GLYPH[i] = Clay.compile(Art.GLYPHS[i]);
@@ -203,46 +193,6 @@ final class Icons {
     }
 
     // ------------------------------------------------------------------------ goals
-
-    /**
-     * The destination at the end of the trail.
-     *
-     * @param open 0 closed, 1 fully open; only goals with a hinged part respond
-     * @param glow 0..1 halo strength once the mission is complete
-     */
-    static void goal(Canvas c, int buddy, float cx, float cy, float size,
-                     float open, float glow) {
-        BuddyTheme theme = BuddyTheme.of(buddy);
-        int index = theme.index;
-        Path[] paths = GOAL[index];
-        int[] colors = Art.GOAL_COLORS[index];
-        int[] flags = Art.GOAL_FLAGS[index];
-        int lid = Art.GOAL_LID[index];
-
-        if (glow > 0.01f) {
-            Paint fill = Theme.FILL;
-            fill.setShader(null);
-            fill.setColor(Theme.alpha(Theme.GOLD, (int) (70 * Theme.clamp(glow, 0f, 1f))));
-            c.drawCircle(cx, cy, size * 0.72f, fill);
-            fill.setColor(Theme.alpha(Theme.GOLD, (int) (48 * Theme.clamp(glow, 0f, 1f))));
-            c.drawCircle(cx, cy, size * 0.56f, fill);
-        }
-
-        Clay.contactShadow(c, cx, cy + size * 0.46f, size * 0.44f, size * 0.13f, 1f);
-        Clay.begin(c, cx, cy, size);
-        for (int i = 0; i < paths.length; i++) {
-            int colour = resolve(colors[i], theme);
-            if (i == lid && open > 0.01f) {
-                c.save();
-                c.rotate(-32f * Theme.clamp(open, 0f, 1f), GOAL_HINGE_X[index], GOAL_HINGE_Y[index]);
-                Clay.part(c, paths[i], colour, flags[i]);
-                c.restore();
-            } else {
-                Clay.part(c, paths[i], colour, flags[i]);
-            }
-        }
-        Clay.end(c);
-    }
 
     /** A padlock badge over a goal that has not been reached. */
     static void goalLocked(Canvas c, float cx, float cy, float size) {

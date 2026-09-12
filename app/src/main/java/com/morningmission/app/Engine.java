@@ -82,7 +82,16 @@ final class Engine {
     /** How many seconds of the countdown are ticked out loud at the end. */
     static final int TICK_SECONDS = 10;
 
+    /**
+     * How long before the end the buddy reaches the chest, in milliseconds.
+     *
+     * <p>Just wider than {@link #TICK_SECONDS}, so the chest is already open when the
+     * last ten seconds start ticking rather than opening over the top of them.
+     */
+    static final long PRIZE_LEAD_MS = 12_000L;
+
     private boolean milestoneFired;
+    private boolean prizeFired;
     /** The last whole second {@link #pollTick} reported, so each is reported once. */
     private int lastTickSecond = -1;
 
@@ -149,6 +158,7 @@ final class Engine {
         biteItem = -1;
         bitesFired = 0;
         milestoneFired = false;
+        prizeFired = false;
         lastTickSecond = -1;
     }
 
@@ -164,6 +174,7 @@ final class Engine {
         biteItem = -1;
         bitesFired = 0;
         milestoneFired = false;
+        prizeFired = false;
         lastTickSecond = -1;
     }
 
@@ -353,8 +364,45 @@ final class Engine {
         return taken > Art.BITE_COUNT ? Art.BITE_COUNT : taken;
     }
 
+    /**
+     * True through the buddy's final approach to the treasure chest.
+     *
+     * <p>The last collectible is not a treat. It is the chest at the end of the lane, the
+     * same one for every character, and it is not eaten -- the buddy arrives, the chest
+     * opens, and it dances. So this gates three things: the chomp animation, the crunch
+     * sounds, and which state {@link Anim#stateFor} picks.
+     *
+     * <p>The window is a span of clock, not the last collectible's own beat. Tying it to
+     * the beat looked right and was not: a beat is {@link #FEAST_SECONDS} wide, so the
+     * whole finale lasted under half a second and the chest, which takes 1.4s to swing
+     * open, never got past its second frame. Nor can it be the last collectible's
+     * segment, which on a long morning is minutes wide -- {@link #collectibleCount} caps
+     * the count, so segments stretch rather than multiply.
+     *
+     * <p>{@link #PRIZE_LEAD_MS} on any morning long enough to afford it, and an eighth of
+     * a short one, which leaves the hurry jiggle its own stretch beforehand on a
+     * one-minute run instead of the dance swallowing it whole.
+     */
+    boolean atPrize() {
+        if (allDone()) return true;
+        int total = collectibleCount();
+        if (collectedCount() >= total) return true;
+        // Whichever comes first: the approach window, or a beat that has already reached
+        // the chest. The second cannot currently precede the first, and is here because
+        // "nothing bites the chest" is the invariant and should not rest on that holding.
+        int item = beatItem();
+        if (item > 0 && item >= total) return true;
+        return running && remainingMs() <= prizeLeadMs();
+    }
+
+    /** How long the final approach lasts, in milliseconds. */
+    long prizeLeadMs() {
+        long eighth = durationMs / 8L;
+        return eighth < PRIZE_LEAD_MS ? eighth : PRIZE_LEAD_MS;
+    }
+
     /** Which collectible (1-based) the current beat is being spent on, or -1. */
-    private int itemBeingEaten() {
+    private int beatItem() {
         if (feastBeat() < 0f) return -1;
         // During the lead-in the buddy has not reached the item yet, so the count is
         // still one behind; for the rest of the beat it is the one just counted.
@@ -382,7 +430,21 @@ final class Engine {
             bitesFired = 0;
             return -1;
         }
-        int item = itemBeingEaten();
+        // The chest is not food. No bites out of it, and no crunches.
+        //
+        // A backstop, not the mechanism: nothing can reach here at the prize today. The
+        // last collectible lands on the final tick, so only its lead-in ever elapses and
+        // a lead-in has taken no bites; and the other route in, allDone(), makes
+        // feastBeat() negative on the line above. What actually holds the invariant is
+        // that timing, which tools/SelfTest.java measures by polling whole mornings.
+        // This is here so a change to collectible spacing cannot quietly turn the chest
+        // back into food, and it is cheaper than the bug would be.
+        if (atPrize()) {
+            biteItem = -1;
+            bitesFired = 0;
+            return -1;
+        }
+        int item = beatItem();
         if (item != biteItem) {
             biteItem = item;
             bitesFired = 0;
@@ -405,6 +467,21 @@ final class Engine {
         if (milestoneFired || !running || allDone() || isPaused()) return false;
         if (progress() < 0.5f) return false;
         milestoneFired = true;
+        return true;
+    }
+
+    /**
+     * True on the one frame the buddy reaches the treasure chest.
+     *
+     * <p>The same shape as {@link #pollMilestone}, and here rather than in the adventure
+     * screen for the same reason: the screen already latches the chest opening, but it
+     * latches it inside its draw call, and a sound fired from a draw is the defect
+     * MorningView carries an explicit warning about. The animation can live in the draw
+     * because redrawing it twice costs nothing; playing the cue twice does not.
+     */
+    boolean pollPrize() {
+        if (prizeFired || !running || isPaused() || !atPrize()) return false;
+        prizeFired = true;
         return true;
     }
 

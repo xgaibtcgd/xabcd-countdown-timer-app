@@ -752,7 +752,10 @@ final class Anim {
      */
     static int stateFor(Engine engine, boolean danceEnabled, float cheerRemaining,
                         boolean running) {
-        if (engine.allDone()) return danceEnabled ? DANCE : CHEER;
+        // Reaching the treasure chest is a dance, not a meal, and it keeps dancing --
+        // the clock is done by then and the alternative is the buddy reverting to its
+        // hurry jiggle beside an open chest.
+        if (engine.atPrize()) return danceEnabled ? DANCE : CHEER;
         if (cheerRemaining > 0f) return CHEER;
         if (!running) return SLEEPY;
         if (engine.isLowTime()) return HURRY;

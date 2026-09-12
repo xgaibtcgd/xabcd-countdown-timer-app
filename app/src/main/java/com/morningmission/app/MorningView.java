@@ -75,6 +75,7 @@ final class MorningView extends View implements Choreographer.FrameCallback, Eng
     // others are halved, since they are only ever seen at picker size.
     private final Bitmap[] art = new Bitmap[BuddyTheme.COUNT];
     private final int[] artSample = new int[BuddyTheme.COUNT];
+    private final Bitmap[] props = new Bitmap[3];
 
     // Backgrounds are large, and at most two are ever wanted at once: the storybook
     // meadow every non-adventure screen sits on, and the current buddy's world.
@@ -311,6 +312,10 @@ final class MorningView extends View implements Choreographer.FrameCallback, Eng
         int bite = engine.pollBite();
         if (bite >= 0) activity.playEatSound(buddy().index, bite);
         if (engine.pollMilestone()) activity.playCue(Sounds.CUE_MILESTONE);
+        // The chest at the end of the lane. Ahead of the ticks by design -- the prize
+        // window is a couple of seconds wider than the countdown, so the lid is already
+        // swinging when the last ten seconds start marking themselves off.
+        if (engine.pollPrize()) activity.playCue(Sounds.CUE_GOAL);
         if (engine.pollTick() > 0) activity.playCue(Sounds.CUE_TICK);
         particles.update(dt);
         blend.set(Anim.stateFor(engine, pref("dance", true), cheerRemaining, engine.isRunning()));
@@ -465,6 +470,77 @@ final class MorningView extends View implements Choreographer.FrameCallback, Eng
         return decoded;
     }
 
+    /** The treasure chest and its star: shared by every character, so not on BuddyTheme. */
+    /**
+     * The chest opening, frame 0 closed through frame 4 wide open and emptied.
+     *
+     * <p>Five frames of one render rather than two states and a tween: the lid swings on a
+     * hinge the app cannot fake by rotating a flat bitmap, and the interior is only drawn
+     * at all once the lid is off it. They are registered on the chest's own base, so the
+     * box holds still and only the lid moves.
+     */
+    static final int PROP_CHEST_0 = 0, PROP_CHEST_FRAMES = 5;
+    /** Lid wide open with the treasure lit inside -- the peak of the reveal. */
+    static final int PROP_CHEST_FULL = 3;
+    /** Lid all the way back, the star gone: where the opening settles. */
+    static final int PROP_CHEST_OPEN = 4;
+    static final int PROP_STAR = 5, PROP_COUNT = 6;
+
+    private static final int[] PROP_RES = {
+        R.drawable.prize_chest_0, R.drawable.prize_chest_1, R.drawable.prize_chest_2,
+        R.drawable.prize_chest_3, R.drawable.prize_chest_4, R.drawable.prize_star,
+    };
+
+    /** The chest frame for an opening {@code 0..1}, held on the last one at the end. */
+    static int chestFrame(float open) {
+        if (open <= 0f) return PROP_CHEST_0;
+        if (open >= 1f) return PROP_CHEST_OPEN;
+        int frame = (int) (open * PROP_CHEST_FRAMES);
+        return frame >= PROP_CHEST_FRAMES ? PROP_CHEST_FRAMES - 1 : frame;
+    }
+
+    /**
+     * Decodes one of the shared prize images, on demand and once.
+     *
+     * <p>Guarded the way {@link #backdrop} is rather than the way {@link #art} is: three
+     * more bitmaps on a heap with no {@code largeHeap} is worth failing softly over, and
+     * the drawing code treats null as "nothing to draw".
+     */
+    Bitmap prop(int which) {
+        if (which < 0 || which >= PROP_COUNT) return null;
+        if (props[which] != null && !props[which].isRecycled()) return props[which];
+        try {
+            // allocgate: ok - decode path, reached once per image
+            BitmapFactory.Options options = new BitmapFactory.Options();
+            options.inPreferredConfig = Bitmap.Config.ARGB_8888;
+            props[which] = BitmapFactory.decodeResource(getResources(), PROP_RES[which], options);
+        } catch (OutOfMemoryError | Exception e) {
+            props[which] = null;
+        }
+        return props[which];
+    }
+
+    /**
+     * Draws a prop bitmap centred on a point, fitted to {@code size} on its longer side.
+     *
+     * @param spin degrees, about the centre
+     */
+    void drawProp(Canvas c, int which, float cx, float cy, float size, float spin, int alpha) {
+        Bitmap bitmap = prop(which);
+        if (bitmap == null || bitmap.isRecycled()) return;
+        float longest = Math.max(bitmap.getWidth(), bitmap.getHeight());
+        float w = size * bitmap.getWidth() / longest;
+        float h = size * bitmap.getHeight() / longest;
+        c.save();
+        c.translate(cx, cy);
+        if (spin != 0f) c.rotate(spin);
+        scratch.set(-w * 0.5f, -h * 0.5f, w * 0.5f, h * 0.5f);
+        Theme.BMP.setAlpha(alpha);
+        c.drawBitmap(bitmap, null, scratch, Theme.BMP);
+        Theme.BMP.setAlpha(255);
+        c.restore();
+    }
+
     /** Decodes an illustrated background, keeping the last two. */
     private Bitmap backdrop(int res) {
         if (res == 0) return null;
@@ -494,6 +570,10 @@ final class MorningView extends View implements Choreographer.FrameCallback, Eng
     }
 
     private void releaseArt() {
+        for (int i = 0; i < PROP_COUNT; i++) {
+            if (props[i] != null && !props[i].isRecycled()) props[i].recycle();
+            props[i] = null;
+        }
         for (int i = 0; i < art.length; i++) {
             if (art[i] != null && !art[i].isRecycled()) art[i].recycle();
             art[i] = null;

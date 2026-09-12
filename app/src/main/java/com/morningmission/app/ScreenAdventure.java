@@ -45,6 +45,19 @@ final class ScreenAdventure extends Screen {
     private boolean stompPuffed;
     private float sweatTimer;
 
+    /** How long the star takes to rise out of the chest once it opens. */
+    /**
+     * How long the chest takes to swing open.
+     *
+     * <p>Package-visible only so tools/SelfTest.java can hold it against
+     * {@link Engine#prizeLeadMs()} on the shortest morning the app allows -- a chest that
+     * takes longer to open than the buddy spends standing at it never finishes opening.
+     */
+    static final float PRIZE_SECONDS = 1.4f;
+    /** Edge-detects the chest opening, so the star flies once and not every frame. */
+    private boolean prizeOpened;
+    private float prizeRemaining;
+
     /** Fires the pickup burst once per item rather than on every frame of the window. */
     private int burstedThrough = 0;
     private final int[] burstPalette = new int[4];
@@ -55,6 +68,8 @@ final class ScreenAdventure extends Screen {
 
     @Override void onEnter() {
         burstedThrough = view.engine.collectedCount();
+        prizeOpened = view.engine.atPrize();
+        prizeRemaining = 0f;
         pokeRemaining = 0f;
         pokeStreak = 0;
         pokeIdle = POKE_STREAK_RESET;
@@ -83,6 +98,14 @@ final class ScreenAdventure extends Screen {
         if (pokeRemaining > 0f) pokeRemaining = Math.max(0f, pokeRemaining - dt);
         pokeIdle += dt;
         sweatTimer += dt;
+        if (prizeRemaining > 0f) prizeRemaining = Math.max(0f, prizeRemaining - dt);
+        if (!engine.atPrize()) {
+            prizeOpened = false;                    // a fresh morning
+        } else if (!prizeOpened) {
+            prizeOpened = true;
+            prizeRemaining = PRIZE_SECONDS;
+            firePrizeBurst(layout, theme);
+        }
 
         view.scene.drawBackground(c, theme, t);
         // Trail first: the goal stands at the end of the lane, so items still to be
@@ -129,6 +152,7 @@ final class ScreenAdventure extends Screen {
         // two follow-ups. Each contact is what takes the next bite out of the item.
         float chomp = -1f, strength = 1f;
         int bite = Engine.bitesTaken(beat);
+        if (engine.atPrize()) beat = -1f;           // the chest is a dance, not a meal
         if (beat >= 0f) {
             float eaten = Engine.eatPhase(beat);
             chomp = eaten - (float) Math.floor(eaten);
@@ -344,7 +368,10 @@ final class ScreenAdventure extends Screen {
 
         for (int k = inMouth ? 0 : 1; k <= (inMouth ? 0 : LOOKAHEAD); k++) {
             int index = collected + k;                  // 1-based item number
-            if (index < 1 || index > total) continue;
+            // The last one is the chest at the end of the lane, drawn by drawGoal. It is
+            // counted as a collectible -- the tally says "12 of 12" -- but it is never a
+            // treat lying on the ground and it is never eaten.
+            if (index < 1 || index >= total) continue;
             // The item being eaten stays at the buddy's mouth rather than sliding on
             // with the rest of the line: it is being held. Letting it drift by the
             // segment fraction carried it back behind the buddy mid-bite, and on a short
@@ -390,16 +417,65 @@ final class ScreenAdventure extends Screen {
                              layout.advScene.height() * 0.55f, burstPalette);
     }
 
+    /**
+     * The treasure chest at the end of the lane.
+     *
+     * <p>One chest for all eight characters, where each used to have its own goal -- a
+     * basket, a hive, a volcano. A padlocked chest that springs open is a far better fit
+     * for the lock than a padlocked volcano was, and it makes the last collectible and
+     * the destination the same object instead of two things competing for the finish.
+     */
     private void drawGoal(Canvas c, Layout layout, BuddyTheme theme, Engine engine) {
         RectF box = layout.advGoal;
         float size = Math.min(box.width(), box.height());
-        boolean reached = engine.allDone();
-        Icons.goal(c, theme.index, box.centerX(), box.centerY(), size,
-                   reached ? 1f : 0f, reached ? 1f : 0f);
-        if (!reached) {
-            // Over the goal, not beneath it: below, it collided with the progress bar.
-            Icons.goalLocked(c, box.centerX(), box.centerY() + size * 0.08f, size);
+        boolean open = engine.atPrize();
+        float cx = box.centerX(), cy = box.centerY();
+
+        // 0 while the padlock holds, then it runs through the opening frames once and
+        // stays open. prizeRemaining counts DOWN from PRIZE_SECONDS, so this counts up.
+        float turn = !open ? 0f
+                   : prizeRemaining <= 0f ? 1f
+                   : 1f - prizeRemaining / PRIZE_SECONDS;
+
+        if (open) {
+            // A glow behind it, the same one the goal used to carry when it opened. It
+            // comes up with the lid rather than snapping on with the first frame.
+            Paint fill = Theme.FILL;
+            fill.setShader(null);
+            float lit = Math.min(1f, turn * 2.2f);
+            fill.setColor(Theme.alpha(Theme.GOLD, (int) (70 * lit)));
+            c.drawCircle(cx, cy, size * 0.72f, fill);
+            fill.setColor(Theme.alpha(Theme.GOLD, (int) (48 * lit)));
+            c.drawCircle(cx, cy, size * 0.56f, fill);
         }
+        Clay.contactShadow(c, cx, cy + size * 0.42f, size * 0.40f, size * 0.12f, 1f);
+        view.drawProp(c, MorningView.chestFrame(turn), cx, cy, size, 0f, 255);
+        if (!open) {
+            Icons.goalLocked(c, cx, cy + size * 0.08f, size);
+        } else if (prizeRemaining > 0f) {
+            // The star climbing out. Eased so it leaves fast and settles, and it fades
+            // rather than stopping dead -- the chest keeps its own star either way.
+            float p = 1f - prizeRemaining / PRIZE_SECONDS;
+            float rise = (float) Math.sin(p * Math.PI * 0.5f);
+            int alpha = p < 0.72f ? 255 : (int) (255 * (1f - (p - 0.72f) / 0.28f));
+            view.drawProp(c, MorningView.PROP_STAR, cx,
+                          cy - size * (0.06f + 0.72f * rise),
+                          size * (0.30f + 0.30f * rise),
+                          (float) Math.sin(p * 7f) * 12f, Math.max(0, alpha));
+        }
+    }
+
+    /** Gold and the buddy's own colours, thrown up out of the chest as it opens. */
+    private void firePrizeBurst(Layout layout, BuddyTheme theme) {
+        RectF box = layout.advGoal;
+        burstPalette[0] = Theme.GOLD;
+        burstPalette[1] = 0xFFFFF06A;
+        burstPalette[2] = theme.primary;
+        burstPalette[3] = 0xFFFFFFFF;
+        view.particles.burst(26, box.centerX(), box.centerY() - box.height() * 0.10f,
+                             -90f, 128f,
+                             layout.advScene.height() * 0.45f,
+                             layout.advScene.height() * 0.95f, burstPalette);
     }
 
     private void drawTopBar(Canvas c, Layout layout, BuddyTheme theme) {
@@ -534,7 +610,16 @@ final class ScreenAdventure extends Screen {
             // No check badge here: on a board of two dozen the green discs swamped the
             // treats themselves, and colour against grey already says which are gone.
             boolean got = i < collected;
-            Icons.collectible(c, theme.index, x, y, size, got, 0f, false);
+            if (i == total - 1) {
+                // The last tile is the chest, not a treat. Faded until it is reached,
+                // which is the whole point of showing the board -- a child can see what
+                // the morning is walking toward.
+                view.drawProp(c, got ? MorningView.PROP_CHEST_FULL
+                                     : MorningView.PROP_CHEST_0,
+                              x, y, size * 1.15f, 0f, got ? 255 : 105);
+            } else {
+                Icons.collectible(c, theme.index, x, y, size, got, 0f, false);
+            }
         }
     }
 

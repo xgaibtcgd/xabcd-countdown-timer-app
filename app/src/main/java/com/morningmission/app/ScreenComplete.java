@@ -66,9 +66,18 @@ final class ScreenComplete extends Screen {
     private void drawStage(Canvas c, Layout layout, BuddyTheme theme, float t) {
         RectF stage = layout.cmpStage;
         float goalSize = Math.min(stage.height() * 0.42f, Layout.W * 0.30f);
-        Icons.goal(c, theme.index, stage.right - goalSize * 0.62f,
-                   stage.bottom - goalSize * 0.55f, goalSize, 1f,
-                   0.75f + 0.25f * (float) Math.sin(t * 2f));
+        float gx = stage.right - goalSize * 0.62f;
+        float gy = stage.bottom - goalSize * 0.55f;
+        // The open chest, pulsing, where each character used to have its own goal.
+        Paint glow = Theme.FILL;
+        glow.setShader(null);
+        float pulse = 0.75f + 0.25f * (float) Math.sin(t * 2f);
+        glow.setColor(Theme.alpha(Theme.GOLD, (int) (70 * pulse)));
+        c.drawCircle(gx, gy, goalSize * 0.72f, glow);
+        glow.setColor(Theme.alpha(Theme.GOLD, (int) (48 * pulse)));
+        c.drawCircle(gx, gy, goalSize * 0.56f, glow);
+        Clay.contactShadow(c, gx, gy + goalSize * 0.42f, goalSize * 0.40f, goalSize * 0.12f, 1f);
+        view.drawProp(c, MorningView.PROP_CHEST_FULL, gx, gy, goalSize, 0f, 255);
 
         float height = Math.min(stage.height() * 0.80f, Layout.W * 0.50f);
         float cx = stage.left + stage.width() * 0.40f;

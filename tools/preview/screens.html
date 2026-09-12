@@ -197,6 +197,7 @@
 <script>
 const BUDDY_IMAGES = [];
 const BACKDROPS = { home: null, adventure: [] };
+const PROPS = {};
 let currentBuddy = 3;      // Splash Buddy, the default on a new install
 let currentDevice = 0;
 let showBands = false;
@@ -418,6 +419,12 @@ const home = new Image();
 home.onload = home.onerror = done;
 home.src = 'backdrops/home_storybook.jpg';
 BACKDROPS.home = home;
+
+['chest_0', 'chest_1', 'chest_2', 'chest_3', 'chest_4', 'star'].forEach(name => {
+  const p = new Image();
+  p.src = 'props/' + name + '.png';
+  PROPS[name] = p;
+});
 
 function start() {
   buildSheet();

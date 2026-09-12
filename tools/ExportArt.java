@@ -40,7 +40,6 @@ public final class ExportArt {
               .append(",\"tilt\":").append(round(b.temperament.tilt))
               .append(",\"squash\":").append(round(b.temperament.squash))
               .append(",\"hover\":").append(round(b.temperament.hover))
-              .append(",\"goalName\":").append(str(Art.GOAL_NAMES[i]))
               .append(",\"primary\":").append(hex(b.primary))
               .append(",\"accent\":").append(hex(b.accent))
               .append(",\"accent2\":").append(hex(b.accent2))
@@ -82,17 +81,6 @@ public final class ExportArt {
                 sb.append(floats(circle));
             }
             sb.append("]}");
-        }
-        sb.append("\n],\n");
-
-        sb.append("\"goals\":[");
-        for (int i = 0; i < BuddyTheme.COUNT; i++) {
-            if (i > 0) sb.append(",");
-            sb.append("\n{\"name\":").append(str(Art.GOAL_NAMES[i]))
-              .append(",\"lid\":").append(Art.GOAL_LID[i])
-              .append(",").append(parts(Art.GOAL_SHAPES[i], Art.GOAL_COLORS[i],
-                                        Art.GOAL_FLAGS[i]))
-              .append("}");
         }
         sb.append("\n],\n");
 

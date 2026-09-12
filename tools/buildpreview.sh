@@ -62,6 +62,25 @@ print("buildpreview: data.js rebuilt (%d buddies, %d devices, %d activities, %d 
          len(merged["art"]["activities"]), len(merged["art"]["glyphs"])))
 PYEOF
 
+# index.html cannot fetch() art.json off file://, so it carries the data inline. Splice
+# the fresh copy in rather than leaving a frozen one to drift -- the one that was there
+# had fallen a whole buddy behind and still held goals the app had stopped drawing.
+python3 - "$PREVIEW" <<'PYEOF'
+import io, json, os, re, sys
+preview = sys.argv[1]
+page = os.path.join(preview, "index.html")
+html = io.open(page, encoding="utf-8").read()
+art = json.load(io.open(os.path.join(preview, "art.json"), encoding="utf-8"))
+block = "/*<ART>*/const ART = " + json.dumps(art, separators=(",", ":")) + ";/*</ART>*/"
+fresh, n = re.subn(r"/\*<ART>\*/.*?/\*</ART>\*/", lambda m: block, html, flags=re.S)
+if n != 1:
+    raise SystemExit("buildpreview: index.html is missing its one /*<ART>*/ block")
+if fresh != html:
+    io.open(page, "w", encoding="utf-8").write(fresh)
+print("buildpreview: index.html ART %s (%d buddies)"
+      % ("refreshed" if fresh != html else "already current", len(art["buddies"])))
+PYEOF
+
 for f in data.js screens-engine.js screens-draw.js screens-ui.js; do
   node --check "$PREVIEW/$f"
 done
