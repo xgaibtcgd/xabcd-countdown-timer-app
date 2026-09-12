@@ -404,19 +404,34 @@ final class MorningView extends View implements Choreographer.FrameCallback, Eng
     /** The same, with the action scaled -- see {@link Anim#move(int, float, float, Anim.Transform)}. */
     void drawBuddy(Canvas c, int buddyIndex, float cx, float feetY, float height,
                    boolean withShadow, int moveId, float movePhase, float moveStrength) {
+        drawBuddy(c, buddyIndex, cx, feetY, height, withShadow,
+                  moveId, movePhase, moveStrength, false);
+    }
+
+    /**
+     * The same, facing the other way.
+     *
+     * <p>Every character is drawn facing right, which was fine while the adventure was a
+     * walk from the left edge to the right one. The route winds now, and half its
+     * segments run right to left -- a buddy that kept facing right on those would be
+     * moonwalking to the treasure.
+     */
+    void drawBuddy(Canvas c, int buddyIndex, float cx, float feetY, float height,
+                   boolean withShadow, int moveId, float movePhase, float moveStrength,
+                   boolean faceLeft) {
         // A rigged buddy draws its parts instead; passing null is what selects that.
         Bitmap bitmap = BuddyTheme.of(buddyIndex).rig != null
                 ? null : art(buddyIndex, buddyIndex == buddy().index);
         if (bitmap == null && BuddyTheme.of(buddyIndex).rig == null) return;
         if (bitmap != null && bitmap.isRecycled()) return;
         drawSprite(c, bitmap, buddyIndex, cx, feetY, height, withShadow,
-                   moveId, movePhase, moveStrength);
+                   moveId, movePhase, moveStrength, faceLeft);
     }
 
     /** The shared body of the two above: motion, contact shadow, transform, draw. */
     private void drawSprite(Canvas c, Bitmap bitmap, int buddyIndex, float cx, float feetY,
                             float height, boolean withShadow, int moveId, float movePhase,
-                            float moveStrength) {
+                            float moveStrength, boolean faceLeft) {
         // Called once per frame, which is what lets the blend track velocity for squash
         // and stretch. drawBuddyPose below solves without touching that state, so the
         // seven dancing buddies in the picker cannot disturb it.
@@ -430,7 +445,7 @@ final class MorningView extends View implements Choreographer.FrameCallback, Eng
             motion.scaleY *= feastMotion.scaleY;
         }
         paintSprite(c, bitmap, buddyIndex, cx, feetY, height, withShadow, time,
-                    blend.state());
+                    blend.state(), faceLeft);
     }
 
     /**
@@ -445,9 +460,14 @@ final class MorningView extends View implements Choreographer.FrameCallback, Eng
      * @param animState the state the part animation reads. The picker passes its own
      *                  rather than the blend's, for the same reason it solves its own
      *                  motion: eight cards must not disturb the state the app is riding.
+     * @param faceLeft  mirrors the whole frame, rig included, about the character's own
+     *                  centre. The motion's own dx mirrors with it so that "forward"
+     *                  keeps meaning forward -- a lunge has to go the way the character
+     *                  is looking, not always to the right.
      */
     private void paintSprite(Canvas c, Bitmap bitmap, int buddyIndex, float cx, float feetY,
-                             float height, boolean withShadow, float at, int animState) {
+                             float height, boolean withShadow, float at, int animState,
+                             boolean faceLeft) {
         BuddyTheme theme = BuddyTheme.of(buddyIndex);
         Rig rig = bitmap == null ? theme.rig : null;
         if (rig == null && bitmap == null) return;
@@ -456,16 +476,20 @@ final class MorningView extends View implements Choreographer.FrameCallback, Eng
                 ? height * rig.aspect
                 : height * bitmap.getWidth() / (float) bitmap.getHeight();
         float centreY = feetY - height * 0.5f + motion.dy;
+        float dx = faceLeft ? -motion.dx : motion.dx;
 
         if (withShadow) {
             float squash = Theme.clamp(motion.scaleY, 0.85f, 1.15f);
-            Clay.contactShadow(c, cx + motion.dx, feetY + height * 0.02f,
+            Clay.contactShadow(c, cx + dx, feetY + height * 0.02f,
                                width * 0.36f * (2f - squash), height * 0.055f,
                                Theme.clamp(1f - Math.abs(motion.dy) / 90f, 0.25f, 1f));
         }
 
         c.save();
-        c.translate(cx + motion.dx, centreY);
+        c.translate(cx + dx, centreY);
+        // Before the rotate, so a lean mirrors too: a character tipped into its stride
+        // has to tip the way it is walking.
+        if (faceLeft) c.scale(-1f, 1f);
         c.rotate(motion.rotation);
         c.scale(motion.scaleX, motion.scaleY, 0f, height * 0.42f);
         Theme.BMP.setAlpha(255);
@@ -533,7 +557,8 @@ final class MorningView extends View implements Choreographer.FrameCallback, Eng
             drawBuddy(c, buddyIndex, cx, feetY, height, withShadow);
             return;
         }
-        drawSprite(c, bitmap, buddyIndex, cx, feetY, height, withShadow, -1, -1f, 1f);
+        drawSprite(c, bitmap, buddyIndex, cx, feetY, height, withShadow, -1, -1f, 1f,
+                   false);
     }
 
     /** Draws a buddy with a fixed pose, for the picker where seven dance at once. */
@@ -546,7 +571,7 @@ final class MorningView extends View implements Choreographer.FrameCallback, Eng
         // rest of the app is riding.
         Anim.solve(state, theme.temperament, time + phaseOffset, motion);
         paintSprite(c, bitmap, buddyIndex, cx, feetY, height, false, time + phaseOffset,
-                    state);
+                    state, false);
     }
 
     /**

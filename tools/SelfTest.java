@@ -22,6 +22,7 @@ public final class SelfTest {
 
     public static void main(String[] args) {
         layoutSweep();
+        routeVariety();
         buddyTable();
         hitMapBasics();
         engineContract();
@@ -58,6 +59,19 @@ public final class SelfTest {
         {1200, 1920, 320},   // 10:16 tablet-ish, the tightest case
     };
 
+    /**
+     * Durations the route is swept over: the shortest and longest the app allows, and
+     * four in between. They straddle every grid the chooser produces, from a 3x2 with two
+     * cells to spare to a 7x4 packed to the last one.
+     */
+    private static final int[] ROUTE_DURATIONS = {
+        MorningView.MIN_DURATION_SECONDS, 60, 5 * 60, 15 * 60, 60 * 60,
+        MorningView.MAX_DURATION_SECONDS,
+    };
+
+    /** One route reused across the sweep; it rebuilds itself whenever the grid changes. */
+    private static final Route ROUTE = new Route();
+
     private static final int[][] INSETS = {
         {0, 0}, {72, 48}, {90, 130}, {130, 0},
     };
@@ -79,8 +93,7 @@ public final class SelfTest {
                                   + inset[1] + " tasks " + tasks + " scroll " + (int) scroll;
                         checkHome(L, at);
                         checkAdventure(L, at);
-                        buddyPoke(L, at);
-                        lane(L, at);
+                        routeShape(L, at);
                         checkOtherScreens(L, at);
                     }
                 }
@@ -204,149 +217,333 @@ public final class SelfTest {
     }
 
     /**
-     * Poking the buddy.
+     * The route, which is a winding path through a grid rather than a line along the
+     * bottom of the scene.
      *
-     * <p>The buddy's x is a function of the clock, so no hit region can follow it: the
-     * screen registers the whole walking strip and does the real test in onPressDown.
-     * That leaves two ways for the poke to quietly stop working -- the test drifting off
-     * the character, and the test accepting points the registered strip does not contain,
-     * which never reach onPressDown at all -- and neither shows up as anything but a
-     * buddy that ignores you somewhere along the trail.
+     * <p>The contract being held is the one the screen kept breaking: the tally says
+     * "23 of 23" and the scene has to contain twenty-three drops the buddy actually
+     * reaches. First the drops were placed relative to the buddy, so the line of them
+     * moved with it and it travelled past nothing. Then they got world positions and a
+     * camera, which fixed that but showed six at a time. Now they are all on screen, laid
+     * out on a path that must never cross itself -- and that last part is the one a person
+     * cannot check by looking, because a crossing on a sparse grid is rare and obvious
+     * only in the seed that produces it.
      */
-    /**
-     * The lane, which is a world the buddy travels rather than a strip that slides with
-     * it.
-     *
-     * <p>The contract being held here is the one the screen kept breaking: the tally says
-     * "23 of 23" and the lane has to actually contain twenty-three drops that the buddy
-     * actually reaches. Before this the drops were placed a fixed distance ahead of the
-     * buddy, so the whole line moved with it, the character never travelled past
-     * anything, and two of the four drawn were hidden behind a sprite two hundred units
-     * wide.
-     */
-    private static void lane(Layout L, String at) {
-        for (int seconds : new int[]{MorningView.MIN_DURATION_SECONDS, 60, 5 * 60,
-                                     15 * 60, 60 * 60, MorningView.MAX_DURATION_SECONDS}) {
-            FakeClock clock = new FakeClock();
-            Engine e = new Engine(clock);
-            e.setRoutine(tasks(3), keys(3));
-            e.start(seconds);
+    private static void routeShape(Layout L, String at) {
+        for (int seconds : ROUTE_DURATIONS) {
+            // Every character, not a flies/walks pair: a walker's band is anchored to its
+            // own scene's horizon, and those run from 0.56 of the play area on the park
+            // path to 0.70 in the coral reef. Eight real configurations, not sixteen
+            // hypothetical ones.
+            for (int b = 0; b < BuddyTheme.COUNT; b++) {
+                BuddyTheme buddy = BuddyTheme.of(b);
+                boolean flies = buddy.temperament.hover > 0f;
+                FakeClock clock = new FakeClock();
+                Engine e = new Engine(clock);
+                e.setRoutine(tasks(3), keys(3));
+                e.start(seconds);
+                ROUTE.layoutFor(L, e, b, flies);
 
-            String who = seconds + "s @ " + at;
-            int total = e.collectibleCount();
-            RectF trail = L.advTrail;
-            float spacing = ScreenAdventure.laneSpacing(L, e);
-            float span = total * spacing;
+                String who = seconds + "s " + buddy.key + " @ " + at;
+                int total = e.collectibleCount();
+                int maxRows = flies ? Route.MAX_ROWS_FLY : Route.MAX_ROWS_WALK;
 
-            check(spacing > 0f, who + ": the lane has no spacing");
-            // A short morning stretches until its handful of drops fill the lane rather
-            // than huddling by the left edge; a long one holds its spacing and scrolls.
-            check(span >= trail.width() - 0.5f,
-                  who + ": " + total + " drops span " + span + " of a "
-                  + trail.width() + " lane, so the walk stops short");
+                // The grid holds the morning, and holds itself to its own limits -- the
+                // arrays behind it are fixed-size, so a grid over them is a crash.
+                check(ROUTE.count() == total + 1,
+                      who + ": " + ROUTE.count() + " waypoints for " + total + " drops");
+                check(ROUTE.rows() >= 2 && ROUTE.rows() <= maxRows,
+                      who + ": " + ROUTE.rows() + " rows, which is not 2.." + maxRows);
+                check(ROUTE.cols() >= 2 && ROUTE.cols() <= Route.MAX_COLS,
+                      who + ": " + ROUTE.cols() + " columns, which is not 2.."
+                      + Route.MAX_COLS);
+                check(ROUTE.cols() * ROUTE.rows() >= ROUTE.count(),
+                      who + ": a " + ROUTE.cols() + "x" + ROUTE.rows()
+                      + " grid cannot hold " + ROUTE.count() + " waypoints");
+                // Said outright rather than left to follow from the two caps above: the
+                // path and its index live in fixed arrays, and a grid over them is not a
+                // wrong picture, it is an out-of-bounds write on the first frame.
+                check(ROUTE.cols() * ROUTE.rows() <= Route.MAX_CELLS,
+                      who + ": a " + ROUTE.cols() + "x" + ROUTE.rows() + " grid is "
+                      + (ROUTE.cols() * ROUTE.rows()) + " cells, over the "
+                      + Route.MAX_CELLS + " the route has room for");
 
-            float previous = -1f;
-            for (int i = 1; i <= total; i++) {
-                float world = ScreenAdventure.itemWorldX(L, e, i);
-                check(world > previous, who + ": drop " + i + " is not past drop " + (i - 1));
-                previous = world;
-            }
-            check(ScreenAdventure.chestWorldX(L, e) > previous,
-                  who + ": the chest is not past the last drop");
+                routeNeverCrosses(ROUTE, who);
 
-            // THE contract: the buddy's mouth is on drop i exactly when the engine counts
-            // drop i collected. Everything else on this screen hangs off that.
-            long durationMs = seconds * 1000L;
-            for (int i = 1; i <= total; i++) {
-                clock.now = 1_000_000L + durationMs * i / total;
-                float mouth = ScreenAdventure.walkX(L, e)
-                            + Math.min(L.advScene.height() * 0.46f, Layout.W * 0.42f) * 0.30f;
-                float drop = ScreenAdventure.laneScreenX(L, e,
-                                 ScreenAdventure.itemWorldX(L, e, i));
-                check(Math.abs(mouth - drop) < 1.5f,
-                      who + ": at drop " + i + " of " + total + " the mouth is at "
-                      + mouth + " and the drop at " + drop);
-            }
+                // A treat too small to make out is the fault this whole change exists to
+                // fix, and it is the one a grid gone wrong produces silently -- nothing
+                // else here notices a band squeezed flat or a row of eleven columns. The
+                // floor is a twentieth of the design width; the tightest layout the app
+                // produces sits comfortably above it.
+                check(ScreenAdventure.itemSize(L, ROUTE) >= Layout.W * 0.05f,
+                      who + ": the treats come out at "
+                      + ScreenAdventure.itemSize(L, ROUTE) + ", too small to read");
 
-            // The camera starts still, only ever moves forward, and stops at its clamp.
-            float furthest = Math.max(0f, span - trail.width());
-            float last = -1f;
-            boolean[] seen = new boolean[total + 1];
-            for (int step = 0; step <= 600; step++) {
-                clock.now = 1_000_000L + durationMs * step / 600;
-                float cam = ScreenAdventure.camera(L, e);
-                check(cam >= -0.01f && cam <= furthest + 0.01f,
-                      who + ": the camera left its clamp at " + cam);
-                check(cam >= last - 0.01f, who + ": the camera went backwards");
-                last = cam;
-                // Every drop has to be on the lane at some point, or the morning counts
-                // one the child never saw.
-                for (int i = 1; i <= total; i++) {
-                    float x = ScreenAdventure.laneScreenX(L, e,
-                                  ScreenAdventure.itemWorldX(L, e, i));
-                    if (x >= trail.left - 1f && x <= trail.right + 1f) seen[i] = true;
+                // Every drop, and the chest, wholly on the scene -- at the height they
+                // are actually drawn, which is a mouth above the spot they sit on. A drop
+                // half off the edge is one a child cannot see they are heading for.
+                float size = ScreenAdventure.itemSize(L, ROUTE);
+                for (int i = 0; i < ROUTE.count(); i++) {
+                    float half = size * ROUTE.scaleAt(i) * 0.5f;
+                    float iy = ScreenAdventure.itemY(L, ROUTE, i);
+                    check(ROUTE.x(i) - half >= L.advScene.left - 0.6f
+                          && ROUTE.x(i) + half <= L.advScene.right + 0.6f
+                          && iy - half >= L.advScene.top - 0.6f
+                          && iy + half <= L.advScene.bottom + 0.6f,
+                          who + ": waypoint " + i + " of " + ROUTE.count()
+                          + " is drawn off the scene, at (" + ROUTE.x(i) + ", " + iy + ")");
                 }
-            }
-            for (int i = 1; i <= total; i++) {
-                check(seen[i], who + ": drop " + i + " of " + total + " is never on the lane");
-            }
 
-            clock.now = 1_000_000L;
-            check(ScreenAdventure.camera(L, e) == 0f, who + ": the camera starts moved");
-            if (span <= trail.width() + 0.5f) {
+                // The journey sets off from the near corner. Exactly, not approximately:
+                // the serpentine starts there and only the far end is ever backbitten.
+                check(ROUTE.colAt(0) == 0 && ROUTE.rowAt(0) == 0,
+                      who + ": the route sets off from (" + ROUTE.colAt(0) + ", "
+                      + ROUTE.rowAt(0) + ") rather than the front-left corner");
+
+                // THE contract: the buddy's mouth is on drop i exactly when the engine
+                // counts drop i collected, in both axes now that the route turns -- and
+                // the buddy itself is one mouth-length back down the route from it.
+                long durationMs = seconds * 1000L;
+                // 1 .. total-1: the drops. The chest is waypoint total and is never
+                // eaten -- the buddy deliberately stops short of it, see CHEST_STANDOFF.
+                for (int i = 1; i < total; i++) {
+                    clock.now = 1_000_000L + durationMs * i / total;
+                    float mx = ScreenAdventure.mouthX(e, ROUTE);
+                    float my = ScreenAdventure.mouthY(L, e, ROUTE);
+                    float iy = ScreenAdventure.itemY(L, ROUTE, i);
+                    check(Math.abs(mx - ROUTE.x(i)) < 1.5f && Math.abs(my - iy) < 1.5f,
+                          who + ": at drop " + i + " of " + total + " the mouth is at ("
+                          + mx + ", " + my + ") and the drop at ("
+                          + ROUTE.x(i) + ", " + iy + ")");
+
+                    // The buddy stands ON the waypoint, a mouth-length back along it, and
+                    // its mouth is a fixed part of the way up its own body. A heading
+                    // that stopped being a unit vector would show up as the first.
+                    float height = ScreenAdventure.bodyHeight(L, e, ROUTE);
+                    float back = Math.abs(ScreenAdventure.walkX(L, e, ROUTE) - mx);
+                    check(back <= height * ScreenAdventure.MOUTH_AHEAD + 0.6f,
+                          who + ": at drop " + i + " the buddy stands " + back
+                          + " from its own mouth, past the "
+                          + height * ScreenAdventure.MOUTH_AHEAD + " it may");
+                    float feet = ScreenAdventure.walkY(L, e, ROUTE);
+                    check(Math.abs(feet - ROUTE.y(i)) < 1.5f,
+                          who + ": at drop " + i + " the buddy's feet are at " + feet
+                          + " and the waypoint at " + ROUTE.y(i));
+                    check(Math.abs((feet - my) - height * ScreenAdventure.MOUTH_UP) < 1.5f,
+                          who + ": at drop " + i + " the mouth sits " + (feet - my)
+                          + " up a body of " + height);
+                }
+
+                // And it does stop short of the chest, or the finale plays out behind it.
                 clock.now = 1_000_000L + durationMs;
-                check(ScreenAdventure.camera(L, e) == 0f,
-                      who + ": a lane that already fits should never scroll");
+                float endX = ScreenAdventure.walkX(L, e, ROUTE);
+                float endY = ScreenAdventure.walkY(L, e, ROUTE);
+                int chest = ROUTE.count() - 1;
+                float gap = (float) Math.hypot(endX - ROUTE.x(chest), endY - ROUTE.y(chest));
+                check(gap > Math.min(ROUTE.cellW(), ROUTE.cellH()) * 0.25f,
+                      who + ": the buddy finishes " + gap + " from the chest, on top of it");
+
+                // The route point is the MOUTH, so the feet hang below the front row.
+                // Nothing anchors that to the progress bar; only this does.
+                for (int step = 0; step <= 8; step++) {
+                    clock.now = 1_000_000L + durationMs * step / 8;
+                    float feet = ScreenAdventure.walkY(L, e, ROUTE);
+                    check(feet <= L.advProgress.top - 0.6f,
+                          who + ": the buddy's feet reach " + feet
+                          + ", past the progress bar at " + L.advProgress.top);
+                    check(feet >= L.advScene.top,
+                          who + ": the buddy's feet leave the top of the scene");
+                    // Nothing clips the scene, so a buddy whose head goes over the top
+                    // of it draws across the tally chip rather than being cut off.
+                    float bh = ScreenAdventure.bodyHeight(L, e, ROUTE);
+                    check(feet - bh >= L.advScene.top - 0.6f,
+                          who + ": the buddy's head reaches " + (feet - bh)
+                          + ", over the top of the scene at " + L.advScene.top);
+                    // Same for the sides: a buddy half off the screen is a bug on sight.
+                    float side = ScreenAdventure.walkX(L, e, ROUTE);
+                    float ink = bh * Route.SPRITE_REACH;
+                    check(side - ink >= L.advScene.left - 0.6f
+                          && side + ink <= L.advScene.right + 0.6f,
+                          who + ": the buddy runs from " + (side - ink) + " to "
+                          + (side + ink) + ", off a scene of " + L.advScene.left + ".."
+                          + L.advScene.right);
+                }
+
+                buddyPoke(L, e, clock, ROUTE, who);
             }
         }
     }
 
-    private static void buddyPoke(Layout L, String at) {
-        FakeClock clock = new FakeClock();
-        Engine e = new Engine(clock);
-        e.setRoutine(tasks(3), keys(3));
-        e.start(10 * 60);
-
-        RectF lane = new RectF();
-        ScreenAdventure.laneBounds(L, lane);
-        valid(lane, "the walking lane @ " + at);
-
-        float feet = L.advTrail.centerY();
-        for (int step = 0; step <= 10; step++) {
-            if (step > 0) clock.advance(60_000L);
-            // Ask the screen where the buddy is rather than keeping a second copy of
-            // the formula here. The copy that used to live on this line was the old
-            // straight-line walk, and it went stale the moment the lane got a camera.
-            float x = ScreenAdventure.walkX(L, e);
-            float body = feet - Math.min(L.advScene.height() * 0.46f, Layout.W * 0.42f) * 0.5f;
-
-            check(ScreenAdventure.onBuddy(L, e, x, body),
-                  "a tap on the buddy should poke it, step " + step + " @ " + at);
-            check(!ScreenAdventure.onBuddy(L, e, x, L.play.top + 4f),
-                  "a tap in the sky above the buddy should not poke it @ " + at);
-
-            // The far end of the trail is not the buddy -- unless it has walked there,
-            // which after ten of ten minutes it has.
-            if (step < 8) {
-                check(!ScreenAdventure.onBuddy(L, e, L.advTrail.right, body),
-                      "a tap at the end of the trail should not poke a buddy still at "
-                      + (int) (e.progress() * 100) + "% @ " + at);
+    /**
+     * No cell twice, and every step to a neighbour.
+     *
+     * <p>Those two together are the proof that the path does not cross itself: two
+     * segments can only lie on each other if some cell is entered twice. Asserting the
+     * pair is worth far more than trying to test "does not cross" directly, which for
+     * axis-aligned unit steps is exactly the same statement and much harder to write.
+     */
+    private static void routeNeverCrosses(Route r, String who) {
+        boolean[] seen = new boolean[Route.MAX_CELLS];
+        int prevCol = -1, prevRow = -1;
+        for (int i = 0; i < r.count(); i++) {
+            int col = r.colAt(i), row = r.rowAt(i);
+            check(col >= 0 && col < r.cols() && row >= 0 && row < r.rows(),
+                  who + ": waypoint " + i + " is at (" + col + ", " + row
+                  + "), off a " + r.cols() + "x" + r.rows() + " grid");
+            int cell = row * r.cols() + col;
+            if (cell < 0 || cell >= Route.MAX_CELLS) continue;      // already reported
+            check(!seen[cell],
+                  who + ": waypoint " + i + " revisits (" + col + ", " + row
+                  + ") -- the path crosses itself");
+            seen[cell] = true;
+            if (i > 0) {
+                check(Math.abs(col - prevCol) + Math.abs(row - prevRow) == 1,
+                      who + ": waypoint " + i + " at (" + col + ", " + row
+                      + ") is not next to " + (i - 1) + " at (" + prevCol + ", "
+                      + prevRow + ") -- the step is a jump or a diagonal");
             }
+            prevCol = col;
+            prevRow = row;
+        }
+    }
+
+    /**
+     * Poking the buddy.
+     *
+     * <p>The buddy's position is a function of the clock, so no hit region can follow it:
+     * the screen registers the whole area it moves through and does the real test in
+     * onPressDown. That leaves two ways for the poke to quietly stop working -- the test
+     * drifting off the character, and the test accepting points the registered region
+     * does not contain, which never reach onPressDown at all -- and neither shows up as
+     * anything but a buddy that ignores you somewhere along the way.
+     */
+    private static void buddyPoke(Layout L, Engine e, FakeClock clock, Route route,
+                                  String who) {
+        RectF bounds = new RectF();
+        ScreenAdventure.routeBounds(L, route, bounds);
+        valid(bounds, "the route region @ " + who);
+
+        long durationMs = e.durationSeconds() * 1000L;
+        for (int step = 0; step <= 10; step++) {
+            clock.now = 1_000_000L + durationMs * step / 10;
+            // Ask the screen where the buddy is rather than keeping a second copy of the
+            // formula here. The copy that used to live on this line was the old
+            // straight-line walk, and it went stale the moment the lane got a camera.
+            float x = ScreenAdventure.walkX(L, e, route);
+            float height = ScreenAdventure.bodyHeight(L, e, route);
+            float body = ScreenAdventure.walkY(L, e, route) - height * 0.5f;
+
+            check(ScreenAdventure.onBuddy(L, e, route, x, body),
+                  "a tap on the buddy should poke it, step " + step + " @ " + who);
+            check(!ScreenAdventure.onBuddy(L, e, route, x, L.play.top + 4f),
+                  "a tap in the sky above the buddy should not poke it @ " + who);
 
             // Everything the test accepts has to be inside the region that delivers it.
             for (float dx = -1f; dx <= 1f; dx += 0.5f) {
                 for (float dy = -1f; dy <= 1f; dy += 0.5f) {
-                    float height = Math.min(L.advScene.height() * 0.46f, Layout.W * 0.42f);
                     float px = x + dx * height * 0.45f;
                     float py = body + dy * height * 0.60f;
-                    if (!ScreenAdventure.onBuddy(L, e, px, py)) continue;
-                    check(px >= lane.left - 0.6f && px <= lane.right + 0.6f
-                          && py >= lane.top - 0.6f && py <= lane.bottom + 0.6f,
-                          "a tap that counts as on the buddy falls outside the lane"
-                          + " region, so it never arrives @ " + at);
+                    if (!ScreenAdventure.onBuddy(L, e, route, px, py)) continue;
+                    check(px >= bounds.left - 0.6f && px <= bounds.right + 0.6f
+                          && py >= bounds.top - 0.6f && py <= bounds.bottom + 0.6f,
+                          "a tap that counts as on the buddy falls outside the route"
+                          + " region, so it never arrives @ " + who);
                 }
             }
         }
+    }
+
+    /**
+     * A new route every morning, and the same one all morning.
+     *
+     * <p>Two properties that the per-layout sweep cannot see, because it holds the clock
+     * still. The first is the whole point of the change -- if the chest came back to the
+     * same cell it may as well be parked at the right-hand edge, which is where it used
+     * to be. The second is the property a child would notice being broken: a chest that
+     * moved while they were walking toward it.
+     */
+    private static void routeVariety() {
+        Layout L = new Layout();
+        L.measure(1080, 2340, 0, 0, 420, 5, 5);
+        Route r = new Route();
+        FakeClock clock = new FakeClock();
+        Engine e = new Engine(clock);
+        e.setRoutine(tasks(3), keys(3));
+
+        for (int seconds : new int[]{60, 15 * 60, 60 * 60}) {
+            for (int b = 0; b < BuddyTheme.COUNT; b++) {
+                BuddyTheme buddy = BuddyTheme.of(b);
+                boolean flies = buddy.temperament.hover > 0f;
+                String who = seconds + "s " + buddy.key;
+                boolean[] chestCell = new boolean[Route.MAX_CELLS];
+                int distinct = 0;
+                for (int seed = 0; seed < 32; seed++) {
+                    e.reset();
+                    clock.now = 1_000_000L + seed * 7919L;
+                    e.start(seconds);
+                    r.layoutFor(L, e, b, flies);
+                    routeNeverCrosses(r, who + " seed " + seed);
+                    int last = r.count() - 1;
+                    int cell = r.rowAt(last) * r.cols() + r.colAt(last);
+                    if (cell >= 0 && cell < Route.MAX_CELLS && !chestCell[cell]) {
+                        chestCell[cell] = true;
+                        distinct++;
+                    }
+                }
+                // A floor, not a target. How far the chest can roam is a property of
+                // the grid, not of the shuffle: on a two-row grid a path from a fixed
+                // corner has only a couple of places it can end, and the shortest
+                // morning gets a three-by-two. Measured over 2000 seeds, a six-cell grid
+                // reaches 2 and a twenty-eight-cell one reaches 14; the floor is set
+                // under that with room for a thirty-two-seed sample to fall short.
+                int cells = r.cols() * r.rows();
+                check(distinct >= Math.max(2, Math.min(6, cells / 4)),
+                      who + ": the chest landed on only " + distinct + " of " + cells
+                      + " cells across 32 mornings");
+            }
+        }
+
+        // The same morning, rebuilt, is the same route -- and nothing that happens
+        // during one moves it.
+        e.reset();
+        clock.now = 4_242_000L;
+        e.start(60 * 60);
+        r.layoutFor(L, e, 0, false);
+        int[] before = new int[r.count()];
+        for (int i = 0; i < before.length; i++) before[i] = r.rowAt(i) * r.cols() + r.colAt(i);
+
+        clock.advance(120_000L);
+        e.pause();
+        e.resume();
+        e.completeActive();
+        r.layoutFor(L, e, 0, false);
+        check(r.count() == before.length, "the route changed length mid-morning");
+        for (int i = 0; i < before.length && i < r.count(); i++) {
+            check(before[i] == r.rowAt(i) * r.cols() + r.colAt(i),
+                  "waypoint " + i + " moved mid-morning, after a pause and a task");
+        }
+
+        // A fresh Route object handed the same seed builds the same path, which is what
+        // lets tools/buildpreview.sh hand one to the preview and have it mean something.
+        Route twin = new Route();
+        twin.layoutFor(L, e, 0, false);
+        for (int i = 0; i < before.length && i < twin.count(); i++) {
+            check(before[i] == twin.rowAt(i) * twin.cols() + twin.colAt(i),
+                  "waypoint " + i + " differs between two routes built from one seed");
+        }
+
+        // And a different morning is a different route. Not guaranteed for any one pair
+        // of seeds, but across thirty-two starts a route that never changed is a seed
+        // that is not being read.
+        e.reset();
+        clock.now = 9_000_000L;
+        e.start(60 * 60);
+        r.layoutFor(L, e, 0, false);
+        boolean moved = false;
+        for (int i = 0; i < before.length && i < r.count(); i++) {
+            if (before[i] != r.rowAt(i) * r.cols() + r.colAt(i)) moved = true;
+        }
+        check(moved, "two different mornings produced the identical route");
     }
 
     private static void checkOtherScreens(Layout L, String at) {

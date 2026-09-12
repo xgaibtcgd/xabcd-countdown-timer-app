@@ -22,6 +22,9 @@ javac --release 17 -classpath "$JAR:$OUT" -implicit:none -nowarn -d "$OUT" \
 java -cp "$JAR:$OUT" com.morningmission.app.ExportArt "$PREVIEW/art.json" | grep -v '^Picked up'
 java -cp "$JAR:$OUT" com.morningmission.app.ExportScreens "$PREVIEW/screens.json" | grep -v '^Picked up'
 
+# The preview reimplements the route generator; this proves the copy is exact.
+node "$ROOT/tools/routeproof.cjs"
+
 python3 - "$PREVIEW" "$ROOT" <<'PYEOF'
 import json, sys, os
 preview, root = sys.argv[1], sys.argv[2]

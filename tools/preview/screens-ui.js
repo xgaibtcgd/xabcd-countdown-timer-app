@@ -242,28 +242,22 @@ function drawRig(ctx, index, buddy, height, t, bodyRotation) {
   return true;
 }
 
-function drawBuddy(ctx, index, cx, feetY, height, bob = 0, rotation = 0, t = 0) {
+function drawBuddy(ctx, index, cx, feetY, height, bob = 0, rotation = 0, t = 0,
+                   faceLeft = false, withShadow = true) {
   const buddy = DATA.buddies[index];
-  if (buddy.rig) {
-    contactShadow(ctx, cx, feetY + height * 0.02, height * 0.36, height * 0.055, 0.9);
-    ctx.save();
-    ctx.translate(cx, feetY - height / 2 + bob);
-    if (rotation) ctx.rotate(rotation * Math.PI / 180);
-    drawRig(ctx, index, buddy, height, t, rotation);
-    ctx.restore();
-    return;
-  }
-  const img = BUDDY_IMAGES[index];
-  if (!img || !img.complete) return;
-  contactShadow(ctx, cx, feetY + height * 0.02, height * 0.36, height * 0.055, 0.9);
-  if (!rotation) {
-    ctx.drawImage(img, cx - height / 2, feetY - height + bob, height, height);
-    return;
-  }
+  if (withShadow) contactShadow(ctx, cx, feetY + height * 0.02, height * 0.36, height * 0.055, 0.9);
   ctx.save();
   ctx.translate(cx, feetY - height / 2 + bob);
-  ctx.rotate(rotation * Math.PI / 180);
-  ctx.drawImage(img, -height / 2, -height / 2, height, height);
+  // MorningView.paintSprite's mirror, before the rotate so a lean mirrors with it. Every
+  // character is drawn facing right; half the route's segments run the other way.
+  if (faceLeft) ctx.scale(-1, 1);
+  if (rotation) ctx.rotate(rotation * Math.PI / 180);
+  if (buddy.rig) {
+    drawRig(ctx, index, buddy, height, t, rotation);
+  } else {
+    const img = BUDDY_IMAGES[index];
+    if (img && img.complete) ctx.drawImage(img, -height / 2, -height / 2, height, height);
+  }
   ctx.restore();
 }
 
@@ -487,11 +481,10 @@ function screenAdventure(ctx, L, buddy, t) {
   const scene = buildScene(L.play, buddy.index, M_ADVENTURE, buddy.light, BACKDROPS.adventure[buddy.index]);
   drawSceneBackground(ctx, scene, buddy, t);
 
-  // The trail: the buddy walking along it, with the next few collectibles laid out
-  // ahead. The whole walk-up-and-eat cycle is driven off the clock exactly as
-  // Engine.feastBeat drives it, on a four-second segment, so with motion on the preview
-  // actually plays the loop instead of freezing one arbitrary frame of it.
-  const trail = L.advTrail;
+  // The route: the buddy threading a winding path through a field of collectibles, all
+  // of them on screen. The whole walk-up-and-eat cycle is driven off the clock exactly
+  // as Engine.feastBeat drives it, so with motion on the preview actually plays the loop
+  // instead of freezing one arbitrary frame of it.
   // Twenty-three, which is what a sixty-minute morning gives: round(60/3)+3. The loop
   // plays that whole morning, so the preview shows the journey the app shows rather
   // than a couple of collectibles near the end of it.
@@ -510,34 +503,68 @@ function screenAdventure(ctx, L, buddy, t) {
              : until <= FEAST_LEAD ? (FEAST_LEAD - until) / FEAST_SECONDS
              : (since + FEAST_LEAD) / FEAST_SECONDS < 1
                ? (since + FEAST_LEAD) / FEAST_SECONDS : -1;
-  const height = Math.min(rh(L.advScene) * 0.46, DATA.metrics.designWidth * 0.42);
+  // Mirrors ScreenAdventure's route: a winding path through a grid of cells, all of it
+  // on screen at once. Flyers get the whole scene and no depth; walkers get a band near
+  // the ground with the rows behind drawn smaller. route.js builds the same path the app
+  // builds -- tools/routeproof.cjs proves it against the real Route.
+  const flies = buddy.hover > 0;
+  const region = routeRegion(L, flies, DATA.metrics.designWidth,
+                             DATA.environments[buddy.index].horizon);
+  // A stable seed per character, so a screenshot of the same screen twice is the same
+  // picture. In the app it is the clock at the moment the morning starts.
+  const route = makeRoute(0x51ED0000 + buddy.index * 977, total, region, flies);
 
-  // Mirrors ScreenAdventure's lane: a WORLD the buddy travels, not a strip that slides
-  // along with it. Drops sit at fixed positions and one camera turns world into screen.
-  // Sized from the LANE, not the scene: what matters is how many are on screen at once.
-  const VISIBLE_DROPS = 6;
-  const cSize = Math.min(rw(trail) / Math.min(total, VISIBLE_DROPS) / 1.35,
+  const MOUTH_AHEAD = 0.30, MOUTH_UP = 0.38;
+  const ROUTE_JITTER = 0.13, SPRITE_REACH = 0.44;
+  const rInset = 0.5 - ROUTE_JITTER;
+  const baseHeight = Math.min(
+      Math.min(Math.min(rh(L.advScene) * 0.46, DATA.metrics.designWidth * 0.42),
+               (region[3] - region[1]) * 0.85),
+      Math.min(region[1] + route.cellH * rInset - L.advScene[1],
+               (L.advScene[2] - (region[2] - route.cellW * rInset)) / (0.30 + SPRITE_REACH)));
+  // Sideways a drop keeps clear of its neighbour; vertically it may overlap the row
+  // behind, because that is what a receding field looks like.
+  const cSize = Math.min(Math.min(route.cellW * 0.80, route.cellH * 1.35),
                          Math.min(rh(L.advScene) * 0.20, DATA.metrics.designWidth * 0.19));
-  const spacing = Math.max(cSize * 1.35, rw(trail) / total);
-  const MOUTH_AHEAD = 0.30, CAMERA_ANCHOR = 0.28;
-  const span = total * spacing;
-  const mouthWorld = progress * span;
-  const furthest = span - rw(trail) < 1 ? 0 : span - rw(trail);
-  const camera = Math.max(0, Math.min(mouthWorld - rw(trail) * CAMERA_ANCHOR, furthest));
-  const laneX = world => trail[0] + world - camera;
-  const walkX = laneX(mouthWorld) - height * MOUTH_AHEAD;
-  const goalBox = L.advGoal;
-  const goalSize = Math.min(rw(goalBox), rh(goalBox));
-  const chestX = laneX(span + (rcx(goalBox) - trail[2]));
+  // The waypoint is a place to STAND; the treat floats a mouth above it.
+  const itemY = index => route.y(index) - baseHeight * MOUTH_UP * route.scaleAt(index);
+  const dropY = index => itemY(index) + Math.sin(t * 1.6 + index) * cSize * route.scaleAt(index) * 0.06;
 
-  const ground = rcy(trail) - height * 0.38;
-  const itemY = index => ground + Math.sin(t * 1.6 + index) * cSize * 0.06;
-  const eating = beat >= 0 ? collected + 1 : -1;
-  for (let index = Math.max(1, collected); index < total; index++) {
-    if (index === eating) continue;              // drawn in front of the buddy, below
-    const x = laneX(index * spacing);
-    if (x < -cSize || x > trail[2] + cSize * 0.35) continue;
-    drawCollectible(ctx, buddy.index, x, itemY(index), cSize, true, 0, false);
+  // ScreenAdventure.CHEST_STANDOFF: the buddy stops beside the chest, not on it,
+  // so the finale is not spent behind the thing it is the finale of.
+  const travelled = Math.min(progress * total, total - 0.34);
+  const height = baseHeight * route.travelScale(travelled);
+  const walkX = route.travelX(travelled) - route.headingX(travelled) * height * MOUTH_AHEAD;
+  const feetY = route.travelY(travelled);
+  const mouthY = route.travelY(travelled) - height * MOUTH_UP;
+  const faceLeft = route.headingX(travelled) < -0.15;
+
+  // The way to the chest, dotted in under everything that stands on it.
+  const TRAIL_DOTS = 3;
+  const dot = Math.min(route.cellW, route.cellH) * 0.07;
+  for (let seg = 0; seg < route.count - 1; seg++) {
+    const x0 = route.x(seg), y0 = itemY(seg);
+    const x1 = route.x(seg + 1), y1 = itemY(seg + 1);
+    const s0 = route.scaleAt(seg), s1 = route.scaleAt(seg + 1);
+    const [lr, lg, lb] = rgb(buddy.light);
+    ctx.fillStyle = `rgba(${lr},${lg},${lb},${seg + 1 <= travelled ? 0.18 : 0.43})`;
+    for (let k = 1; k <= TRAIL_DOTS; k++) {
+      const f = k / (TRAIL_DOTS + 1);
+      ctx.beginPath();
+      ctx.arc(x0 + (x1 - x0) * f, y0 + (y1 - y0) * f, dot * (s0 + (s1 - s0) * f), 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  // Which treat is in its mouth is the NEAREST waypoint, not the collected count: the
+  // feast runs on past the pickup, so the count has already moved on for most of it.
+  const eating = beat >= 0 ? Math.round(travelled) : -1;
+  const first = eating >= 0 ? eating : collected + 1;
+  // Depth order: anything further up the screen than the mouth goes behind the buddy.
+  for (let index = Math.max(1, first); index < total; index++) {
+    if (index === eating || itemY(index) >= mouthY - 0.5) continue;
+    drawCollectible(ctx, buddy.index, route.x(index), dropY(index),
+                    cSize * route.scaleAt(index), true, 0, false);
   }
 
   // Three goes at the item, each less committed than the last.
@@ -550,44 +577,63 @@ function screenAdventure(ctx, L, buddy, t) {
     }
   }
   const feast = feastTransform(buddy.feastKind, chompP, chompStrength);
-  const bx = walkX + bodySway(buddy, t, rw(L.advScene) * 0.016, 1.5) + feast.dx;
-  drawBuddy(ctx, buddy.index, bx, rcy(trail), height,
-            bodyBob(buddy, t, 8, 2.6) + feast.dy, feast.rotation, t);
+  const sway = bodySway(buddy, t, rw(L.advScene) * 0.016, 1.5) + feast.dx;
+  const bx = walkX + (faceLeft ? -sway : sway);
+  drawBuddy(ctx, buddy.index, bx, feetY, height,
+            bodyBob(buddy, t, 8, 2.6) + feast.dy, feast.rotation, t, faceLeft, !flies);
 
   if (beat >= 0 && beat < 0.72) {
     const bw = DATA.metrics.designWidth * 0.24, bh = bw * 0.42;
-    let bub = [bx + height * 0.22, rcy(trail) - height - bh * 0.4,
-               bx + height * 0.22 + bw, rcy(trail) - height + bh * 0.6];
+    let bub = [bx + height * 0.22, feetY - height - bh * 0.4,
+               bx + height * 0.22 + bw, feetY - height + bh * 0.6];
     if (bub[2] > DATA.metrics.designWidth - 20) {
       const d = DATA.metrics.designWidth - 20 - bub[2];
+      bub = [bub[0] + d, bub[1], bub[2] + d, bub[3]];
+    }
+    if (bub[0] < 20) {
+      const d = 20 - bub[0];
       bub = [bub[0] + d, bub[1], bub[2] + d, bub[3]];
     }
     card(ctx, bub, rh(bub) * 0.42, 'rgba(255,255,255,.97)');
     fitText(ctx, buddy.munchWord, bub, DATA.type.t2, 14, buddy.ink, 'center', true);
   }
 
-  // The item in the buddy's mouth, drawn over it: the bites come out of the side the
-  // buddy is standing on, so behind it nothing missing would ever show.
+  // Everything level with the buddy or nearer goes in front of it, and the one in its
+  // mouth always does: the bites come out of the side the buddy is standing on.
+  for (let index = Math.max(1, first); index < total; index++) {
+    if (index === eating || itemY(index) < mouthY - 0.5) continue;
+    drawCollectible(ctx, buddy.index, route.x(index), dropY(index),
+                    cSize * route.scaleAt(index), true, 0, false);
+  }
   if (eating >= 1 && eating < total) {
     const bites = biteAt(beat);
     if (bites < BITE_COUNT) {
       const eaten = eatPhase(beat);
       const pop = Math.max(0, 1 - Math.abs(eaten - bites) * 6);
-      drawCollectible(ctx, buddy.index, laneX(eating * spacing), itemY(eating),
-                      cSize, true, pop, false, bites);
+      drawCollectible(ctx, buddy.index, route.x(eating), dropY(eating),
+                      cSize * route.scaleAt(eating), true, pop, false, bites);
     }
   }
+
+  // The chest on the route's last waypoint, which is somewhere new every morning.
+  // advGoal no longer says where it is, only how big it may be; the cell caps it too.
+  const goalBox = L.advGoal;
+  const chestAt = route.count - 1;
+  const goalSize = Math.min(Math.min(rw(goalBox), rh(goalBox)),
+                            Math.min(route.cellW, route.cellH) * 1.35)
+                 * route.scaleAt(chestAt);
+  const chestX = route.x(chestAt), chestY = itemY(chestAt);
 
   // The chest last, so it is never hidden behind the buddy at the one moment its lid
   // and the star climbing out are the thing worth looking at. No padlock: a closed
   // chest already reads as shut, and the disc sat over the best of the artwork.
-  drawGoal(ctx, buddy.index, chestX, rcy(goalBox), goalSize, prizeTurn,
+  drawGoal(ctx, buddy.index, chestX, chestY, goalSize, prizeTurn,
            Math.min(1, prizeTurn * 2.2));
   if (atPrize && prizeTurn < 1) {
     const rise = Math.sin(prizeTurn * Math.PI * 0.5);
     const a = prizeTurn < 0.72 ? 1 : Math.max(0, 1 - (prizeTurn - 0.72) / 0.28);
     drawProp(ctx, 'star', chestX,
-             rcy(goalBox) - goalSize * (0.06 + 0.72 * rise),
+             chestY - goalSize * (0.06 + 0.72 * rise),
              goalSize * (0.30 + 0.30 * rise), Math.sin(prizeTurn * 7) * 12, a);
   }
 
@@ -1017,7 +1063,7 @@ const SCREENS = [
     note: 'Pick a buddy and a length, then start the morning', draw: screenHome,
     bands: ['homeHeader', 'wordmark', 'hero', 'timerCard', 'routineHeader', 'taskBand', 'startBtn', 'navBar'] },
   { key: 'adventure', name: 'Buddy Adventure',
-    note: 'The countdown, with the buddy travelling its trail', draw: screenAdventure,
+    note: 'The countdown, with the buddy threading its route', draw: screenAdventure,
     bands: ['advBack', 'advTitle', 'advPause', 'advMute', 'advClock', 'advTally', 'advScene', 'advTrail', 'advGoal', 'advProgress', 'advTaskCard', 'advAction'] },
   { key: 'complete', name: 'Mission Complete',
     note: 'New in v0.7. The frozen time is the subject', draw: screenComplete,

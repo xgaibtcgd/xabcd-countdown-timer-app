@@ -60,10 +60,14 @@ call without an SDK or an emulator. It then runs:
 
 - **`tools/SelfTest.java`** — the layout across eight screen shapes, four inset
   combinations, one to twelve tasks and three scroll positions; the countdown's
-  freeze contract against a fake clock; every shape's bounds; and that all
-  sixteen animation states are distinguishable. Around 410,000 assertions.
+  freeze contract against a fake clock; every shape's bounds; the adventure
+  route, for every character and six durations, at each of those layouts; and
+  that all sixteen animation states are distinguishable. Around 23 million
+  assertions.
 - **`tools/regioncheck.py`** — every control is both registered and handled.
 - **`tools/allocgate.py`** — nothing allocates in a method that runs per frame.
+- **`tools/routeproof.cjs`** (run by `tools/buildpreview.sh`) — the preview's
+  copy of the route generator produces paths identical to `Route.java`.
 
 None of this renders a pixel or links resources. **Build the APK in Android
 Studio before shipping.**
@@ -150,6 +154,34 @@ through its five frames, a star climbs out, and the buddy dances for the rest of
 the morning (`Engine.atPrize`, `Engine.PRIZE_LEAD_MS`). The frames are
 registered on the chest's own base, so the box holds still and only the lid
 moves.
+
+## The route
+
+`Route.java` decides where the treats go and how the buddy gets to them. The
+morning's collectibles are laid out on a grid and the buddy threads a winding
+path between them, so all twenty-three of an hour's honey drops are on screen at
+once and the chest is somewhere new every morning.
+
+The path is a random Hamiltonian path over the grid, sampled by **backbite** --
+start from a serpentine, then repeatedly take the free end, find a grid
+neighbour of it elsewhere on the path, and reverse the run between them. Every
+move leaves another Hamiltonian path, so there is no failure case and no retry
+loop; it costs about 5µs. Consecutive waypoints are grid neighbours and no cell
+is visited twice, which is why **the path cannot cross itself** -- a property of
+how it is built, and asserted directly rather than tested for crossings.
+
+The near end is pinned: only the far end is ever backbitten, so the journey
+always sets off from the front-left corner and it is the chest that moves.
+Seeded from the clock in `Engine.start`/`reset`, so it holds still all morning
+and changes the next.
+
+The grid is shaped per character, off `temperament.hover`. Flyers and swimmers
+get most of the scene and no depth scaling. Walkers get a band from the ground
+up to their own backdrop's horizon, as deep as it will take (rows may overlap --
+that is what a receding field looks like) with the back rows drawn smaller.
+`tools/preview/route.js` reproduces the generator exactly for the design
+preview, which `tools/routeproof.cjs` checks against real paths exported from
+`Route.java` itself.
 
 ## Sound
 

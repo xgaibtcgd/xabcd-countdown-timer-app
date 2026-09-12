@@ -95,6 +95,20 @@ final class Engine {
     /** The last whole second {@link #pollTick} reported, so each is reported once. */
     private int lastTickSecond = -1;
 
+    /**
+     * The number this morning's route through the scene is drawn from.
+     *
+     * <p>Rolled from the clock at the two edges that mean "a new morning" -- {@link
+     * #start} and {@link #reset} -- and at no other. It has to survive a pause, a resume,
+     * a poke and a completed task, because the chest moving while a child is walking
+     * toward it would be worse than the chest never moving at all.
+     *
+     * <p>Lives on the Engine rather than on the screen for the same reason the collected
+     * count does: the screen is rebuilt on every route change, and a route that reshuffled
+     * itself each time the child looked at the Grown-Ups tab would not be one route.
+     */
+    private long routeSeed;
+
     /** Which collectible {@link #pollBite} is counting bites out of, or -1. */
     private int biteItem = -1;
     /** How many of that item's bites have already been reported. */
@@ -160,6 +174,7 @@ final class Engine {
         milestoneFired = false;
         prizeFired = false;
         lastTickSecond = -1;
+        routeSeed = clock.nowMs();
     }
 
     /** Clears progress and stops the countdown. */
@@ -176,7 +191,11 @@ final class Engine {
         milestoneFired = false;
         prizeFired = false;
         lastTickSecond = -1;
+        routeSeed = clock.nowMs();
     }
+
+    /** The seed behind this morning's route. See {@link #routeSeed}. */
+    long routeSeed() { return routeSeed; }
 
     /** Sets the duration used by the next {@link #start}. */
     void setDurationSeconds(int seconds) {

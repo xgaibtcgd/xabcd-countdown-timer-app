@@ -166,7 +166,29 @@ public final class ExportScreens {
               .append(",\"value\":").append(values[i] == null ? "null" : str(values[i]))
               .append("}");
         }
-        sb.append("]\n}\n");
+        sb.append("],\n");
+
+        // A handful of real routes, straight out of Route, for tools/routeproof.cjs to
+        // hold the preview's JavaScript copy against. The copy has to agree bit for bit:
+        // a pseudo-random path that is off by one draw is a completely different picture,
+        // not a slightly wrong one, and a preview showing a different morning from the
+        // app is worse than no preview at all.
+        sb.append("\"routeProof\":[");
+        int[][] grids = {{3, 2}, {4, 2}, {4, 3}, {6, 3}, {7, 4}, {5, 5}, {12, 5}, {2, 2}};
+        long[] seeds = {0L, 1L, 7L, 1_000_000L, 1_234_567_890L, -42L};
+        boolean firstRoute = true;
+        for (int[] grid : grids) {
+            for (long seed : seeds) {
+                if (!firstRoute) sb.append(",");
+                firstRoute = false;
+                sb.append("\n{\"seed\":").append(seed)
+                  .append(",\"cols\":").append(grid[0])
+                  .append(",\"rows\":").append(grid[1])
+                  .append(",\"path\":").append(Route.proofPath(seed, grid[0], grid[1]))
+                  .append("}");
+            }
+        }
+        sb.append("\n]\n}\n");
 
         try (FileWriter w = new FileWriter(out)) {
             w.write(sb.toString());
