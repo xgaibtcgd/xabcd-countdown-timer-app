@@ -79,6 +79,13 @@ final class Engine {
     private long pausedRemainingMs = -1L;
     private boolean timeUpFired;
 
+    /** How many seconds of the countdown are ticked out loud at the end. */
+    static final int TICK_SECONDS = 10;
+
+    private boolean milestoneFired;
+    /** The last whole second {@link #pollTick} reported, so each is reported once. */
+    private int lastTickSecond = -1;
+
     /** Which collectible {@link #pollBite} is counting bites out of, or -1. */
     private int biteItem = -1;
     /** How many of that item's bites have already been reported. */
@@ -141,6 +148,8 @@ final class Engine {
         pausedRemainingMs = -1L;
         biteItem = -1;
         bitesFired = 0;
+        milestoneFired = false;
+        lastTickSecond = -1;
     }
 
     /** Clears progress and stops the countdown. */
@@ -154,6 +163,8 @@ final class Engine {
         timeUpFired = false;
         biteItem = -1;
         bitesFired = 0;
+        milestoneFired = false;
+        lastTickSecond = -1;
     }
 
     /** Sets the duration used by the next {@link #start}. */
@@ -378,6 +389,41 @@ final class Engine {
         }
         if (bitesTaken(beat) <= bitesFired) return -1;
         return bitesFired++;
+    }
+
+    /**
+     * True on the single frame the morning passes its halfway mark.
+     *
+     * <p>Same shape as {@link #pollTimeUp} and {@link #pollBite}, and for the same
+     * reason: the clock is read inside a draw, so the only honest place to notice it
+     * crossing something is the frame loop.
+     *
+     * <p>Paused across the halfway point it fires on resume rather than not at all,
+     * which is the right way round -- a cue nobody hears is a cue that was not written.
+     */
+    boolean pollMilestone() {
+        if (milestoneFired || !running || allDone() || isPaused()) return false;
+        if (progress() < 0.5f) return false;
+        milestoneFired = true;
+        return true;
+    }
+
+    /**
+     * The whole second that just began, counting down through the last
+     * {@link #TICK_SECONDS}, or -1.
+     *
+     * <p>Returns 10 down to 1 and each of them exactly once, so a caller can play one
+     * tick per second without keeping its own clock -- and so a stalled frame reports
+     * the second late rather than losing it.
+     */
+    int pollTick() {
+        if (!running || allDone() || isPaused()) return -1;
+        long left = remainingMs();
+        if (left <= 0L || left > TICK_SECONDS * 1000L) return -1;
+        int second = (int) ((left + 999L) / 1000L);
+        if (second == lastTickSecond) return -1;
+        lastTickSecond = second;
+        return second;
     }
 
     /** How many have been picked up so far. */

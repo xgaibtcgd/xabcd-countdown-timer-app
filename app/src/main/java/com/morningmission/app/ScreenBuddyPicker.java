@@ -113,6 +113,13 @@ final class ScreenBuddyPicker extends Screen {
         }
     }
 
+    @Override int tapSound(int id, int data) {
+        // "Tap a buddy to hear them say hello" is the instruction on this screen. A
+        // wooden tick in front of the animal would be answering it twice.
+        if (id == R_CARD) return -1;
+        return id == R_CONFIRM ? Sounds.UI_CONFIRM : Sounds.UI_TAP;
+    }
+
     @Override void onRegion(int id, int data) {
         switch (id) {
             case R_CARD:

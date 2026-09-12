@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Synthesises the buddies' tap sounds, their eating sounds and the title-screen song.
+"""Synthesises every sound the app makes except the victory jingle.
 
 The seven that shipped were quarter-second synthetic blips -- pleasant enough, but a
 bee and a pug made much the same noise, and none of them sounded like the animal on
@@ -431,6 +431,275 @@ def eat_trike():
     return mix(_crunch(0.16, 1400, 5200, 3, grains=5), [j * 0.55 for j in juice])
 
 
+# ------------------------------------------------------------------- interface
+#
+# Until now the app made almost no sound when you touched it: eight tap sounds, eight
+# eating crunches, a victory jingle and the title loop, and every button, chip, row
+# and screen change silent. For a five-year-old that is the difference between a toy
+# and a form.
+#
+# These are the ones that fire most often in the whole app, so they are the ones that
+# can turn into a headache. Short, soft, and pitched well clear of the buddy sounds so
+# a tap never competes with the character answering it.
+
+
+def ui_tap():
+    """A soft wooden pock. Every chip, row and card."""
+    n = seconds(0.09)
+    body = resonator(noise(n, 101), sweep([(0, 1500), (1, 900)], n), q=7.0)
+    click = apply_env(osc(sweep([(0, 900), (1, 480)], n), "sine"),
+                      envelope(n, 0.001, 0.028))
+    return mix(apply_env(body, envelope(n, 0.001, 0.05)), [c * 0.55 for c in click])
+
+
+def ui_confirm():
+    """Two notes up a fourth. The big green button, and nothing else."""
+    n = seconds(0.26)
+    out = [0.0] * n
+    for k, (delay, freq) in enumerate(((0.00, 784), (0.07, 1047))):
+        m = seconds(0.17)
+        at = seconds(delay)
+        tone = apply_env(osc([freq] * m, "triangle"), envelope(m, 0.003, 0.10))
+        for i, v in enumerate(tone):
+            if at + i < n:
+                out[at + i] += v * (0.8 - 0.15 * k)
+    return out
+
+
+def ui_page():
+    """A page turning: a short band of air sweeping downward."""
+    n = seconds(0.20)
+    air = lowpass(noise(n, 137), sweep([(0, 5200), (1, 900)], n))
+    air = highpass(air, 700)
+    return apply_env(air, envelope(n, 0.02, 0.11, 0.01))
+
+
+# --------------------------------------------------------------- goal and clock
+
+
+def cue_goal():
+    """The goal opening: a rising three-note flourish with a shimmer on top."""
+    n = seconds(0.62)
+    out = [0.0] * n
+    for k, freq in enumerate((523, 659, 880)):
+        m = seconds(0.34)
+        at = seconds(0.09 * k)
+        tone = apply_env(osc([freq] * m, "triangle"), envelope(m, 0.004, 0.20))
+        shimmer = apply_env(osc([freq * 2.01] * m, "sine"), envelope(m, 0.004, 0.12))
+        for i in range(m):
+            if at + i < n:
+                out[at + i] += tone[i] * 0.75 + shimmer[i] * 0.22
+    return out
+
+
+def cue_milestone():
+    """Halfway: two soft bell partials, once. Easy to miss, which is the point."""
+    n = seconds(0.55)
+    out = [0.0] * n
+    for ratio, gain, decay in ((1.0, 1.0, 0.30), (2.76, 0.34, 0.16)):
+        partial = apply_env(osc([1175 * ratio] * n, "sine"), envelope(n, 0.003, decay))
+        for i, v in enumerate(partial):
+            out[i] += v * gain
+    return out
+
+
+def cue_tick():
+    """The last ten seconds. A dry click, no pitch to speak of, nothing ominous."""
+    n = seconds(0.06)
+    body = resonator(noise(n, 211), 2400, q=14.0)
+    return apply_env(body, envelope(n, 0.001, 0.03))
+
+
+# ------------------------------------------------------------------- reactions
+
+
+def poke_giggle():
+    """Three rising chirps. The second poke."""
+    out = []
+    for k, freq in enumerate((620, 760, 910)):
+        m = seconds(0.07)
+        tone = osc(sweep([(0, freq), (1, freq * 1.25)], m), "triangle")
+        out += apply_env(tone, envelope(m, 0.004, 0.035)) + [0.0] * seconds(0.02)
+    return out
+
+
+def poke_squeak():
+    """A rubber-toy squeak: one steep rise and fall through a narrow formant."""
+    n = seconds(0.16)
+    pitch = sweep([(0, 700), (0.45, 1650), (1, 820)], n)
+    voice = resonator(osc(pitch, "saw"), sweep([(0, 1200), (1, 1900)], n), q=9.0)
+    return apply_env(voice, envelope(n, 0.006, 0.07, 0.02))
+
+
+def poke_spin():
+    """The third poke, when the buddy commits: air past a turning body."""
+    n = seconds(0.34)
+    air = lowpass(noise(n, 173), sweep([(0, 300), (0.4, 1400), (1, 260)], n))
+    air = highpass(air, 130)
+    swell = [0.25 + 0.75 * math.sin(math.pi * i / n) for i in range(n)]
+    return apply_env([a * s for a, s in zip(air, swell)], envelope(n, 0.05, 0.16, 0.06))
+
+
+# ------------------------------------------------------------------ activities
+#
+# One per Art.ACT_*, in that order, played when a task becomes the active one -- the
+# cue for what to do next, which is more use to a child who cannot read the task name
+# than a cue for what was just finished. Completion already plays the buddy's own
+# sound, and two cues on one event is mud.
+
+
+def _scrub(dur, low, high, rate, seed):
+    """Back-and-forth friction: noise under a tremolo at brushing speed."""
+    n = seconds(dur)
+    air = lowpass(noise(n, seed), sweep([(0, high), (1, low)], n))
+    air = highpass(air, low * 0.5)
+    # Deep, so the strokes genuinely separate. At a shallower depth the gaps never
+    # dropped far enough to read as strokes at all and a toothbrush measured as one
+    # continuous hiss -- the same shape as a zip, which is what it then collided with.
+    strokes = [0.06 + 0.94 * abs(math.sin(math.pi * rate * i / RATE)) for i in range(n)]
+    # Held, then decaying. With a bare attack-decay the envelope was down to 8% before
+    # the second stroke arrived, so every scrub was one fading hiss however deep the
+    # tremolo -- audibly wrong for a toothbrush, and measurably the same shape as a zip.
+    return apply_env([a * s for a, s in zip(air, strokes)],
+                     envelope(n, 0.02, dur * 0.35, dur * 0.5))
+
+
+def act_wake():
+    """An alarm: two short chirps on one pitch."""
+    out = []
+    for _ in range(2):
+        m = seconds(0.08)
+        out += apply_env(osc([1320] * m, "square"), envelope(m, 0.003, 0.04))
+        out += [0.0] * seconds(0.05)
+    return [v * 0.6 for v in out]
+
+
+def act_bath():
+    """A flush: a wide band of water falling in pitch."""
+    n = seconds(0.42)
+    water = lowpass(noise(n, 301), sweep([(0, 3600), (1, 700)], n))
+    gurgle = [0.7 + 0.3 * math.sin(2 * math.pi * 7 * i / RATE) for i in range(n)]
+    return apply_env([w * g for w, g in zip(water, gurgle)], envelope(n, 0.04, 0.20, 0.08))
+
+
+def act_dress():
+    """A zip: a fast rattle rising in pitch."""
+    n = seconds(0.26)
+    teeth = [0.0] * n
+    rng = random.Random(7)
+    step = seconds(0.006)
+    for at in range(0, n - step, step):
+        grain = apply_env(noise(step, rng.randrange(9999)), envelope(step, 0.0005, 0.004))
+        for i, v in enumerate(grain):
+            teeth[at + i] += v
+    teeth = resonator(teeth, sweep([(0, 2400), (1, 5600)], n), q=6.0)
+    teeth = highpass(teeth, 1400)
+    return apply_env(teeth, envelope(n, 0.01, 0.12, 0.06))
+
+
+def act_eat():
+    """Cereal: a spoon on china, then a crunch."""
+    n = seconds(0.30)
+    ping = apply_env(osc([2093] * n, "sine"), envelope(n, 0.002, 0.06))
+    return mix([p * 0.45 for p in ping], _crunch(0.30, 800, 3000, 23, grains=8))
+
+
+def act_brush():
+    """Brushing teeth: fast, bright friction."""
+    return _scrub(0.42, 900, 5200, 6.5, 311)
+
+
+def act_hair():
+    """A comb: slower friction, and lower, through hair rather than enamel."""
+    return _scrub(0.40, 400, 2200, 3.0, 317)
+
+
+def act_wash():
+    """A tap running into a basin."""
+    n = seconds(0.40)
+    stream = lowpass(noise(n, 331), sweep([(0, 2200), (1, 1500)], n))
+    stream = highpass(stream, 800)
+    drops = [0.0] * n
+    for delay, freq in ((0.12, 1500), (0.24, 1900), (0.33, 1250)):
+        m = seconds(0.05)
+        at = seconds(delay)
+        drop = apply_env(osc(sweep([(0, freq), (1, freq * 2.1)], m), "sine"),
+                         envelope(m, 0.002, 0.026))
+        for i, v in enumerate(drop):
+            drops[at + i] += v * 0.35
+    return mix(apply_env(stream, envelope(n, 0.05, 0.22, 0.06)), drops)
+
+
+def act_shoes():
+    """Two soft footfalls on a wooden floor."""
+    def step(dur, freq, seed):
+        m = seconds(dur)
+        thud = apply_env(osc(sweep([(0, freq), (1, freq * 0.6)], m), "sine"),
+                         envelope(m, 0.002, 0.05))
+        tap = apply_env(lowpass(noise(m, seed), 2600), envelope(m, 0.001, 0.02))
+        return [0.85 * t + 0.4 * k for t, k in zip(thud, tap)]
+
+    return step(0.13, 190, 41) + [0.0] * seconds(0.08) + step(0.15, 160, 43)
+
+
+def act_pack():
+    """A buckle: a hard plastic click, twice, close together."""
+    def click(seed):
+        m = seconds(0.05)
+        body = resonator(noise(m, seed), 2900, q=11.0)
+        return apply_env(body, envelope(m, 0.001, 0.022))
+
+    return click(53) + [0.0] * seconds(0.035) + click(59)
+
+
+def act_jacket():
+    """A coat going on: a soft rustle of fabric, with a press-stud at the end."""
+    n = seconds(0.34)
+    cloth = highpass(noise(n, 401), 1600)
+    folds = [0.3 + 0.7 * abs(math.sin(math.pi * 2.2 * i / RATE)) for i in range(n)]
+    body = apply_env([c * f for c, f in zip(cloth, folds)], envelope(n, 0.03, 0.16, 0.04))
+    stud = [0.0] * n
+    at = seconds(0.24)
+    snap = apply_env(resonator(noise(seconds(0.04), 409), 2200, q=10.0),
+                     envelope(seconds(0.04), 0.001, 0.018))
+    for i, v in enumerate(snap):
+        if at + i < n:
+            stud[at + i] += v * 0.8
+    return mix(body, stud)
+
+
+def act_pet():
+    """A collar bell: two small inharmonic partials, jingled twice."""
+    out = [0.0] * seconds(0.36)
+    for delay in (0.0, 0.09):
+        m = seconds(0.22)
+        at = seconds(delay)
+        for ratio, gain in ((1.0, 1.0), (2.41, 0.45)):
+            partial = apply_env(osc([2637 * ratio] * m, "sine"), envelope(m, 0.002, 0.09))
+            for i, v in enumerate(partial):
+                if at + i < len(out):
+                    out[at + i] += v * gain * 0.55
+    return out
+
+
+def act_vitamin():
+    """A pill bottle: a handful of hard little grains shaken once."""
+    n = seconds(0.34)
+    out = [0.0] * n
+    rng = random.Random(67)
+    for _ in range(26):
+        at = int(rng.uniform(0.0, 0.82) * n)
+        m = min(n - at, seconds(0.012))
+        if m <= 2:
+            continue
+        grain = resonator(noise(m, rng.randrange(9999)),
+                          rng.uniform(1100, 2600), q=9.0)
+        grain = apply_env(grain, envelope(m, 0.0008, 0.006))
+        for i, v in enumerate(grain):
+            out[at + i] += v * rng.uniform(0.5, 1.0)
+    return apply_env(out, envelope(n, 0.002, 0.14))
+
+
 # --------------------------------------------------------------------- the song
 #
 # A loop for the title screen. Music box over a plucked bass and a soft shaker, in
@@ -595,6 +864,32 @@ SOUNDS = {
     "buddy_cloud_eat": eat_cloud,
     "buddy_kitty_eat": eat_kitty,
     "buddy_trike_eat": eat_trike,
+
+    "ui_tap": ui_tap,
+    "ui_confirm": ui_confirm,
+    "ui_page": ui_page,
+
+    "cue_goal": cue_goal,
+    "cue_milestone": cue_milestone,
+    "cue_tick": cue_tick,
+
+    "poke_giggle": poke_giggle,
+    "poke_squeak": poke_squeak,
+    "poke_spin": poke_spin,
+
+    # In Art.ACT_* order. The names are what MainActivity looks them up by.
+    "act_wake": act_wake,
+    "act_bath": act_bath,
+    "act_dress": act_dress,
+    "act_eat": act_eat,
+    "act_brush": act_brush,
+    "act_hair": act_hair,
+    "act_wash": act_wash,
+    "act_shoes": act_shoes,
+    "act_pack": act_pack,
+    "act_jacket": act_jacket,
+    "act_pet": act_pet,
+    "act_vitamin": act_vitamin,
 }
 
 

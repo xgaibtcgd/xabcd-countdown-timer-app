@@ -7,6 +7,7 @@ import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.RectF;
 import android.view.Choreographer;
+import android.view.HapticFeedbackConstants;
 import android.view.MotionEvent;
 import android.view.View;
 
@@ -189,6 +190,7 @@ final class MorningView extends View implements Choreographer.FrameCallback, Eng
         // that would register hit regions for the state it is replacing. The routine
         // editor in particular starts empty and fills itself in onEnter.
         screens[current].onEnter();
+        activity.playUi(Sounds.UI_PAGE);
         activity.setTitleMusic(current == SCREEN_HOME);
         requestLayoutPass();
         rebuildScene();
@@ -302,6 +304,8 @@ final class MorningView extends View implements Choreographer.FrameCallback, Eng
         // draw call that happens to render it.
         int bite = engine.pollBite();
         if (bite >= 0) activity.playEatSound(buddy().index, bite);
+        if (engine.pollMilestone()) activity.playCue(Sounds.CUE_MILESTONE);
+        if (engine.pollTick() > 0) activity.playCue(Sounds.CUE_TICK);
         particles.update(dt);
         blend.set(Anim.stateFor(engine, pref("dance", true), cheerRemaining, engine.isRunning()));
         blend.update(dt);
@@ -560,6 +564,13 @@ final class MorningView extends View implements Choreographer.FrameCallback, Eng
                     int id = hits.idAt(released);
                     int data = hits.dataAt(released);
                     pressedIndex = HitMap.NONE;
+                    // One place, so every control in the app answers a touch. The screen
+                    // says which sound -- or none, where it makes its own.
+                    int tap = screens[current].tapSound(id, data);
+                    if (tap >= 0) activity.playUi(tap);
+                    // No FLAG_IGNORE_GLOBAL_SETTING: somebody who has turned haptics
+                    // off on the device has turned them off here too.
+                    performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY);
                     screens[current].onRegion(id, data);
                 } else {
                     pressedIndex = HitMap.NONE;
@@ -594,7 +605,10 @@ final class MorningView extends View implements Choreographer.FrameCallback, Eng
     @Override public void onTaskCompleted(int index, boolean last) {
         cheerRemaining = CHEER_SECONDS;
         activity.playBuddySound(buddy().index);
-        performHapticFeedback(android.view.HapticFeedbackConstants.CONFIRM);
+        // And then, a beat later, what to do next. Sequential rather than on top of the
+        // buddy's own sound, which is the cue for what was just finished.
+        if (!last) postDelayed(this::announceActiveTask, 620L);
+        performHapticFeedback(HapticFeedbackConstants.CONFIRM);
         requestLayoutPass();
         startClock();
     }
@@ -602,7 +616,10 @@ final class MorningView extends View implements Choreographer.FrameCallback, Eng
     @Override public void onMissionComplete(long remainingMs) {
         // Sound and confetti belong to the state change, not to a draw call. The old
         // build fired the victory music as a side effect inside onDraw.
-        activity.playVictory();
+        // The goal opens first and the fanfare follows it. Fired together they were one
+        // muddy noise; a beat apart they read as cause and effect.
+        activity.playCue(Sounds.CUE_GOAL);
+        postDelayed(activity::playVictory, 420L);
         if (pref("confetti", true)) {
             particles.celebrate(layout.play, buddy(), palette);
         }
@@ -621,6 +638,19 @@ final class MorningView extends View implements Choreographer.FrameCallback, Eng
         route(SCREEN_ADVENTURE);
         rebuildScene();
         activity.startKidMode();
+        postDelayed(this::announceActiveTask, 700L);
+    }
+
+    /**
+     * Plays the cue for whatever task is active now.
+     *
+     * <p>The point of these is a child who cannot yet read the name on the card: a
+     * toothbrush sound says brush your teeth in a way "Brush Teeth" does not.
+     */
+    private void announceActiveTask() {
+        if (!attached || engine.allDone() || engine.taskCount() == 0) return;
+        int index = Math.min(engine.activeIndex(), engine.taskCount() - 1);
+        activity.playActivity(Art.activityKind(engine.taskKey(index)));
     }
 
     void resetRoutine() {

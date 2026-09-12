@@ -242,6 +242,10 @@ final class ScreenTimePicker extends Screen {
         pending = STOPS[Math.round(fraction * (STOPS.length - 1))];
     }
 
+    @Override int tapSound(int id, int data) {
+        return id == R_SET ? Sounds.UI_CONFIRM : Sounds.UI_TAP;
+    }
+
     @Override void onRegion(int id, int data) {
         switch (id) {
             case R_PRESET:

@@ -354,6 +354,14 @@ final class ScreenHome extends Screen {
         return true;
     }
 
+    @Override int tapSound(int id, int data) {
+        // Start Morning is the one thing this screen is for. The hero plays the buddy's
+        // own hello, so a tick on top of it would only get in the way.
+        if (id == R_START) return Sounds.UI_CONFIRM;
+        if (id == R_BUDDY) return -1;
+        return Sounds.UI_TAP;
+    }
+
     @Override void onRegion(int id, int data) {
         switch (id) {
             case R_GEAR:

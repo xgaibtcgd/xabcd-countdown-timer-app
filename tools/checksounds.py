@@ -13,6 +13,13 @@ tell you that the bee and the pug are not the same noise, and, most useful of al
 that a buddy's eat sound is not its own tap sound: those two fire seconds apart on
 the same screen, so if they converge the poke stops reading as a separate thing.
 
+Compared WITHIN a family, named by the prefix before the first underscore: buddy,
+act, ui, cue, poke. Across families the bar would be wrong -- the interface tap and
+the backpack buckle are both meant to be a short click, and a shared click character
+across the whole interface is the point rather than a defect. What has to hold is
+that no two sounds a person hears as alternatives to each other are the same sound:
+two characters, two routine tasks, two reactions to the same poke.
+
     python3 tools/checksounds.py [raw-dir]
 
 Defaults to app/src/main/res/raw. Pure standard library, like gensounds.py.
@@ -81,37 +88,53 @@ def distinct(a, b):
             or abs(a[0] - b[0]) > 0.20)
 
 
+#: Everything else in res/raw is not ours to compare: the title loop is eighteen
+#: seconds of music and the victory jingle is not generated at all.
+FAMILIES = ("buddy", "act", "ui", "cue", "poke")
+
+
 def main():
     here = os.path.dirname(os.path.abspath(__file__))
     raw = sys.argv[1] if len(sys.argv) > 1 else os.path.join(
         here, "..", "app", "src", "main", "res", "raw")
     raw = os.path.abspath(raw)
 
-    names = sorted(f[:-4] for f in os.listdir(raw)
-                   if f.startswith("buddy_") and f.endswith(".wav"))
-    if not names:
-        print("checksounds: no buddy sounds in %s" % raw, file=sys.stderr)
+    groups = {family: [] for family in FAMILIES}
+    for f in sorted(os.listdir(raw)):
+        if not f.endswith(".wav"):
+            continue
+        family = f.split("_")[0]
+        if family in groups:
+            groups[family].append(f[:-4])
+
+    total = sum(len(v) for v in groups.values())
+    if not total:
+        print("checksounds: no generated sounds in %s" % raw, file=sys.stderr)
         return 1
 
-    stats = {n: describe(os.path.join(raw, n + ".wav")) for n in names}
+    stats = {}
     failures = []
-    for i, a in enumerate(names):
-        for b in names[i + 1:]:
-            if not distinct(stats[a], stats[b]):
-                failures.append((a, b))
+    for family, names in groups.items():
+        for n in names:
+            stats[n] = describe(os.path.join(raw, n + ".wav"))
+        for i, a in enumerate(names):
+            for b in names[i + 1:]:
+                if not distinct(stats[a], stats[b]):
+                    failures.append((family, a, b))
 
     if failures:
         print("FAIL: these sounds are indistinguishable by every measure:",
               file=sys.stderr)
-        for a, b in failures:
-            print("  %-24s %s" % (a, b), file=sys.stderr)
+        for family, a, b in failures:
+            print("  [%s] %-22s %s" % (family, a, b), file=sys.stderr)
             for n in (a, b):
                 d, br, dom, cen = stats[n]
                 print("      %-22s %.2fs  %d burst  %dHz dominant  %.0fHz centroid"
                       % (n, d, br, dom, cen), file=sys.stderr)
         return 1
 
-    print("==> %d buddy sounds, all mutually distinct" % len(names))
+    print("==> %d generated sounds (%s), distinct within every family"
+          % (total, ", ".join("%s %d" % (f, len(groups[f])) for f in FAMILIES)))
     return 0
 
 

@@ -143,6 +143,10 @@ final class ScreenComplete extends Screen {
                     Paint.Align.LEFT);
     }
 
+    @Override int tapSound(int id, int data) {
+        return id == R_PLAY_AGAIN ? Sounds.UI_CONFIRM : Sounds.UI_TAP;
+    }
+
     @Override void onRegion(int id, int data) {
         // Neither button leaves kid mode: getting out still needs the grown-ups PIN.
         if (id == R_PLAY_AGAIN) {

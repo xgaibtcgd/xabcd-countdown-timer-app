@@ -35,6 +35,17 @@ abstract class Screen {
     /** Handles a tap on a region this screen registered. */
     abstract void onRegion(int id, int data);
 
+    /**
+     * Which interface sound a tap on this region makes.
+     *
+     * <p>Default {@link Sounds#UI_TAP} -- every control answers a touch unless a screen
+     * says otherwise, which is the way round that keeps a new control from shipping
+     * silent. Override with {@link Sounds#UI_CONFIRM} for the one primary button on a
+     * screen, or -1 where the control already makes a sound of its own and a tick on
+     * top of it would only muddy it.
+     */
+    int tapSound(int id, int data) { return Sounds.UI_TAP; }
+
     /** True while the screen needs to keep redrawing. */
     boolean animating() { return true; }
 

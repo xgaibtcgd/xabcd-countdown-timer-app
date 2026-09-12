@@ -215,11 +215,31 @@ final class ScreenAdventure extends Screen {
             pokeIdle = 0f;
             pokeRemaining = POKE_SECONDS;
             stompPuffed = false;
-            view.activity.playBuddySound(view.buddy().index);
+            playPokeSound();
             emitPokeEmote();
             view.startClock();
         }
         return true;                         // in the lane either way; see above
+    }
+
+    /**
+     * The poke answers differently each time, which is what makes a child do it again.
+     *
+     * <p>First the character's own voice, then a giggle, then the whoosh of it actually
+     * spinning. Poked mid-meal it squeaks instead: its mouth is full, and the same hello
+     * it gives on the picker screen would be the wrong sound coming out of it.
+     */
+    private void playPokeSound() {
+        int buddy = view.buddy().index;
+        if (view.engine.feastBeat() >= 0f) {
+            view.activity.playPoke(Sounds.POKE_SQUEAK, buddy);
+        } else if (pokeStreak >= 3) {
+            view.activity.playPoke(Sounds.POKE_SPIN, buddy);
+        } else if (pokeStreak == 2) {
+            view.activity.playPoke(Sounds.POKE_GIGGLE, buddy);
+        } else {
+            view.activity.playBuddySound(buddy);
+        }
     }
 
     /**
@@ -628,6 +648,13 @@ final class ScreenAdventure extends Screen {
         Theme.label(c, "Tap play to carry on", layout.advScene.centerX(),
                     layout.advScene.centerY(), Theme.H2, 0xFFFFFFFF,
                     Paint.Align.CENTER);
+    }
+
+    @Override int tapSound(int id, int data) {
+        // The lane never gets here -- onPressDown claims it -- but say so anyway, since
+        // a poke already answers with the buddy's own voice.
+        if (id == R_LANE) return -1;
+        return id == R_ACTION ? Sounds.UI_CONFIRM : Sounds.UI_TAP;
     }
 
     @Override void onRegion(int id, int data) {

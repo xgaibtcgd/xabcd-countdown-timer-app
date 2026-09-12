@@ -1008,6 +1008,30 @@ public final class SelfTest {
 
         bites();
 
+        // One activity cue per routine task, in Art.ACT_* order. A table a row short
+        // is silent on the last task and wrong on nothing, which is the kind of defect
+        // that ships.
+        check(Sounds.ACTIVITY.length == Art.ACT_COUNT,
+              "the activity sound table is " + Sounds.ACTIVITY.length + " long against "
+              + Art.ACT_COUNT + " tasks");
+        check(Sounds.UI.length == Sounds.UI_COUNT
+              && Sounds.CUE.length == Sounds.CUE_COUNT
+              && Sounds.POKE.length == Sounds.POKE_COUNT,
+              "a Sounds table does not match its own COUNT");
+        int[][] tables = {Sounds.ACTIVITY, Sounds.UI, Sounds.CUE, Sounds.POKE};
+        String[] tableNames = {"ACTIVITY", "UI", "CUE", "POKE"};
+        for (int t = 0; t < tables.length; t++) {
+            for (int i = 0; i < tables[t].length; i++) {
+                check(tables[t][i] != 0,
+                      "Sounds." + tableNames[t] + "[" + i + "] has no resource");
+                for (int j = i + 1; j < tables[t].length; j++) {
+                    check(tables[t][i] != tables[t][j],
+                          "Sounds." + tableNames[t] + " uses one file for " + i
+                          + " and " + j);
+                }
+            }
+        }
+
         check(Art.GLYPH_NAMES.length == Art.GLYPH_COUNT,
               "the glyph name list is " + Art.GLYPH_NAMES.length + " long against "
               + Art.GLYPH_COUNT + " glyphs; the preview looks these up by name");
@@ -1462,6 +1486,7 @@ public final class SelfTest {
 
         feastBeat();
         biteEvents();
+        clockCues();
     }
 
     /**
@@ -1532,6 +1557,73 @@ public final class SelfTest {
         e.pause();
         for (int i = 0; i < 200; i++) {
             check(e.pollBite() < 0, "a paused morning must not keep crunching");
+            clock.advance(16L);
+        }
+    }
+
+    /**
+     * The halfway chime and the last-ten-seconds tick.
+     *
+     * <p>Both are cues a person notices only by their absence or by their excess: a
+     * chime that fires twice, or forty ticks in the last ten seconds, is not something
+     * a compiler or a screenshot has any opinion about.
+     */
+    private static void clockCues() {
+        for (int minutes : new int[]{1, 5, 15, 94}) {
+            FakeClock clock = new FakeClock();
+            Engine e = new Engine(clock);
+            e.setRoutine(tasks(2), keys(2));
+            e.start(minutes * 60);
+
+            int chimes = 0;
+            int ticks = 0;
+            int previousSecond = Integer.MAX_VALUE;
+            long durationMs = minutes * 60_000L;
+            for (long at = 0; at <= durationMs + 2_000L; at += 16L) {
+                if (e.pollMilestone()) {
+                    chimes++;
+                    check(e.progress() >= 0.5f,
+                          minutes + " minutes: the halfway chime rang at "
+                          + (int) (e.progress() * 100) + "%");
+                }
+                int second = e.pollTick();
+                if (second > 0) {
+                    ticks++;
+                    check(second <= Engine.TICK_SECONDS,
+                          minutes + " minutes: tick reported second " + second);
+                    check(second < previousSecond,
+                          minutes + " minutes: ticks are not counting down, "
+                          + second + " after " + previousSecond);
+                    previousSecond = second;
+                }
+                clock.advance(16L);
+            }
+            check(chimes == 1,
+                  minutes + " minutes: the halfway chime rang " + chimes + " times");
+            check(ticks == Engine.TICK_SECONDS,
+                  minutes + " minutes: " + ticks + " ticks in the last "
+                  + Engine.TICK_SECONDS + " seconds");
+        }
+
+        // Paused, the clock is not running, so neither cue may fire.
+        FakeClock clock = new FakeClock();
+        Engine e = new Engine(clock);
+        e.setRoutine(tasks(1), keys(1));
+        e.start(60);
+        clock.advance(55_000L);                        // inside the ticking window
+        e.pause();
+        for (int i = 0; i < 300; i++) {
+            check(!e.pollMilestone(), "a paused morning must not chime");
+            check(e.pollTick() < 0, "a paused morning must not tick");
+            clock.advance(16L);
+        }
+
+        // And a finished morning goes quiet: the victory flourish owns that moment.
+        e.resume();
+        e.completeActive();
+        check(e.allDone(), "the routine should be finished");
+        for (int i = 0; i < 300; i++) {
+            check(e.pollTick() < 0, "a finished morning must not keep ticking");
             clock.advance(16L);
         }
     }

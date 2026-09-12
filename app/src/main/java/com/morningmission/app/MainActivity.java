@@ -51,6 +51,10 @@ public final class MainActivity extends Activity {
     private SoundPool soundPool;
     private final int[] soundIds = new int[BuddyTheme.COUNT];
     private final int[] eatIds = new int[BuddyTheme.COUNT];
+    private final int[] uiIds = new int[Sounds.UI_COUNT];
+    private final int[] cueIds = new int[Sounds.CUE_COUNT];
+    private final int[] pokeIds = new int[Sounds.POKE_COUNT];
+    private final int[] actIds = new int[Sounds.ACTIVITY.length];
 
     private static final String[] DEFAULT_TASK_NAMES =
             {"Get Dressed", "Breakfast", "Brush Teeth", "Shoes On", "Backpack"};
@@ -166,9 +170,10 @@ public final class MainActivity extends Activity {
      */
     private void prepareSounds() {
         soundPool = new SoundPool.Builder()
-                // Three bites inside 1.4 seconds, and a poke can land on top of any of
-                // them, so four was the exact number this could exceed.
-                .setMaxStreams(6)
+                // Three bites inside 1.4 seconds, a poke on top of any of them, an
+                // interface tap and a task cue. Eight is the first number this stops
+                // being able to reach.
+                .setMaxStreams(8)
                 .setAudioAttributes(new AudioAttributes.Builder()
                         .setUsage(AudioAttributes.USAGE_GAME)
                         .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
@@ -186,17 +191,71 @@ public final class MainActivity extends Activity {
                 eatIds[i] = 0;
             }
         }
+        load(Sounds.UI, uiIds);
+        load(Sounds.CUE, cueIds);
+        load(Sounds.POKE, pokeIds);
+        load(Sounds.ACTIVITY, actIds);
     }
 
-    void playBuddySound(int buddyIndex) {
+    /** Loads a table of raw resources into a parallel table of pool ids. */
+    private void load(int[] resources, int[] into) {
+        for (int i = 0; i < resources.length && i < into.length; i++) {
+            try {
+                into[i] = soundPool.load(this, resources[i], 1);
+            } catch (Exception ignored) {
+                into[i] = 0;
+            }
+        }
+    }
+
+    /** The one place a pooled sound is actually played. Everything below goes through it. */
+    private void play(int[] ids, int index, float volume, float rate) {
         if (!prefs.getBoolean("song", true)) return;
-        int i = BuddyTheme.clampIndex(buddyIndex);
-        if (soundPool == null || soundIds[i] == 0) return;
+        if (soundPool == null || index < 0 || index >= ids.length || ids[index] == 0) return;
         try {
-            soundPool.play(soundIds[i], 0.72f, 0.72f, 1, 0, 1f);
+            soundPool.play(ids[index], volume, volume, 1, 0, rate);
         } catch (Exception ignored) {
             // A sound failing is never worth interrupting a child's morning.
         }
+    }
+
+    /**
+     * An interface sound. Quiet on purpose.
+     *
+     * <p>This is the one set that fires on every touch anywhere in the app, so it is the
+     * one that can turn into a headache in a kitchen at seven in the morning. It sits
+     * well below the characters, which are the sounds meant to be noticed.
+     *
+     * @param which a {@code Sounds.UI_*} constant
+     */
+    void playUi(int which) {
+        play(uiIds, which, 0.34f, 1f);
+    }
+
+    /** The cue for the task a child should be doing now. @param kind an Art.ACT_* value */
+    void playActivity(int kind) {
+        play(actIds, kind, 0.58f, 1f);
+    }
+
+    /** The goal opening, the halfway chime, the last-ten-seconds tick. */
+    void playCue(int which) {
+        play(cueIds, which, which == Sounds.CUE_TICK ? 0.30f : 0.62f, 1f);
+    }
+
+    /**
+     * A reaction to being poked, pitched to the character doing it.
+     *
+     * <p>Three shared files rather than twenty-four: the rate argument carries the
+     * difference between a bee giggling and a triceratops giggling, and a per-character
+     * giggle is not a distinction anybody would notice.
+     */
+    void playPoke(int which, int buddyIndex) {
+        float rate = 0.86f + 0.05f * BuddyTheme.clampIndex(buddyIndex);
+        play(pokeIds, which, 0.66f, rate);
+    }
+
+    void playBuddySound(int buddyIndex) {
+        play(soundIds, BuddyTheme.clampIndex(buddyIndex), 0.72f, 1f);
     }
 
     /**
@@ -210,14 +269,8 @@ public final class MainActivity extends Activity {
      * @param bite 0, 1 or 2 -- which bite of the treat this is
      */
     void playEatSound(int buddyIndex, int bite) {
-        if (!prefs.getBoolean("song", true)) return;
-        int i = BuddyTheme.clampIndex(buddyIndex);
-        if (soundPool == null || eatIds[i] == 0) return;
         float rate = 1f + 0.08f * Math.max(0, Math.min(bite, Art.BITE_COUNT - 1));
-        try {
-            soundPool.play(eatIds[i], 0.62f, 0.62f, 1, 0, rate);
-        } catch (Exception ignored) {
-        }
+        play(eatIds, BuddyTheme.clampIndex(buddyIndex), 0.62f, rate);
     }
 
     void playVictory() {

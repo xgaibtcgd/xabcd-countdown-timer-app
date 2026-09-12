@@ -178,6 +178,10 @@ final class ScreenEditRoutine extends Screen {
         return true;
     }
 
+    @Override int tapSound(int id, int data) {
+        return id == R_SAVE ? Sounds.UI_CONFIRM : Sounds.UI_TAP;
+    }
+
     @Override void onRegion(int id, int data) {
         switch (id) {
             case R_BACK:

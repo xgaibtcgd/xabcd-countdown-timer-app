@@ -121,22 +121,39 @@ which has none.
 
 Everything in `app/src/main/res/raw/` except `victory.wav` is synthesised by
 `tools/gensounds.py` -- pure standard library, no numpy, no binary blobs nobody
-can change. Two per buddy plus the title loop:
+can change. Thirty-seven cues in five families, plus the title loop:
 
-- `buddy_<key>_sound` is the tap sound, played when you choose the buddy in the
+- `buddy_<key>_sound` -- the tap sound, played when you choose the buddy in the
   picker, tick off a task, or poke the buddy on the adventure screen.
-- `buddy_<key>_eat` is one bite of a treat, fired three times per treat from
+- `buddy_<key>_eat` -- one bite of a treat, fired three times per treat from
   `Engine.pollBite`, rising in pitch across the three via `SoundPool`'s rate
-  argument. They are short by necessity -- the three land inside 1.4 seconds.
+  argument. Short by necessity: the three land inside 1.4 seconds.
+- `act_*` -- one per `Art.ACT_*`, played when a task becomes the ACTIVE one
+  rather than when it is finished. A toothbrush sound says brush your teeth to a
+  child who cannot yet read "Brush Teeth".
+- `ui_tap` / `ui_confirm` / `ui_page` -- every chip and row, the one primary
+  button on a screen, and a change of screen. `Screen.tapSound(id, data)`
+  decides which, defaulting to `UI_TAP` so a new control cannot ship silent.
+- `cue_goal` / `cue_milestone` / `cue_tick` -- the goal opening, the halfway
+  mark, and one tick per second through the last ten. The last two are edge
+  detected by `Engine.pollMilestone()` and `Engine.pollTick()`, called from the
+  frame loop beside `pollTimeUp()`, never as a side effect of a draw.
+- `poke_*` -- the escalating reaction to being poked.
 - `title_song` is an eighteen-second loop. It is named in `LOOPING`, which
   suppresses the anti-click edge fade every other sound gets -- on a loop that
   fade lands on the seam and pumps the volume down and back up once a lap.
 
+Resource tables live in `Sounds.java` rather than in `MainActivity`, so
+SelfTest can hold `Sounds.ACTIVITY` exactly as long as `Art.ACT_COUNT`.
+
 Regenerate with `python3 tools/gensounds.py`. Nothing here can be listened to in
-CI, so the property that matters is checked numerically instead: every one of the
-sixteen buddy sounds must differ from every other on duration, burst count,
-dominant frequency or spectral centroid -- most of all a buddy's eat sound from
-its own tap sound, or a poke and a bite become the same noise.
+CI, so the property that matters is checked numerically by
+`tools/checksounds.py`, which runs in `check.sh`: within each family, every pair
+must differ on duration, burst count, dominant frequency or spectral centroid.
+Across families the bar would be wrong -- the interface tap and the backpack
+buckle are both meant to be a short click. What has to hold is that no two
+sounds a person hears as alternatives are the same sound: two characters, two
+routine tasks, a buddy's bite against its own tap.
 
 ## Reference
 
