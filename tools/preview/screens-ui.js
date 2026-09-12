@@ -536,7 +536,6 @@ function screenAdventure(ctx, L, buddy, t) {
   const height = baseHeight * route.travelScale(travelled);
   const walkX = route.travelX(travelled) - route.headingX(travelled) * height * MOUTH_AHEAD;
   const feetY = route.travelY(travelled);
-  const mouthY = route.travelY(travelled) - height * MOUTH_UP;
   const faceLeft = route.headingX(travelled) < -0.15;
 
   // The way to the chest, dotted in under everything that stands on it.
@@ -560,13 +559,6 @@ function screenAdventure(ctx, L, buddy, t) {
   // feast runs on past the pickup, so the count has already moved on for most of it.
   const eating = beat >= 0 ? Math.round(travelled) : -1;
   const first = eating >= 0 ? eating : collected + 1;
-  // Depth order: anything further up the screen than the mouth goes behind the buddy.
-  for (let index = Math.max(1, first); index < total; index++) {
-    if (index === eating || itemY(index) >= mouthY - 0.5) continue;
-    drawCollectible(ctx, buddy.index, route.x(index), dropY(index),
-                    cSize * route.scaleAt(index), true, 0, false);
-  }
-
   // Three goes at the item, each less committed than the last.
   let chompP = -1, chompStrength = 1;
   if (beat >= 0) {
@@ -598,10 +590,10 @@ function screenAdventure(ctx, L, buddy, t) {
     fitText(ctx, buddy.munchWord, bub, DATA.type.t2, 14, buddy.ink, 'center', true);
   }
 
-  // Everything level with the buddy or nearer goes in front of it, and the one in its
-  // mouth always does: the bites come out of the side the buddy is standing on.
+  // Every treat in front of the buddy, including the ones on rows behind it: the buddy
+  // is a third of the screen wide and the treats are the thing being counted.
   for (let index = Math.max(1, first); index < total; index++) {
-    if (index === eating || itemY(index) < mouthY - 0.5) continue;
+    if (index === eating) continue;
     drawCollectible(ctx, buddy.index, route.x(index), dropY(index),
                     cSize * route.scaleAt(index), true, 0, false);
   }
@@ -724,8 +716,15 @@ function screenComplete(ctx, L, buddy, t) {
 
   const stage = L.cmpStage;
   const goalSize = Math.min(rh(stage) * 0.42, DATA.metrics.designWidth * 0.30);
-  drawGoal(ctx, buddy.index, stage[2] - goalSize * 0.62, stage[3] - goalSize * 0.55,
-           goalSize, 1, 0.75 + 0.25 * Math.sin(t * 2));
+  const gx = stage[2] - goalSize * 0.62, gy = stage[3] - goalSize * 0.55;
+  // The chest wide open and EMPTY, with the star drawn over it rather than the frame
+  // that has one painted in: the painted one has no face and cannot move. The plain star
+  // moulded onto the outside of the chest is part of every frame and stays as it is.
+  drawGoal(ctx, buddy.index, gx, gy, goalSize, 1, 0.75 + 0.25 * Math.sin(t * 2));
+  const sway = Math.sin(t * 2.4), hop = Math.sin(t * 1.6);
+  drawProp(ctx, 'star', gx + sway * goalSize * 0.07,
+           gy - goalSize * (0.34 + 0.045 * hop),
+           goalSize * (0.50 + 0.03 * hop), sway * 11, 1);
 
   const height = Math.min(rh(stage) * 0.80, DATA.metrics.designWidth * 0.50);
   const cx = stage[0] + rw(stage) * 0.40;
@@ -749,12 +748,29 @@ function screenComplete(ctx, L, buddy, t) {
 
   const box = L.cmpCard;
   card(ctx, box, rh(box) * 0.20, 'rgba(255,255,255,.98)');
-  text(ctx, 'You finished with', rcx(box), box[1] + rh(box) * 0.20,
-       DATA.type.b1, DATA.tokens.inkMuted, 'center', false);
-  drawTime(ctx, 222000, rcx(box), box[1] + rh(box) * 0.50,
-           Math.min(DATA.type.d1, rh(box) * 0.36), DATA.tokens.ink, 'center');
-  text(ctx, 'left on the clock!', rcx(box), box[1] + rh(box) * 0.72,
-       DATA.type.b1, DATA.tokens.inkMuted, 'center', false);
+  // Three states the card can be in. The preview renders whichever window.COMPLETE_CARD
+  // asks for, because two of them are only reachable by letting a real clock run out.
+  const variant = (typeof window !== 'undefined' && window.COMPLETE_CARD) || 'time-left';
+  if (variant === 'time-left') {
+    text(ctx, 'You finished with', rcx(box), box[1] + rh(box) * 0.20,
+         DATA.type.b1, DATA.tokens.inkMuted, 'center', false);
+    drawTime(ctx, 222000, rcx(box), box[1] + rh(box) * 0.50,
+             Math.min(DATA.type.d1, rh(box) * 0.36), DATA.tokens.ink, 'center');
+    text(ctx, 'left on the clock!', rcx(box), box[1] + rh(box) * 0.72,
+         DATA.type.b1, DATA.tokens.inkMuted, 'center', false);
+  } else if (variant === 'on-the-buzzer') {
+    fitText(ctx, 'You finished your mission!',
+            [box[0] + rw(box) * 0.06, box[1] + rh(box) * 0.16,
+             box[2] - rw(box) * 0.06, box[1] + rh(box) * 0.66],
+            DATA.type.d2, 22, DATA.tokens.ink, 'center', true);
+  } else {
+    fitText(ctx, 'Time is up!',
+            [box[0] + rw(box) * 0.06, box[1] + rh(box) * 0.10,
+             box[2] - rw(box) * 0.06, box[1] + rh(box) * 0.44],
+            DATA.type.d2, 22, DATA.tokens.ink, 'center', true);
+    text(ctx, '3 of 5 done. That still counts!', rcx(box), box[1] + rh(box) * 0.60,
+         DATA.type.b1, DATA.tokens.inkMuted, 'center', false);
+  }
   fitText(ctx, "Amazing! You're a Morning Hero!",
           [box[0] + rw(box) * 0.06, box[3] - rh(box) * 0.24, box[2] - rw(box) * 0.06, box[3] - rh(box) * 0.04],
           DATA.type.b1, 13, buddy.ink, 'center', true);

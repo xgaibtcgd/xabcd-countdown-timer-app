@@ -23,6 +23,7 @@ public final class SelfTest {
     public static void main(String[] args) {
         layoutSweep();
         routeVariety();
+        titleMusic();
         buddyTable();
         hitMapBasics();
         engineContract();
@@ -544,6 +545,31 @@ public final class SelfTest {
             if (before[i] != r.rowAt(i) * r.cols() + r.colAt(i)) moved = true;
         }
         check(moved, "two different mornings produced the identical route");
+    }
+
+    /**
+     * The app opens playing the title song.
+     *
+     * <p>It did not, for as long as the song existed. The loop follows the screen and
+     * MorningView.route is what moves it, but route returns early when the screen is not
+     * changing -- so the screen the app OPENS on never asked for anything, and the music
+     * only started once you had left Home and come back to it. The view syncs it on
+     * attach now.
+     *
+     * <p>Nothing off the device can attach a View, so this cannot test that the call
+     * happens. What it can pin is the pair of facts the call is there to satisfy: the
+     * app opens on Home, and Home is where the song plays. Change either and this fails.
+     */
+    private static void titleMusic() {
+        check(MorningView.wantsTitleMusic(MorningView.INITIAL_SCREEN),
+              "the app opens on a screen that does not play the title song");
+        int playing = 0;
+        for (int screen = 0; screen < MorningView.SCREEN_COUNT; screen++) {
+            if (MorningView.wantsTitleMusic(screen)) playing++;
+        }
+        check(playing == 1,
+              "the title song plays under " + playing + " screens; it is the title"
+              + " screen's song and should play under one");
     }
 
     private static void checkOtherScreens(Layout L, String at) {

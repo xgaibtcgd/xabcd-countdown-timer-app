@@ -172,12 +172,12 @@ final class ScreenAdventure extends Screen {
         view.scene.drawBackground(c, theme, t);
         // The way to the chest, under everything that stands on it.
         drawDots(c, layout, theme, engine);
-        // Depth order: a treat further up the screen than the buddy's mouth is further
-        // away, so it goes behind. The one in its mouth is always in front, because the
-        // bites come out of the side the buddy is standing on.
-        drawTrail(c, layout, theme, engine, t, false);
+        // Every treat in front of the buddy, including the ones on rows behind it. Depth
+        // order was the other way round for a while and it is what a receding field
+        // wants, but the buddy is a third of the screen wide and the treats are the
+        // thing being counted: half of them spent the morning behind it.
         drawBuddy(c, layout, theme, engine, t);
-        drawTrail(c, layout, theme, engine, t, true);
+        drawTrail(c, layout, theme, engine, t);
         // The chest last of all. Drawn before the buddy it spent the finale hidden
         // behind it, which is the one moment its lid and the star climbing out of it are
         // the thing worth looking at. Treats still to come pass behind it, as they did.
@@ -533,10 +533,7 @@ final class ScreenAdventure extends Screen {
      * The treats laid out across the field.
      *
      * <p>Each sits on its own waypoint, so they stand still and the buddy threads between
-     * them. Two passes: everything further up the screen than the buddy's mouth is
-     * further away and goes behind it, everything level or nearer goes in front, and the
-     * one being eaten is always in front because the bites come out of the side the buddy
-     * is standing on.
+     * them. All of them draw in front of the buddy -- see the note at the call site.
      *
      * <p>Which one is being eaten is the NEAREST waypoint -- {@code round} rather than
      * the collected count. The feast starts {@link Engine#FEAST_LEAD} before the pickup
@@ -547,7 +544,7 @@ final class ScreenAdventure extends Screen {
      * invisible. On a field of them it would not be.
      */
     private void drawTrail(Canvas c, Layout layout, BuddyTheme theme, Engine engine,
-                           float t, boolean front) {
+                           float t) {
         int total = engine.collectibleCount();
         if (total <= 0) return;
 
@@ -558,12 +555,9 @@ final class ScreenAdventure extends Screen {
         // Everything before the one in its mouth has been eaten. Between meals that is
         // everything up to and including the last one collected.
         int first = eating >= 0 ? eating : engine.collectedCount() + 1;
-        float mouthY = mouthY(layout, engine, route);
 
         for (int index = Math.max(1, first); index < total; index++) {
             boolean chewing = index == eating;
-            if ((chewing || itemY(layout, route, index) >= mouthY - 0.5f) != front) continue;
-
             float drawn = size * route.scaleAt(index);
             float x = route.x(index);
             float y = itemY(layout, route, index)
@@ -582,12 +576,9 @@ final class ScreenAdventure extends Screen {
             }
         }
 
-        if (front) {
-            int collected = engine.collectedCount();
-            int at = Math.max(1, Math.min(collected, total - 1));
-            fireBurst(layout, theme, engine, collected,
-                      route.x(at), itemY(layout, route, at));
-        }
+        int collected = engine.collectedCount();
+        int at = Math.max(1, Math.min(collected, total - 1));
+        fireBurst(layout, theme, engine, collected, route.x(at), itemY(layout, route, at));
     }
 
     /**

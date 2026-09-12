@@ -45,7 +45,8 @@ final class MorningView extends View implements Choreographer.FrameCallback, Eng
     static final int SCREEN_TIME_PICKER = 4;
     static final int SCREEN_GROWN_UPS = 5;
     static final int SCREEN_EDIT_ROUTINE = 6;
-    private static final int SCREEN_COUNT = 7;
+    /** Package-visible so tools/SelfTest.java can sweep every screen. */
+    static final int SCREEN_COUNT = 7;
 
     /** How long a change of screen takes to settle. */
     private static final float ROUTE_SECONDS = 0.24f;
@@ -60,7 +61,16 @@ final class MorningView extends View implements Choreographer.FrameCallback, Eng
     final Engine engine;
 
     private final Screen[] screens = new Screen[SCREEN_COUNT];
-    private int current = SCREEN_HOME;
+    /**
+     * The screen the app opens on.
+     *
+     * <p>Named rather than written into the field below, so tools/SelfTest.java can hold
+     * it against {@link #wantsTitleMusic}: "the app opens playing the title song" is a
+     * property of those two together, and nothing else states it.
+     */
+    static final int INITIAL_SCREEN = SCREEN_HOME;
+
+    private int current = INITIAL_SCREEN;
     private int previous = SCREEN_HOME;
     private float routeProgress = 1f;
 
@@ -197,6 +207,16 @@ final class MorningView extends View implements Choreographer.FrameCallback, Eng
 
     int currentScreen() { return current; }
 
+    /**
+     * Which screens the title loop plays under.
+     *
+     * <p>Home only -- it is the title screen's song. Its own method rather than the test
+     * written out twice, because the two places that ask are a route and an attach, and
+     * the whole reason the song used to be missing on first launch is that only one of
+     * them was asking.
+     */
+    static boolean wantsTitleMusic(int screen) { return screen == SCREEN_HOME; }
+
     void route(int screen) {
         if (screen == current || screen < 0 || screen >= SCREEN_COUNT) return;
         previous = current;
@@ -209,7 +229,7 @@ final class MorningView extends View implements Choreographer.FrameCallback, Eng
         // Every route but this one. Arriving at the Complete screen the whoosh lands
         // 780ms into the fanfare, on top of its first bar.
         if (screen != SCREEN_COMPLETE) activity.playUi(Sounds.UI_PAGE);
-        activity.setTitleMusic(current == SCREEN_HOME);
+        activity.setTitleMusic(wantsTitleMusic(current));
         requestLayoutPass();
         rebuildScene();
         startClock();
@@ -277,6 +297,12 @@ final class MorningView extends View implements Choreographer.FrameCallback, Eng
         super.onAttachedToWindow();
         attached = true;
         lastFrameNanos = 0L;
+        // The title loop follows the screen, and {@link #route} is what moves it -- but
+        // route returns early when the screen is not changing, so the screen the app
+        // OPENS on never asked for anything and the song did not start until you had
+        // left Home and come back to it. Attaching is the one moment the current screen
+        // is current without having been routed to, so it is where the gap was.
+        activity.setTitleMusic(wantsTitleMusic(current));
         startClock();
     }
 
@@ -955,12 +981,29 @@ final class MorningView extends View implements Choreographer.FrameCallback, Eng
         if (pref("confetti", true)) {
             particles.celebrate(layout.play, buddy(), palette);
         }
-        postDelayed(() -> route(SCREEN_COMPLETE), 1200L);
+        postDelayed(this::celebrate, 1200L);
     }
 
     @Override public void onTimeUp() {
         activity.playBuddySound(buddy().index);
         startClock();
+        // Running out of time ends the morning, the same as finishing does. It used to
+        // leave the child on the countdown with an empty clock and "Time is up. Finish
+        // your tasks!", waiting for a tap on a button that was the only way off the
+        // screen. The beat matches onMissionComplete's, so the buddy's own sound lands
+        // before the screen changes either way.
+        postDelayed(this::celebrate, 1200L);
+    }
+
+    /**
+     * Move to the celebration, if we are still on the countdown.
+     *
+     * <p>Guarded because both ways out of a morning post it on a delay, and in between a
+     * parent can have unlocked and gone somewhere else. Routing on top of that would
+     * yank them back.
+     */
+    private void celebrate() {
+        if (current == SCREEN_ADVENTURE) route(SCREEN_COMPLETE);
     }
 
     // ---------------------------------------------------------------------- actions

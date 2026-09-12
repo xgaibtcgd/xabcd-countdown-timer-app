@@ -77,7 +77,19 @@ final class ScreenComplete extends Screen {
         glow.setColor(Theme.alpha(Theme.GOLD, (int) (48 * pulse)));
         c.drawCircle(gx, gy, goalSize * 0.56f, glow);
         Clay.contactShadow(c, gx, gy + goalSize * 0.42f, goalSize * 0.40f, goalSize * 0.12f, 1f);
-        view.drawProp(c, MorningView.PROP_CHEST_FULL, gx, gy, goalSize, 0f, 255);
+        // The chest wide open and EMPTY, with the star drawn separately above it rather
+        // than the frame that has one painted in. The painted one has no face and cannot
+        // move; the separate one is the same star that climbs out of the chest at the end
+        // of the morning, and it has a face and can dance. The plain star moulded onto
+        // the outside of the chest is part of every frame and stays as it is -- that one
+        // is a decoration on a box, not a character.
+        view.drawProp(c, MorningView.PROP_CHEST_OPEN, gx, gy, goalSize, 0f, 255);
+        float sway = (float) Math.sin(t * 2.4f);
+        float hop = (float) Math.sin(t * 1.6f);
+        view.drawProp(c, MorningView.PROP_STAR,
+                      gx + sway * goalSize * 0.07f,
+                      gy - goalSize * (0.34f + 0.045f * hop),
+                      goalSize * (0.50f + 0.03f * hop), sway * 11f, 255);
 
         float height = Math.min(stage.height() * 0.80f, Layout.W * 0.50f);
         float cx = stage.left + stage.width() * 0.40f;
@@ -121,10 +133,28 @@ final class ScreenComplete extends Screen {
                                box.top + box.height() * 0.68f, caption,
                                Theme.INK_MUTED, Paint.Align.CENTER, false);
         } else {
-            Theme.textCentered(c, "You finished your mission!", box.centerX(),
-                               box.top + box.height() * 0.38f,
-                               Math.max(Theme.H2, caption * 1.25f),
-                               Theme.INK, Paint.Align.CENTER, true);
+            // Two ways to get here with no time left on the clock: finishing on the
+            // buzzer, and the buzzer finishing for you. Saying "you finished your
+            // mission" to a child who ran out with two tasks left is the app telling
+            // them something they can see is not true.
+            boolean finished = engine.allDone();
+            String headline = finished ? "You finished your mission!" : "Time is up!";
+            // Sized to the block rather than to a constant. It was H2 or a quarter over
+            // the caption, whichever was bigger, which on a tall card left the one line
+            // the card is about looking like a footnote. fitText fills the width it is
+            // given and steps down only if the string is too long for it.
+            float top = finished ? 0.16f : 0.10f;
+            scratch.set(box.left + box.width() * 0.06f, box.top + box.height() * top,
+                        box.right - box.width() * 0.06f,
+                        box.top + box.height() * (finished ? 0.66f : 0.44f));
+            Theme.fitText(c, headline, scratch, Theme.D2, 22f,
+                          Theme.INK, Paint.Align.CENTER, true);
+            if (!finished) {
+                Theme.textCentered(c, engine.completedCount() + " of " + engine.taskCount()
+                                   + " done. That still counts!", box.centerX(),
+                                   box.top + box.height() * 0.60f, caption,
+                                   Theme.INK_MUTED, Paint.Align.CENTER, false);
+            }
         }
 
         scratch.set(box.left + box.width() * 0.05f, box.bottom - box.height() * 0.26f,
