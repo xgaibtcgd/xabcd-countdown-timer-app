@@ -453,6 +453,9 @@ function screenAdventure(ctx, L, buddy, t) {
 
   glyphChip(ctx, 'chevron-left', L.advBack, 'rgba(255,255,255,.92)', buddy.ink);
   glyphChip(ctx, 'pause', L.advPause, 'rgba(255,255,255,.92)', buddy.ink);
+  // The quick mute, under the pause chip. Shown on here so the state can be looked at;
+  // the preview has no sound, so this is the only thing about it that can be checked.
+  glyphChip(ctx, 'speaker', L.advMute, 'rgba(255,255,255,.92)', buddy.ink);
 
   const title = L.advTitle;
   const tSize = Math.min(rh(title) * 0.44, DATA.metrics.designWidth * 0.062);
@@ -916,7 +919,7 @@ const SCREENS = [
     bands: ['homeHeader', 'wordmark', 'hero', 'timerCard', 'routineHeader', 'taskBand', 'startBtn', 'navBar'] },
   { key: 'adventure', name: 'Buddy Adventure',
     note: 'The countdown, with the buddy travelling its trail', draw: screenAdventure,
-    bands: ['advBack', 'advTitle', 'advPause', 'advClock', 'advTally', 'advScene', 'advTrail', 'advGoal', 'advProgress', 'advTaskCard', 'advAction'] },
+    bands: ['advBack', 'advTitle', 'advPause', 'advMute', 'advClock', 'advTally', 'advScene', 'advTrail', 'advGoal', 'advProgress', 'advTaskCard', 'advAction'] },
   { key: 'complete', name: 'Mission Complete',
     note: 'New in v0.7. The frozen time is the subject', draw: screenComplete,
     bands: ['cmpTitle', 'cmpStage', 'cmpCard', 'cmpPlayAgain', 'cmpBackHome'] },

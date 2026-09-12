@@ -50,6 +50,7 @@ public final class MainActivity extends Activity {
     private boolean titleMusicWanted;
     private SoundPool soundPool;
     private final int[] soundIds = new int[BuddyTheme.COUNT];
+    private final int[] eatIds = new int[BuddyTheme.COUNT];
 
     private static final String[] DEFAULT_TASK_NAMES =
             {"Get Dressed", "Breakfast", "Brush Teeth", "Shoes On", "Backpack"};
@@ -165,7 +166,9 @@ public final class MainActivity extends Activity {
      */
     private void prepareSounds() {
         soundPool = new SoundPool.Builder()
-                .setMaxStreams(4)
+                // Three bites inside 1.4 seconds, and a poke can land on top of any of
+                // them, so four was the exact number this could exceed.
+                .setMaxStreams(6)
                 .setAudioAttributes(new AudioAttributes.Builder()
                         .setUsage(AudioAttributes.USAGE_GAME)
                         .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
@@ -176,6 +179,11 @@ public final class MainActivity extends Activity {
                 soundIds[i] = soundPool.load(this, BuddyTheme.ALL[i].soundRes, 1);
             } catch (Exception ignored) {
                 soundIds[i] = 0;
+            }
+            try {
+                eatIds[i] = soundPool.load(this, BuddyTheme.ALL[i].eatRes, 1);
+            } catch (Exception ignored) {
+                eatIds[i] = 0;
             }
         }
     }
@@ -188,6 +196,27 @@ public final class MainActivity extends Activity {
             soundPool.play(soundIds[i], 0.72f, 0.72f, 1, 0, 1f);
         } catch (Exception ignored) {
             // A sound failing is never worth interrupting a child's morning.
+        }
+    }
+
+    /**
+     * One bite of a treat, rising in pitch across the three.
+     *
+     * <p>The rate argument on {@code SoundPool.play} was hardcoded to 1 at the only call
+     * site and unused everywhere, so it was free: three plays of one sample at the same
+     * pitch read as the treat being hit three times, and the same three rising read as it
+     * being finished.
+     *
+     * @param bite 0, 1 or 2 -- which bite of the treat this is
+     */
+    void playEatSound(int buddyIndex, int bite) {
+        if (!prefs.getBoolean("song", true)) return;
+        int i = BuddyTheme.clampIndex(buddyIndex);
+        if (soundPool == null || eatIds[i] == 0) return;
+        float rate = 1f + 0.08f * Math.max(0, Math.min(bite, Art.BITE_COUNT - 1));
+        try {
+            soundPool.play(eatIds[i], 0.62f, 0.62f, 1, 0, rate);
+        } catch (Exception ignored) {
         }
     }
 

@@ -10,7 +10,7 @@ import android.graphics.RectF;
  */
 final class ScreenAdventure extends Screen {
 
-    private static final int R_BACK = 1, R_PAUSE = 2, R_ACTION = 3;
+    private static final int R_BACK = 1, R_PAUSE = 2, R_ACTION = 3, R_MUTE = 4, R_LANE = 5;
 
     private final RectF scratch = new RectF();
 
@@ -25,14 +25,13 @@ final class ScreenAdventure extends Screen {
     private static final int LOOKAHEAD = 4;
 
     /**
-     * The stretch of the action beat spent eating, as a fraction of it.
-     *
-     * <p>The engine counts an item collected the instant the buddy reaches it, which is
-     * {@code FEAST_LEAD / FEAST_SECONDS} into the beat. Eating opens a little before
-     * that so the first chomp's wind-up happens on the approach, and closes before the
-     * beat ends so the buddy has a moment to walk on with nothing in its mouth.
+     * Seconds a poke lasts. Long enough for the buddy to complete its own move, short
+     * enough that a child jabbing at the screen gets a reaction to each jab.
      */
-    private static final float EAT_START = 0.12f, EAT_END = 0.82f;
+    private static final float POKE_SECONDS = 0.55f;
+
+    /** Seconds left of the current poke, counted down in {@link #draw}. */
+    private float pokeRemaining;
 
     /** Fires the pickup burst once per item rather than on every frame of the window. */
     private int burstedThrough = 0;
@@ -44,17 +43,29 @@ final class ScreenAdventure extends Screen {
 
     @Override void onEnter() {
         burstedThrough = view.engine.collectedCount();
+        pokeRemaining = 0f;
     }
 
     @Override void layout(Layout layout, HitMap hits) {
+        // The lane goes down FIRST. The buddy walks across it continuously and the hit
+        // map is rebuilt only on entry, resize, scroll and task completion -- never per
+        // frame -- so a region cannot follow the buddy. This is the whole strip it walks
+        // through; onPressDown does the distance test against where the buddy actually
+        // is. Registering it first means the chips and the button, which are added after
+        // and win where they overlap, keep their taps.
+        laneBounds(layout, scratch);
+        hits.add(R_LANE, scratch);
+
         hits.addPadded(R_BACK, layout.advBack, layout.minTouchUnits(), 0);
         hits.addPadded(R_PAUSE, layout.advPause, layout.minTouchUnits(), 0);
+        hits.addPadded(R_MUTE, layout.advMute, layout.minTouchUnits(), 0);
         hits.add(R_ACTION, layout.advAction);
     }
 
     @Override void draw(Canvas c, Layout layout, float t, float dt) {
         BuddyTheme theme = view.buddy();
         Engine engine = view.engine;
+        if (pokeRemaining > 0f) pokeRemaining = Math.max(0f, pokeRemaining - dt);
 
         view.scene.drawBackground(c, theme, t);
         // Trail first: the goal stands at the end of the lane, so items still to be
@@ -69,6 +80,7 @@ final class ScreenAdventure extends Screen {
         view.scene.drawForeground(c, theme, t, true);
 
         drawTopBar(c, layout, theme);
+        drawMute(c, layout, theme);
         drawClock(c, layout, theme, engine);
         drawTally(c, layout, theme, engine);
         drawTreatBoard(c, layout, theme, engine, t);
@@ -99,13 +111,31 @@ final class ScreenAdventure extends Screen {
         // across the beat, each less committed than the last, so it reads as a chomp and
         // two follow-ups. Each contact is what takes the next bite out of the item.
         float chomp = -1f, strength = 1f;
-        int bite = biteAt(beat);
+        int bite = Engine.bitesTaken(beat);
         if (beat >= 0f) {
-            float eaten = eatPhase(beat);
+            float eaten = Engine.eatPhase(beat);
             chomp = eaten - (float) Math.floor(eaten);
             if (eaten >= Art.BITE_COUNT || eaten < 0f) chomp = -1f;
             strength = 1f - 0.21f * Math.min(bite, Art.BITE_COUNT - 1);
         }
+
+        // A poke. There is one action slot on the buddy, and while it is eating the
+        // chomp owns it -- so a poke mid-meal is layered outside instead, as a hop and a
+        // grow about the feet, which composes with whatever the chomp is doing. Poked
+        // while just walking, it runs its own character move at full strength, which is
+        // a far bigger reaction and is the one a child gets most of the time.
+        float poke = pokeRemaining <= 0f ? -1f : 1f - pokeRemaining / POKE_SECONDS;
+        if (poke >= 0f) {
+            if (chomp < 0f) {
+                chomp = poke;
+                strength = 1f;
+            } else {
+                float hop = (float) Math.sin(poke * (float) Math.PI);
+                feet -= height * 0.11f * hop;
+                height *= 1f + 0.07f * hop;
+            }
+        }
+
         view.drawBuddy(c, theme.index, x, feet, height, true, theme.feastKind,
                        chomp, strength);
 
@@ -124,18 +154,59 @@ final class ScreenAdventure extends Screen {
         }
     }
 
-    /** How far through the eating window the beat is, 0..BITE_COUNT. */
-    private static float eatPhase(float beat) {
-        return (beat - EAT_START) / (EAT_END - EAT_START) * Art.BITE_COUNT;
+    /**
+     * A tap in the walking lane, which counts only if it landed on the buddy.
+     *
+     * <p>{@code onPressDown} is the one place a screen sees raw coordinates, and it fires
+     * on ACTION_DOWN, which is what makes this possible at all: the buddy's x is a
+     * function of the clock and no registered region can follow it. Returning true claims
+     * the gesture, so the lane does not also fire {@link #onRegion} on release -- there
+     * is nothing else in the lane to tap and no scrolling on this screen, so nothing is
+     * lost by taking it.
+     */
+    @Override boolean onPressDown(int id, int data, float x, float y) {
+        if (id != R_LANE) return false;
+        // Not through the paused veil: it says "Tap play to carry on", and a buddy
+        // barking from behind it is answering a different question.
+        if (!view.engine.isPaused() && onBuddy(view.layout, view.engine, x, y)) {
+            pokeRemaining = POKE_SECONDS;
+            view.activity.playBuddySound(view.buddy().index);
+            view.startClock();
+        }
+        return true;                         // in the lane either way; see above
     }
 
-    /** How many bites have been taken out of the item at this point in the beat. */
-    private static int biteAt(float beat) {
-        if (beat < 0f) return Art.BITE_COUNT;          // the beat is over; it is gone
-        float eaten = eatPhase(beat);
-        if (eaten <= 0f) return 0;
-        int taken = (int) eaten;
-        return taken > Art.BITE_COUNT ? Art.BITE_COUNT : taken;
+    /**
+     * The strip the buddy walks through, which is the region the lane registers.
+     *
+     * <p>Has to contain every point {@link #onBuddy} would accept, at every screen size
+     * and every point along the walk -- a tap outside it never reaches
+     * {@link #onPressDown} at all, so the buddy would simply stop responding somewhere
+     * along the trail with nothing to show for it. tools/SelfTest.java proves the
+     * containment rather than leaving it to two sets of margins agreeing by eye.
+     */
+    static void laneBounds(Layout layout, RectF out) {
+        float height = buddyHeight(layout);
+        RectF trail = layout.advTrail;
+        out.set(trail.left - height * 0.5f, trail.centerY() - height * 1.15f,
+                trail.right + height * 0.5f, trail.bottom + height * 0.15f);
+    }
+
+    /**
+     * Is the point on the buddy, wherever along the trail it has walked to?
+     *
+     * <p>Its own method, and package-visible, so tools/SelfTest.java can prove it against
+     * a real Layout and a clock-driven Engine at every screen size. A hit test that only
+     * exists inline in a touch handler is one nothing off the device can reach.
+     *
+     * <p>Generous horizontally: the sprite is about that wide, and the idle sway is
+     * +-1.6% of the scene either side, which is not worth tracking here.
+     */
+    static boolean onBuddy(Layout layout, Engine engine, float x, float y) {
+        float height = buddyHeight(layout);
+        float bx = walkX(layout, engine);
+        float by = layout.advTrail.centerY() - height * 0.5f;
+        return Math.abs(x - bx) <= height * 0.45f && Math.abs(y - by) <= height * 0.60f;
     }
 
     /** Where along the trail the buddy has walked to, without its idle bob. */
@@ -203,9 +274,9 @@ final class ScreenAdventure extends Screen {
                 // The one being eaten: whole, then a bite gone, then two, then nothing.
                 // Each bite pops as it lands, which is what makes it read as a bite
                 // rather than the item quietly changing shape.
-                int bites = biteAt(beat);
+                int bites = Engine.bitesTaken(beat);
                 if (bites >= Art.BITE_COUNT) continue;
-                float eaten = eatPhase(beat);
+                float eaten = Engine.eatPhase(beat);
                 float pop = Math.max(0f, 1f - Math.abs(eaten - bites) * 6f);
                 Icons.collectible(c, theme.index, x, y, size, true, pop, false, bites);
             } else {
@@ -257,6 +328,22 @@ final class ScreenAdventure extends Screen {
                        size, 0xFF1857A5);
         Theme.wordmark(c, "Adventure!", title.centerX(), title.top + title.height() * 0.78f,
                        size * 1.06f, 0xFFFFF06A);
+    }
+
+    /**
+     * The quick mute, under the pause chip.
+     *
+     * <p>The setting itself lives in Grown-Ups, behind the PIN, and getting to it from
+     * here costs five steps, two PIN entries and kid mode -- which is no use at all to a
+     * parent who wants the noise to stop now. This is the same {@code "song"} preference,
+     * so the two stay in step and there is no second setting to disagree with the first.
+     * No PIN: turning the sound off is not leaving the app.
+     */
+    private void drawMute(Canvas c, Layout layout, BuddyTheme theme) {
+        boolean on = view.pref("song", true);
+        Icons.glyphChip(c, on ? Art.GLYPH_SPEAKER : Art.GLYPH_SPEAKER_OFF,
+                        layout.advMute, on ? 0xEAFFFFFF : 0xEAE4E9EF,
+                        on ? theme.ink : 0xFF7B8794, view.pressOn(R_MUTE));
     }
 
     private void drawClock(Canvas c, Layout layout, BuddyTheme theme, Engine engine) {
@@ -486,6 +573,15 @@ final class ScreenAdventure extends Screen {
                 if (view.engine.isPaused()) view.engine.resume();
                 else view.engine.pause();
                 view.startClock();
+                break;
+            case R_MUTE:
+                view.setPref("song", !view.pref("song", true));
+                break;
+            case R_LANE:
+                // Claimed in onPressDown, which returns true, so this never runs. It is
+                // here because the region gate requires every registered region to be
+                // handled, and that is the right rule: a region nothing answers is
+                // normally a control that has quietly stopped working.
                 break;
             case R_ACTION:
                 if (!view.engine.allDone()) {

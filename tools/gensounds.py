@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Synthesises the buddies' tap sounds and the title-screen song.
+"""Synthesises the buddies' tap sounds, their eating sounds and the title-screen song.
 
 The seven that shipped were quarter-second synthetic blips -- pleasant enough, but a
 bee and a pug made much the same noise, and none of them sounded like the animal on
@@ -310,6 +310,127 @@ def trike():
     return out
 
 
+# --------------------------------------------------------------------- eating
+#
+# One per buddy, fired three times per treat as Engine.pollBite reports each bite.
+# Two constraints shape all of them. They have to be SHORT, because the three land
+# inside 1.4 seconds and a tail that outlives its bite turns the set into mush. And
+# each has to be clearly not that buddy's TAP sound, or a poke and a bite become the
+# same noise -- which matters most for the burger, whose tap sound is already a chomp.
+#
+# They are per buddy rather than one shared crunch because every other eating cue in
+# this app already is: the munch word is YUM / BUZZ / NOM / CHOMP / MUNCH / SPARKLE /
+# PURR / CRUNCH and the feast move is eight distinct motions. One generic crunch
+# behind all of that would be the only part that did not know which animal it was.
+
+
+def _crunch(dur, low, bright, seed, grains=7):
+    """A crunch: a scatter of tiny band-limited grains under one fast envelope.
+
+    Crunching is not a tone with an envelope on it, it is a lot of very short events
+    close together -- which is why a single filtered noise burst reads as a "shh" and
+    this reads as something breaking.
+    """
+    n = seconds(dur)
+    rng = random.Random(seed)
+    out = [0.0] * n
+    for g in range(grains):
+        at = int(rng.uniform(0.0, 0.55) * n)
+        m = min(n - at, seconds(0.02 + rng.random() * 0.03))
+        if m <= 2:
+            continue
+        grain = lowpass(noise(m, seed * 31 + g), rng.uniform(low, bright))
+        grain = apply_env(grain, envelope(m, 0.001, 0.012))
+        amp = rng.uniform(0.5, 1.0)
+        for i, v in enumerate(grain):
+            out[at + i] += v * amp
+    return apply_env(out, envelope(n, 0.002, dur * 0.55))
+
+
+def eat_burger():
+    """Bun and lettuce: bright and papery, with only a hint of thud under it.
+
+    The thud started an octave lower and half again as loud, which put the whole sound
+    at 130 Hz -- the same place as the bone, and measurably the same sound. Bread is
+    not the bone; the difference is that the bone has a body and this does not.
+    """
+    n = seconds(0.22)
+    thud = apply_env(osc(sweep([(0, 260), (1, 150)], n), "sine"), envelope(n, 0.003, 0.05))
+    return mix(_crunch(0.22, 1600, 5200, 7), [t * 0.28 for t in thud])
+
+
+def eat_bee():
+    """A honey sip: wet air rising, with a pop at the end of it."""
+    n = seconds(0.26)
+    air = resonator(lowpass(noise(n, 21), sweep([(0, 900), (1, 2600)], n)),
+                    sweep([(0, 480), (1, 1500)], n), q=7.0)
+    pop = apply_env(osc(sweep([(0, 300), (1, 900)], n), "sine"),
+                    envelope(n, 0.02, 0.10, 0.04))
+    return mix([a * 0.9 for a in air], [p * 0.5 for p in pop])
+
+
+def eat_pug():
+    """A bone: the hardest crunch in the set, low and gritty."""
+    n = seconds(0.24)
+    body = lowpass(apply_env(osc(sweep([(0, 120), (1, 70)], n), "square"),
+                             envelope(n, 0.002, 0.05)), 500)
+    return mix(_crunch(0.24, 240, 1600, 13, grains=9), [b * 0.62 for b in body])
+
+
+def eat_shark():
+    """A wet chomp: a jaw snap and a gulp."""
+    n = seconds(0.24)
+    snap = apply_env(lowpass(noise(n, 33), sweep([(0, 5200), (1, 700)], n)),
+                     envelope(n, 0.002, 0.035))
+    gulp = apply_env(osc(sweep([(0, 420), (1, 130)], n), "sine"),
+                     envelope(n, 0.01, 0.09, 0.01))
+    return mix([s * 0.85 for s in snap], [g * 0.7 for g in gulp])
+
+
+def eat_dino():
+    """A leaf: dry rustle, all high air and no body at all."""
+    n = seconds(0.26)
+    rustle = highpass(noise(n, 47), 1800)
+    flutter = [0.45 + 0.55 * (0.5 + 0.5 * math.sin(2 * math.pi * 34 * i / RATE))
+               for i in range(n)]
+    return apply_env([r * f for r, f in zip(rustle, flutter)],
+                     envelope(n, 0.006, 0.10, 0.03))
+
+
+def eat_cloud():
+    """A star: it does not get chewed, it twinkles out."""
+    n = seconds(0.30)
+    out = [0.0] * n
+    for k, f in enumerate((1568, 2093, 2637)):
+        m = seconds(0.16)
+        at = seconds(0.04 * k)
+        tone = apply_env(osc([f] * m, "sine"), envelope(m, 0.002, 0.09))
+        for i, v in enumerate(tone):
+            if at + i < n:
+                out[at + i] += v * (0.9 - 0.2 * k)
+    return out
+
+
+def eat_kitty():
+    """A nibble: two tiny high ticks and nothing else."""
+    def tick(dur, f, seed):
+        n = seconds(dur)
+        tone = apply_env(osc(sweep([(0, f), (1, f * 0.7)], n), "triangle"),
+                         envelope(n, 0.002, 0.03))
+        grit = apply_env(highpass(noise(n, seed), 2600), envelope(n, 0.001, 0.02))
+        return [0.8 * a + 0.4 * b for a, b in zip(tone, grit)]
+
+    return tick(0.07, 1400, 5) + [0.0] * seconds(0.05) + tick(0.08, 1150, 9)
+
+
+def eat_trike():
+    """A melon: a bright crack, then juice."""
+    n = seconds(0.28)
+    juice = apply_env(lowpass(noise(n, 59), sweep([(0, 2400), (1, 500)], n)),
+                      envelope(n, 0.03, 0.14, 0.02))
+    return mix(_crunch(0.16, 1400, 5200, 3, grains=5), [j * 0.55 for j in juice])
+
+
 # --------------------------------------------------------------------- the song
 #
 # A loop for the title screen. Music box over a plucked bass and a soft shaker, in
@@ -466,6 +587,14 @@ SOUNDS = {
     "buddy_cloud_sound": cloud,
     "buddy_burger_sound": burger,
     "buddy_trike_sound": trike,
+    "buddy_burger_eat": eat_burger,
+    "buddy_bee_eat": eat_bee,
+    "buddy_pug_eat": eat_pug,
+    "buddy_shark_eat": eat_shark,
+    "buddy_dino_eat": eat_dino,
+    "buddy_cloud_eat": eat_cloud,
+    "buddy_kitty_eat": eat_kitty,
+    "buddy_trike_eat": eat_trike,
 }
 
 

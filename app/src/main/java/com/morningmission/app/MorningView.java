@@ -297,6 +297,11 @@ final class MorningView extends View implements Choreographer.FrameCallback, Eng
         }
 
         engine.pollTimeUp();
+        // Beside pollTimeUp for the same reason: eating is a pure function of the clock,
+        // so the only honest place to notice a bite has landed is the frame loop, not the
+        // draw call that happens to render it.
+        int bite = engine.pollBite();
+        if (bite >= 0) activity.playEatSound(buddy().index, bite);
         particles.update(dt);
         blend.set(Anim.stateFor(engine, pref("dance", true), cheerRemaining, engine.isRunning()));
         blend.update(dt);

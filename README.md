@@ -117,6 +117,27 @@ collectible, goal and glyph. `Scene` still contains a complete procedural
 environment per buddy, used when no artwork is present and for the celebration,
 which has none.
 
+## Sound
+
+Everything in `app/src/main/res/raw/` except `victory.wav` is synthesised by
+`tools/gensounds.py` -- pure standard library, no numpy, no binary blobs nobody
+can change. Two per buddy plus the title loop:
+
+- `buddy_<key>_sound` is the tap sound, played when you choose the buddy in the
+  picker, tick off a task, or poke the buddy on the adventure screen.
+- `buddy_<key>_eat` is one bite of a treat, fired three times per treat from
+  `Engine.pollBite`, rising in pitch across the three via `SoundPool`'s rate
+  argument. They are short by necessity -- the three land inside 1.4 seconds.
+- `title_song` is an eighteen-second loop. It is named in `LOOPING`, which
+  suppresses the anti-click edge fade every other sound gets -- on a loop that
+  fade lands on the seam and pumps the volume down and back up once a lap.
+
+Regenerate with `python3 tools/gensounds.py`. Nothing here can be listened to in
+CI, so the property that matters is checked numerically instead: every one of the
+sixteen buddy sounds must differ from every other on duration, burst count,
+dominant frequency or spectral centroid -- most of all a buddy's eat sound from
+its own tap sound, or a poke and a bite become the same noise.
+
 ## Reference
 
 `design/` holds the approved mockups. `v0_6_visual_target.png` is the current

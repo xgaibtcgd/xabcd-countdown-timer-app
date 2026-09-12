@@ -46,6 +46,20 @@ final class Engine {
     /** How much of that beat happens before the buddy reaches the item. */
     static final float FEAST_LEAD = 0.45f;
 
+    /**
+     * The stretch of the action beat spent eating, as a fraction of it.
+     *
+     * <p>The item is counted collected the instant the buddy reaches it, which is
+     * {@link #FEAST_LEAD} / {@link #FEAST_SECONDS} into the beat. Eating opens a little
+     * before that so the first chomp's wind-up happens on the approach, and closes before
+     * the beat ends so the buddy has a moment to walk on with nothing in its mouth.
+     *
+     * <p>Here rather than in the screen that draws it because {@link #pollBite} has to do
+     * the same arithmetic, and two copies of it would drift: the sound would land on a
+     * different frame from the bite it belongs to.
+     */
+    static final float EAT_START = 0.12f, EAT_END = 0.82f;
+
     private static final String[] NO_TASKS = new String[0];
 
     private final Clock clock;
@@ -64,6 +78,11 @@ final class Engine {
     /** Remaining time while paused, or -1 when not paused. */
     private long pausedRemainingMs = -1L;
     private boolean timeUpFired;
+
+    /** Which collectible {@link #pollBite} is counting bites out of, or -1. */
+    private int biteItem = -1;
+    /** How many of that item's bites have already been reported. */
+    private int bitesFired;
 
     Engine(Clock clock) {
         this.clock = clock;
@@ -120,6 +139,8 @@ final class Engine {
         timeUpFired = false;
         completionRemainingMs = -1L;
         pausedRemainingMs = -1L;
+        biteItem = -1;
+        bitesFired = 0;
     }
 
     /** Clears progress and stops the countdown. */
@@ -131,6 +152,8 @@ final class Engine {
         completionRemainingMs = -1L;
         pausedRemainingMs = -1L;
         timeUpFired = false;
+        biteItem = -1;
+        bitesFired = 0;
     }
 
     /** Sets the duration used by the next {@link #start}. */
@@ -300,6 +323,61 @@ final class Engine {
         float since = secondsSinceCollected();
         float p = (since + FEAST_LEAD) / FEAST_SECONDS;
         return p < 1f ? p : -1f;
+    }
+
+    /**
+     * How far through the eating window the beat is, 0 at the first bite's contact and
+     * {@link Art#BITE_COUNT} when the item is gone.
+     */
+    static float eatPhase(float beat) {
+        return (beat - EAT_START) / (EAT_END - EAT_START) * Art.BITE_COUNT;
+    }
+
+    /** How many bites are out of the item at this point in the beat, 0..BITE_COUNT. */
+    static int bitesTaken(float beat) {
+        if (beat < 0f) return Art.BITE_COUNT;          // the beat is over; it is gone
+        float eaten = eatPhase(beat);
+        if (eaten <= 0f) return 0;
+        int taken = (int) eaten;
+        return taken > Art.BITE_COUNT ? Art.BITE_COUNT : taken;
+    }
+
+    /** Which collectible (1-based) the current beat is being spent on, or -1. */
+    private int itemBeingEaten() {
+        if (feastBeat() < 0f) return -1;
+        // During the lead-in the buddy has not reached the item yet, so the count is
+        // still one behind; for the rest of the beat it is the one just counted.
+        return secondsUntilCollect() <= FEAST_LEAD ? collectedCount() + 1 : collectedCount();
+    }
+
+    /**
+     * Which bite just landed, 0..{@code BITE_COUNT - 1}, or -1 for no bite this frame.
+     *
+     * <p>The same shape as {@link #pollTimeUp}, and for the same reason. Eating is a pure
+     * function of the clock -- {@link #feastBeat} is read inside a draw call and holds no
+     * state -- so there is no event to hang a sound on, and firing one from the draw is
+     * the defect MorningView carries an explicit warning about. Edge-detecting it here
+     * puts the event where the state is, and where tools/SelfTest.java can prove it fires
+     * exactly three times per treat and never twice for the same bite.
+     *
+     * <p>Reports at most one bite per call. Bites are around half a second apart, so a
+     * frame that spans two is a stall, and the next frame reporting the second one late
+     * beats dropping it.
+     */
+    int pollBite() {
+        float beat = feastBeat();
+        if (beat < 0f || !running || isPaused()) {
+            biteItem = -1;
+            bitesFired = 0;
+            return -1;
+        }
+        int item = itemBeingEaten();
+        if (item != biteItem) {
+            biteItem = item;
+            bitesFired = 0;
+        }
+        if (bitesTaken(beat) <= bitesFired) return -1;
+        return bitesFired++;
     }
 
     /** How many have been picked up so far. */

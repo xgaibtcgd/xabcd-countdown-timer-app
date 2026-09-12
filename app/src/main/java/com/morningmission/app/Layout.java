@@ -92,6 +92,7 @@ final class Layout {
     final RectF advBack = new RectF();
     final RectF advTitle = new RectF();
     final RectF advPause = new RectF();
+    final RectF advMute = new RectF();
     final RectF advClock = new RectF();
     final RectF advTally = new RectF();
     /** The illustrated world: everything between the clock and the task card. */
@@ -473,6 +474,15 @@ final class Layout {
         advTitle.set(advBack.right, bandTop[bTop], advPause.left, bandBottom(bTop));
 
         place(bClock, advClock, 250f, W - 250f);
+        // The quick mute, directly under the pause chip. The top bar is a finished
+        // composition -- back, the two-line title, pause -- and the title's ink already
+        // comes within 180 units of each chip, so a third one up there either crowds the
+        // lettering or shrinks it. The clock band has 250 units of empty margin on each
+        // side of its card, and stacking mute under pause reads as a column of "how this
+        // morning runs" rather than as a stray control.
+        float muteSize = Math.min(CHIP, advClock.height() - 24f);
+        advMute.set(advPause.centerX() - muteSize * 0.5f, advClock.centerY() - muteSize * 0.5f,
+                    advPause.centerX() + muteSize * 0.5f, advClock.centerY() + muteSize * 0.5f);
         place(bTally, advTally, 60f, W - 60f);
         place(bScene, advScene, 0f, W);
 

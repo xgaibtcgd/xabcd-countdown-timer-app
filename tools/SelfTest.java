@@ -79,6 +79,7 @@ public final class SelfTest {
                                   + inset[1] + " tasks " + tasks + " scroll " + (int) scroll;
                         checkHome(L, at);
                         checkAdventure(L, at);
+                        buddyPoke(L, at);
                         checkOtherScreens(L, at);
                     }
                 }
@@ -185,9 +186,75 @@ public final class SelfTest {
         check(L.advTrail.width() > Layout.W * 0.55f,
               "the buddy's lane is too short to read as a journey @ " + at);
 
+        valid(L.advMute, "advMute @ " + at);
+        inside(L.advMute, L.play, "advMute @ " + at);
+        // The quick mute sits in the clock band, beside the card rather than over it,
+        // and clear of the chip above it.
+        check(L.advMute.left > L.advClock.right - 0.6f,
+              "the mute chip overlaps the clock card @ " + at);
+        check(L.advMute.top > L.advPause.bottom - 0.6f,
+              "the mute chip overlaps the pause chip @ " + at);
+        check(L.advMute.bottom < L.advTally.top + 0.6f,
+              "the mute chip runs into the tally band @ " + at);
+
         float minTouch = L.minTouchUnits();
         check(L.advAction.height() >= minTouch - 0.6f, "advAction under touch target @ " + at);
         check(L.advPause.width() >= minTouch - 0.6f, "advPause under touch target @ " + at);
+    }
+
+    /**
+     * Poking the buddy.
+     *
+     * <p>The buddy's x is a function of the clock, so no hit region can follow it: the
+     * screen registers the whole walking strip and does the real test in onPressDown.
+     * That leaves two ways for the poke to quietly stop working -- the test drifting off
+     * the character, and the test accepting points the registered strip does not contain,
+     * which never reach onPressDown at all -- and neither shows up as anything but a
+     * buddy that ignores you somewhere along the trail.
+     */
+    private static void buddyPoke(Layout L, String at) {
+        FakeClock clock = new FakeClock();
+        Engine e = new Engine(clock);
+        e.setRoutine(tasks(3), keys(3));
+        e.start(10 * 60);
+
+        RectF lane = new RectF();
+        ScreenAdventure.laneBounds(L, lane);
+        valid(lane, "the walking lane @ " + at);
+
+        float feet = L.advTrail.centerY();
+        for (int step = 0; step <= 10; step++) {
+            if (step > 0) clock.advance(60_000L);
+            float x = L.advTrail.left + L.advTrail.width() * e.progress();
+            float body = feet - Math.min(L.advScene.height() * 0.46f, Layout.W * 0.42f) * 0.5f;
+
+            check(ScreenAdventure.onBuddy(L, e, x, body),
+                  "a tap on the buddy should poke it, step " + step + " @ " + at);
+            check(!ScreenAdventure.onBuddy(L, e, x, L.play.top + 4f),
+                  "a tap in the sky above the buddy should not poke it @ " + at);
+
+            // The far end of the trail is not the buddy -- unless it has walked there,
+            // which after ten of ten minutes it has.
+            if (step < 8) {
+                check(!ScreenAdventure.onBuddy(L, e, L.advTrail.right, body),
+                      "a tap at the end of the trail should not poke a buddy still at "
+                      + (int) (e.progress() * 100) + "% @ " + at);
+            }
+
+            // Everything the test accepts has to be inside the region that delivers it.
+            for (float dx = -1f; dx <= 1f; dx += 0.5f) {
+                for (float dy = -1f; dy <= 1f; dy += 0.5f) {
+                    float height = Math.min(L.advScene.height() * 0.46f, Layout.W * 0.42f);
+                    float px = x + dx * height * 0.45f;
+                    float py = body + dy * height * 0.60f;
+                    if (!ScreenAdventure.onBuddy(L, e, px, py)) continue;
+                    check(px >= lane.left - 0.6f && px <= lane.right + 0.6f
+                          && py >= lane.top - 0.6f && py <= lane.bottom + 0.6f,
+                          "a tap that counts as on the buddy falls outside the lane"
+                          + " region, so it never arrives @ " + at);
+                }
+            }
+        }
     }
 
     private static void checkOtherScreens(Layout L, String at) {
@@ -298,6 +365,12 @@ public final class SelfTest {
                   "BuddyTheme " + b.key + " has a blank string");
             check(b.artRes != 0, "BuddyTheme " + b.key + " has no art resource");
             check(b.soundRes != 0, "BuddyTheme " + b.key + " has no sound resource");
+            check(b.eatRes != 0, "BuddyTheme " + b.key + " has no eating sound");
+            // A poke and a bite must not make the same noise, which is the whole reason
+            // the eating sounds exist as a second set rather than reusing the tap.
+            check(b.eatRes != b.soundRes,
+                  "BuddyTheme " + b.key + " eats with its own tap sound");
+            check(b.backdropRes != 0, "BuddyTheme " + b.key + " has no backdrop");
             check(opaque(b.primary) && opaque(b.accent) && opaque(b.light)
                   && opaque(b.ink) && opaque(b.dark) && opaque(b.body),
                   "BuddyTheme " + b.key + " has a non-opaque palette colour");
@@ -309,6 +382,17 @@ public final class SelfTest {
             check(contrast(b.ink, b.light) >= 4.5f,
                   "BuddyTheme " + b.key + " ink on light fails 4.5:1 contrast: "
                   + contrast(b.ink, b.light));
+        }
+
+        // No two rows may share a resource: that is what a copy-pasted row looks like,
+        // and it is invisible until you notice two characters sounding the same.
+        for (int i = 0; i < BuddyTheme.COUNT; i++) {
+            for (int j = i + 1; j < BuddyTheme.COUNT; j++) {
+                BuddyTheme a = BuddyTheme.ALL[i], b = BuddyTheme.ALL[j];
+                check(a.artRes != b.artRes && a.soundRes != b.soundRes
+                      && a.eatRes != b.eatRes && a.backdropRes != b.backdropRes,
+                      a.key + " and " + b.key + " share a resource");
+            }
         }
 
         // Palette separation. Deliberately a weak bar, because the palettes are sampled
@@ -746,10 +830,19 @@ public final class SelfTest {
 
         bites();
 
+        check(Art.GLYPH_NAMES.length == Art.GLYPH_COUNT,
+              "the glyph name list is " + Art.GLYPH_NAMES.length + " long against "
+              + Art.GLYPH_COUNT + " glyphs; the preview looks these up by name");
         for (int g = 0; g < Art.GLYPH_COUNT; g++) {
             check(Art.GLYPHS[g] != null && Art.GLYPHS[g].length > 0,
                   "UI glyph " + g + " is missing");
             checkShape(Art.GLYPHS[g], "glyph " + g);
+            check(notBlank(Art.GLYPH_NAMES[g]), "glyph " + g + " has no name");
+            for (int h = g + 1; h < Art.GLYPH_COUNT; h++) {
+                check(!Art.GLYPH_NAMES[g].equals(Art.GLYPH_NAMES[h]),
+                      "glyphs " + g + " and " + h + " share the name "
+                      + Art.GLYPH_NAMES[g]);
+            }
         }
     }
 
@@ -1190,6 +1283,79 @@ public final class SelfTest {
         check(f >= 0f && f < 1.0001f, "the collectible fraction must stay in range");
 
         feastBeat();
+        biteEvents();
+    }
+
+    /**
+     * {@link Engine#pollBite}, which is what turns eating into a sound.
+     *
+     * <p>Three properties, and every one of them is a defect you would ship without
+     * noticing: exactly three bites per treat (four crunches per treat, or two, is not
+     * something a compiler objects to), each reported once (a poll that returned the
+     * same bite on every frame of the window would fire fifty times a treat and sound
+     * like static), and in order 0, 1, 2 (the pitch rises across them, so out of order
+     * is audible as a wrong note).
+     */
+    private static void biteEvents() {
+        for (int minutes : new int[]{1, 5, 15, 94}) {
+            FakeClock clock = new FakeClock();
+            Engine e = new Engine(clock);
+            e.setRoutine(tasks(2), keys(2));
+            e.start(minutes * 60);
+
+            int total = e.collectibleCount();
+            long durationMs = minutes * 60_000L;
+            int[] perTreat = new int[total + 2];
+            int expectedNext = 0;
+            int treat = 0;
+
+            // 60fps for the whole morning, which is the rate it will really be polled at.
+            for (long at = 0; at <= durationMs; at += 16L) {
+                int bite = e.pollBite();
+                if (bite < 0) { clock.advance(16L); continue; }
+                check(bite >= 0 && bite < Art.BITE_COUNT,
+                      minutes + " minutes: pollBite returned " + bite);
+                if (bite == 0) {
+                    treat++;
+                    expectedNext = 0;
+                }
+                check(bite == expectedNext,
+                      minutes + " minutes: bites arrived out of order, got " + bite
+                      + " expecting " + expectedNext);
+                expectedNext++;
+                if (treat >= 1 && treat < perTreat.length) perTreat[treat]++;
+                clock.advance(16L);
+            }
+
+            // Every treat the morning counted as collected must have been eaten in
+            // exactly BITE_COUNT goes. The last one can land right on the final tick, so
+            // allow the run to end mid-treat -- but not to under-report an earlier one.
+            int complete = 0;
+            for (int i = 1; i <= treat; i++) {
+                if (i < treat) {
+                    check(perTreat[i] == Art.BITE_COUNT,
+                          minutes + " minutes: treat " + i + " fired " + perTreat[i]
+                          + " bites, expected " + Art.BITE_COUNT);
+                }
+                if (perTreat[i] == Art.BITE_COUNT) complete++;
+            }
+            check(complete >= total - 1,
+                  minutes + " minutes: only " + complete + " of " + total
+                  + " treats were fully eaten");
+        }
+
+        // Paused, nothing is being eaten, so nothing may fire -- otherwise the crunches
+        // would carry on behind the paused veil.
+        FakeClock clock = new FakeClock();
+        Engine e = new Engine(clock);
+        e.setRoutine(tasks(1), keys(1));
+        e.start(5 * 60);
+        clock.advance(31_000L);                        // partway into a treat
+        e.pause();
+        for (int i = 0; i < 200; i++) {
+            check(e.pollBite() < 0, "a paused morning must not keep crunching");
+            clock.advance(16L);
+        }
     }
 
     /**

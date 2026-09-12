@@ -90,15 +90,10 @@ public final class ExportArt {
         }
         sb.append("\n],\n");
 
-        String[] glyphNames = {
-            "gear", "chevron-left", "chevron-right", "pause", "check", "star", "play",
-            "close", "pencil", "home", "list", "people", "lock", "drag", "plus",
-            "speaker", "refresh", "crown", "heart", "minus", "note"
-        };
         sb.append("\"glyphs\":[");
         for (int i = 0; i < Art.GLYPH_COUNT; i++) {
             if (i > 0) sb.append(",");
-            sb.append("\n{\"name\":").append(str(i < glyphNames.length ? glyphNames[i] : "glyph" + i))
+            sb.append("\n{\"name\":").append(str(Art.GLYPH_NAMES[i]))
               .append(",\"d\":").append(floats(Art.GLYPHS[i])).append("}");
         }
         sb.append("\n]\n}\n");

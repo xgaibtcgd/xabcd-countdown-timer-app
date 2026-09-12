@@ -761,9 +761,26 @@ final class Art {
                      GLYPH_PEOPLE = 11, GLYPH_LOCK = 12, GLYPH_DRAG = 13, GLYPH_PLUS = 14,
                      GLYPH_SPEAKER = 15, GLYPH_REFRESH = 16, GLYPH_CROWN = 17,
                      GLYPH_HEART = 18, GLYPH_MINUS = 19, GLYPH_NOTE = 20,
-                     GLYPH_COUNT = 21;
+                     GLYPH_SPEAKER_OFF = 21,
+                     GLYPH_COUNT = 22;
 
     static final float[][] GLYPHS = new float[GLYPH_COUNT][];
+
+    /**
+     * A name per glyph, in constant order, for the design preview.
+     *
+     * <p>Here rather than in tools/ExportArt.java, where it used to live as a private
+     * array with a {@code "glyph" + i} fallback for anything past its end. A glyph added
+     * to the enum above and not to the list exported as "glyph21", which the preview
+     * looks up by name and does not find, so the chip using it drew empty and said
+     * nothing about why. Alongside the constants it is at least in front of whoever adds
+     * the next one, and tools/SelfTest.java holds the two the same length.
+     */
+    static final String[] GLYPH_NAMES = {
+        "gear", "chevron-left", "chevron-right", "pause", "check", "star", "play",
+        "close", "pencil", "home", "list", "people", "lock", "drag", "plus",
+        "speaker", "refresh", "crown", "heart", "minus", "note", "speaker-off"
+    };
 
     static {
         // Blunt, stubby teeth around a thick ring. Longer, thinner spokes read as an
@@ -839,6 +856,15 @@ final class Art {
             .line(10, 44).quad(10, 38, 16, 38).close()
             .move(70, 34).quad(84, 50, 70, 66).quad(78, 50, 70, 34).close()
             .move(80, 22).quad(100, 50, 80, 78).quad(90, 50, 80, 22).close().build();
+
+        // The same cone, with a cross where the sound waves were. A diagonal slash over
+        // the whole glyph is the other convention and it is worse here: at chip size it
+        // crosses the cone as well, and the two shapes fight for the same pixels.
+        GLYPHS[GLYPH_SPEAKER_OFF] = b()
+            .move(16, 38).line(34, 38).line(52, 20).quad(58, 15, 58, 24).line(58, 76)
+            .quad(58, 85, 52, 80).line(34, 62).line(16, 62).quad(10, 62, 10, 56)
+            .line(10, 44).quad(10, 38, 16, 38).close()
+            .capsule(74, 37, 96, 63, 10).capsule(96, 37, 74, 63, 10).build();
 
         GLYPHS[GLYPH_REFRESH] = b()
             .move(50, 14).quad(86, 14, 86, 50).quad(86, 86, 50, 86)

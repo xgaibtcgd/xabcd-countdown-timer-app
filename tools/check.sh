@@ -10,6 +10,9 @@
 # framework jar published to Maven Central -- plus a generated R stub. That is
 # full type-checking of every framework call, with no SDK and no emulator.
 #
+# tools/checksounds.py measures the generated audio, because nothing in CI has
+# ears and "they all sound the same" is not something a compiler notices.
+#
 # Then tools/SelfTest.java exercises the pure-logic classes (Layout, HitMap,
 # BuddyTheme, Engine, icon geometry) under a plain JVM. RectF and Color work
 # fine off-device; Path is native-backed and throws UnsatisfiedLinkError, which
@@ -81,6 +84,9 @@ python3 "$ROOT/tools/regioncheck.py" "$PKG"/Screen*.java
 
 # --------------------------------------------------- canvas save/restore gate
 python3 "$ROOT/tools/canvasbalance.py" "$PKG"/*.java
+
+# ------------------------------------------------------ sound distinctness gate
+python3 "$ROOT/tools/checksounds.py" "$ROOT/app/src/main/res/raw"
 
 # ------------------------------------------------- per-frame allocation gate
 python3 "$ROOT/tools/allocgate.py" \
