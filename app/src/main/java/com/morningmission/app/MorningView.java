@@ -75,7 +75,7 @@ final class MorningView extends View implements Choreographer.FrameCallback, Eng
     // others are halved, since they are only ever seen at picker size.
     private final Bitmap[] art = new Bitmap[BuddyTheme.COUNT];
     private final int[] artSample = new int[BuddyTheme.COUNT];
-    private final Bitmap[] props = new Bitmap[3];
+    private final Bitmap[] props = new Bitmap[PROP_COUNT];
 
     // Backgrounds are large, and at most two are ever wanted at once: the storybook
     // meadow every non-adventure screen sits on, and the current buddy's world.
@@ -470,9 +470,11 @@ final class MorningView extends View implements Choreographer.FrameCallback, Eng
         return decoded;
     }
 
-    /** The treasure chest and its star: shared by every character, so not on BuddyTheme. */
     /**
      * The chest opening, frame 0 closed through frame 4 wide open and emptied.
+     *
+     * <p>The chest and its star are shared by every character, so they are here rather
+     * than on BuddyTheme.
      *
      * <p>Five frames of one render rather than two states and a tween: the lid swings on a
      * hinge the app cannot fake by rotating a flat bitmap, and the interior is only drawn
@@ -484,12 +486,20 @@ final class MorningView extends View implements Choreographer.FrameCallback, Eng
     static final int PROP_CHEST_FULL = 3;
     /** Lid all the way back, the star gone: where the opening settles. */
     static final int PROP_CHEST_OPEN = 4;
-    static final int PROP_STAR = 5, PROP_COUNT = 6;
+    static final int PROP_STAR = PROP_CHEST_FRAMES;
 
     private static final int[] PROP_RES = {
         R.drawable.prize_chest_0, R.drawable.prize_chest_1, R.drawable.prize_chest_2,
         R.drawable.prize_chest_3, R.drawable.prize_chest_4, R.drawable.prize_star,
     };
+
+    /**
+     * Derived, not written down: the cache array, the bounds check and the resource table
+     * have to be the same length, and a hand-kept count is one of the three going stale.
+     * It already did -- the cache stayed at three while the chest grew to five frames,
+     * which indexes past the end of it the moment the lid moves.
+     */
+    static final int PROP_COUNT = PROP_RES.length;
 
     /** The chest frame for an opening {@code 0..1}, held on the last one at the end. */
     static int chestFrame(float open) {

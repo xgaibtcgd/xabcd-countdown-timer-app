@@ -1723,9 +1723,15 @@ public final class SelfTest {
               "a negative opening should hold the shut chest");
         check(MorningView.chestFrame(4f) == MorningView.PROP_CHEST_OPEN,
               "an over-run opening should hold the last frame");
-        check(MorningView.PROP_STAR >= MorningView.PROP_CHEST_FRAMES
-              && MorningView.PROP_COUNT > MorningView.PROP_STAR,
-              "the star should sit past the chest frames, inside the prop table");
+        // The prop table, the bounds check and the bitmap cache all have to agree. They
+        // did not: the cache stayed three long while the chest grew to five frames, which
+        // is an out-of-bounds the instant the lid moves. PROP_COUNT is derived from the
+        // table now; this is what would catch a frame added without its drawable.
+        check(MorningView.PROP_STAR == MorningView.PROP_CHEST_FRAMES,
+              "the star should sit immediately past the chest frames");
+        check(MorningView.PROP_COUNT == MorningView.PROP_CHEST_FRAMES + 1,
+              "the prop table holds " + MorningView.PROP_COUNT + " entries for "
+              + MorningView.PROP_CHEST_FRAMES + " chest frames and a star");
     }
 
     /**
