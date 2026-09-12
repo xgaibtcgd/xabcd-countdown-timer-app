@@ -119,14 +119,18 @@ final class ScreenAdventure extends Screen {
             strength = 1f - 0.21f * Math.min(bite, Art.BITE_COUNT - 1);
         }
 
+        int moveId = Anim.feastMoveId(theme.feastKind);
+
         // A poke. There is one action slot on the buddy, and while it is eating the
         // chomp owns it -- so a poke mid-meal is layered outside instead, as a hop and a
         // grow about the feet, which composes with whatever the chomp is doing. Poked
-        // while just walking, it runs its own character move at full strength, which is
-        // a far bigger reaction and is the one a child gets most of the time.
+        // while just walking, it runs its SIGNATURE move -- its party piece, not the
+        // move it makes at food, which is what it used to run and is the wrong answer
+        // to being touched.
         float poke = pokeRemaining <= 0f ? -1f : 1f - pokeRemaining / POKE_SECONDS;
         if (poke >= 0f) {
             if (chomp < 0f) {
+                moveId = Anim.signatureMoveId(theme.signatureKind);
                 chomp = poke;
                 strength = 1f;
             } else {
@@ -136,8 +140,7 @@ final class ScreenAdventure extends Screen {
             }
         }
 
-        view.drawBuddy(c, theme.index, x, feet, height, true, theme.feastKind,
-                       chomp, strength);
+        view.drawBuddy(c, theme.index, x, feet, height, true, moveId, chomp, strength);
 
         // The reaction runs off the same beat as the motion, so the word lands with the
         // bite rather than on a fraction of a segment that stretches with the timer.

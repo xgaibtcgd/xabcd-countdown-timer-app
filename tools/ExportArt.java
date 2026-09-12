@@ -34,6 +34,12 @@ public final class ExportArt {
               .append(",\"collectMany\":").append(str(b.collectMany))
               .append(",\"munchWord\":").append(str(b.munchWord))
               .append(",\"feastKind\":").append(b.feastKind)
+              .append(",\"tempo\":").append(round(b.temperament.tempo))
+              .append(",\"bounce\":").append(round(b.temperament.bounce))
+              .append(",\"sway\":").append(round(b.temperament.sway))
+              .append(",\"tilt\":").append(round(b.temperament.tilt))
+              .append(",\"squash\":").append(round(b.temperament.squash))
+              .append(",\"hover\":").append(round(b.temperament.hover))
               .append(",\"goalName\":").append(str(Art.GOAL_NAMES[i]))
               .append(",\"primary\":").append(hex(b.primary))
               .append(",\"accent\":").append(hex(b.accent))
@@ -139,6 +145,10 @@ public final class ExportArt {
      * artwork gets judged on. Six digits is still the normal case, so nothing that parses
      * these with a plain {@code slice(1, 7)} changes.
      */
+    private static float round(float v) {
+        return Math.round(v * 100f) / 100f;
+    }
+
     private static String hex(int argb) {
         int alpha = (argb >>> 24) & 0xFF;
         String rgb = String.format("%06X", argb & 0xFFFFFF);

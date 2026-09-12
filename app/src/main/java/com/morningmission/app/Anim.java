@@ -81,6 +81,79 @@ final class Anim {
         return p < 0.5f ? 4f * p * p * p : 1f - (float) Math.pow(-2f * p + 2f, 3) / 2f;
     }
 
+    // ---------------------------------------------------------------- temperament
+    //
+    // Seventeen states, and until now every character ran every one of them
+    // identically. The only thing that differed per buddy was feastKind, the move it
+    // makes at a treat -- so a hovering bee sat on the ground bobbing on the same sine
+    // wave, at the same rate, with the same tilt, as a plush triceratops. That is why
+    // no character felt especially animated: each was animated exactly as much as the
+    // others, and nothing in the motion said which animal it was.
+    //
+    // Rather than write seventeen states eight times over, a character has a
+    // temperament: dials applied to whatever state is running. One table, and it
+    // colours the idle on Home, the walk on the adventure, the dance on the finish
+    // screen and every task motion in between.
+
+    /** How a character carries itself, applied on top of any state's motion. */
+    static final class Temperament {
+        /** Time scale. Below 1 is heavy and deliberate, above 1 is quick and fussy. */
+        final float tempo;
+        /** Vertical amplitude. */
+        final float bounce;
+        /** Horizontal amplitude. */
+        final float sway;
+        /** Rotation amplitude. */
+        final float tilt;
+        /** How far scale is allowed to depart from 1 -- how soft the body reads. */
+        final float squash;
+        /** Lift off the ground, plus a wingbeat flutter. Zero for anything that walks. */
+        final float hover;
+
+        Temperament(float tempo, float bounce, float sway, float tilt,
+                    float squash, float hover) {
+            this.tempo = tempo;
+            this.bounce = bounce;
+            this.sway = sway;
+            this.tilt = tilt;
+            this.squash = squash;
+            this.hover = hover;
+        }
+    }
+
+    /** Exactly the motion the state table was written for. */
+    static final Temperament PLAIN = new Temperament(1f, 1f, 1f, 1f, 1f, 0f);
+
+    /**
+     * The same as {@link #solve(int, float, Transform)}, in a character's own body.
+     *
+     * <p>The dials multiply rather than replace, so a state stays recognisably itself:
+     * a stomp is a stomp whoever performs it, but the trike's is slower and lands
+     * harder and the kitty's is smaller and quicker.
+     */
+    static void solve(int state, Temperament how, float t, Transform out) {
+        if (how == null) how = PLAIN;
+        solve(state, t * how.tempo, out);
+        out.dx *= how.sway;
+        out.dy *= how.bounce;
+        out.rotation *= how.tilt;
+        out.scaleX = 1f + (out.scaleX - 1f) * how.squash;
+        out.scaleY = 1f + (out.scaleY - 1f) * how.squash;
+        if (how.hover > 0f) {
+            // Off the ground entirely, with a beat too fast to read as a bob. The lift
+            // itself breathes slowly so a hover does not look pinned in place.
+            out.dy -= how.hover * (34f + 5f * sin(t * 2.1f));
+            out.dy += how.hover * sin(t * 19f) * 1.6f;
+            // And then a floor, because the lift alone is a tuning and this is a
+            // promise. Picked by hand it cleared fifteen of the seventeen states and
+            // then the victory dance set the bee down on the grass once a second --
+            // the amplitude a hover has to beat is whatever the busiest state does,
+            // which is not a number worth chasing every time a state changes.
+            float clearance = -how.hover * 6f;
+            if (out.dy > clearance) out.dy = clearance;
+        }
+    }
+
     /**
      * Fills {@code out} with the motion for one state at time {@code t} (seconds).
      *
@@ -283,11 +356,16 @@ final class Anim {
          * centre reads as inflating rather than landing.
          */
         void solve(float t, float dt, Transform out) {
+            solve(t, dt, PLAIN, out);
+        }
+
+        /** The same, in a character's own body. See {@link Temperament}. */
+        void solve(float t, float dt, Temperament how, Transform out) {
             if (progress >= 1f) {
-                Anim.solve(to, t, out);
+                Anim.solve(to, how, t, out);
             } else {
-                Anim.solve(from, t, fromTransform);
-                Anim.solve(to, t, toTransform);
+                Anim.solve(from, how, t, fromTransform);
+                Anim.solve(to, how, t, toTransform);
                 out.lerpFrom(fromTransform, toTransform, easeInOutCubic(progress));
             }
 
@@ -403,6 +481,23 @@ final class Anim {
         out.scaleY = 1f + (out.scaleY - 1f) * k;
     }
 
+    // One transform slot on the buddy carries either kind of move, so the drawing code
+    // does not need to know which is running. Namespaced rather than overloaded because
+    // both switches have a default that silently falls through to their first entry, and
+    // a signature id landing in the feast switch would come out as a bite.
+
+    /** A move id for the feast move {@code kind}. */
+    static int feastMoveId(int kind) { return kind; }
+
+    /** A move id for the signature move {@code kind}. */
+    static int signatureMoveId(int kind) { return FEAST_COUNT + kind; }
+
+    /** Runs whichever move {@code moveId} names. */
+    static void move(int moveId, float p, float strength, Transform out) {
+        if (moveId >= FEAST_COUNT) signature(moveId - FEAST_COUNT, p, strength, out);
+        else feast(moveId, p, strength, out);
+    }
+
     private static void feastMove(int kind, float p, Transform out) {
         out.reset();
         if (p <= 0f || p >= 1f) return;
@@ -498,6 +593,156 @@ final class Anim {
                 break;
             }
         }
+    }
+
+    // ------------------------------------------------------------------ signatures
+    //
+    // A character's party piece: one short move, run when it is poked, as the flourish
+    // on a cheer, and as the accent in the victory dance. Same shape as the FEAST_*
+    // table -- a 0..1 phase in, a Transform out -- and held to the same rule, that no
+    // two characters share one. Poking used to run the buddy's EATING move, which is
+    // the wrong answer to being touched.
+
+    static final int SIG_HOP     = 0;   // a clean hop, squashing on the landing
+    static final int SIG_FLUTTER = 1;   // straight up, hang on a fast wingbeat, settle
+    static final int SIG_PRANCE  = 2;   // three quick alternating tilts, paws off
+    static final int SIG_ROLL    = 3;   // a barrel roll, the way a fish turns over
+    static final int SIG_SPRING  = 4;   // two hops, the second landing with a swish
+    static final int SIG_PUFF    = 5;   // swells up and springs back, weightless
+    static final int SIG_WIGGLE  = 6;   // a dainty shimmy that never leaves the floor
+    static final int SIG_STOMP   = 7;   // rear back, slam down, the whole body recoils
+    static final int SIG_COUNT   = 8;
+
+    /**
+     * Fills {@code out} with one character's signature move.
+     *
+     * @param p 0 at the wind-up, 1 when it is over
+     */
+    static void signature(int kind, float p, Transform out) {
+        signature(kind, p, 1f, out);
+    }
+
+    /** The same, scaled -- see {@link #feast(int, float, float, Transform)}. */
+    static void signature(int kind, float p, float strength, Transform out) {
+        signatureMove(kind, p, out);
+        if (strength == 1f) return;
+        float k = clamp(strength, 0f, 1f);
+        out.dx *= k;
+        out.dy *= k;
+        out.rotation *= k;
+        out.scaleX = 1f + (out.scaleX - 1f) * k;
+        out.scaleY = 1f + (out.scaleY - 1f) * k;
+    }
+
+    private static void signatureMove(int kind, float p, Transform out) {
+        out.reset();
+        if (p <= 0f || p >= 1f) return;
+        switch (kind) {
+            case SIG_FLUTTER: {
+                // Nothing that hovers pushes off the ground. It just goes up, holds on
+                // a wingbeat, and comes back down.
+                float lift = hump(p, 0.42f);
+                out.dy = -74f * lift + sin(p * 46f) * 4f * lift;
+                out.rotation = sin(p * 15f) * 5f * lift;
+                out.scaleX = 1f + 0.05f * lift;
+                out.scaleY = 2f - out.scaleX;
+                break;
+            }
+            case SIG_PRANCE: {
+                // Three eager little bounds, tilting the other way on each.
+                float beats = sin(p * (float) Math.PI * 3f);
+                float envelope = hump(p, 0.5f);
+                out.dy = -34f * Math.abs(beats) * envelope;
+                out.rotation = 13f * beats * envelope;
+                out.dx = 16f * envelope;
+                break;
+            }
+            case SIG_ROLL: {
+                // A full turn about the long axis, rising through the middle of it.
+                float lift = hump(p, 0.5f);
+                out.rotation = 360f * easeInOutCubic(p);
+                out.dy = -46f * lift;
+                out.dx = 22f * sin(p * (float) Math.PI * 2f);
+                break;
+            }
+            case SIG_SPRING: {
+                // A light springy body does not stop dead when it lands: it bounces
+                // again, smaller, and carries sideways off the second landing. Two hops
+                // with a swish is the whole character of this one.
+                float first = Math.max(0f, sin(clamp(p / 0.46f, 0f, 1f) * (float) Math.PI));
+                float second = p < 0.52f ? 0f
+                             : (float) Math.sin(clamp((p - 0.52f) / 0.36f, 0f, 1f) * Math.PI);
+                out.dy = -78f * first - 34f * second;
+                // The tail comes round on the way down from the second hop.
+                float swish = p < 0.52f ? 0f : sin((p - 0.52f) * 13f);
+                out.dx = 10f * first + 24f * swish * second;
+                out.rotation = -7f * first + 12f * swish * second;
+                // Both landings squash; the second is softer.
+                float land = Math.max(landing(p, 0.46f), landing(p, 0.88f) * 0.6f);
+                out.scaleY = 1f - 0.17f * land + 0.08f * first;
+                out.scaleX = 2f - out.scaleY;
+                break;
+            }
+            case SIG_PUFF: {
+                // No travel at all. It inflates, hangs, and springs back past its own
+                // size before settling -- the only one of the eight that is pure scale.
+                float swell = hump(p, 0.40f);
+                float rebound = Math.max(0f, sin(clamp((p - 0.55f) / 0.45f, 0f, 1f)
+                                                 * (float) Math.PI));
+                out.scaleX = 1f + 0.20f * swell - 0.11f * rebound;
+                out.scaleY = 1f + 0.20f * swell - 0.11f * rebound;
+                out.dy = -26f * swell;
+                out.rotation = sin(p * 7f) * 3f;
+                break;
+            }
+            case SIG_WIGGLE: {
+                // Small, quick, and stays on the floor: four shimmies and a tail flick.
+                float shimmy = sin(p * (float) Math.PI * 8f) * hump(p, 0.5f);
+                out.dx = 19f * shimmy;
+                out.rotation = 7f * shimmy;
+                out.dy = -6f * Math.abs(shimmy);
+                out.scaleX = 1f + 0.04f * Math.abs(shimmy);
+                out.scaleY = 2f - out.scaleX;
+                break;
+            }
+            case SIG_STOMP: {
+                // Heavy. The wind-up is long and the landing is abrupt, and then the
+                // whole body carries on down for a moment before it comes back -- that
+                // overshoot is what weight looks like.
+                float rear = clamp(p / 0.44f, 0f, 1f);
+                if (p < 0.44f) {
+                    out.rotation = -15f * easeInOutCubic(rear);
+                    out.dy = -40f * easeInOutCubic(rear);
+                    out.scaleY = 1f + 0.06f * rear;
+                } else {
+                    float drop = clamp((p - 0.44f) / 0.14f, 0f, 1f);
+                    float settle = clamp((p - 0.58f) / 0.42f, 0f, 1f);
+                    out.rotation = -15f + 21f * drop - 6f * settle;
+                    out.dy = -40f + 40f * drop;
+                    // Overshoot into the ground, then recover.
+                    float impact = Math.max(0f, 1f - Math.abs(p - 0.60f) * 11f);
+                    out.scaleY = 1f - 0.26f * impact;
+                    out.dx = 14f * drop - 14f * settle;
+                }
+                out.scaleX = 2f - out.scaleY;
+                break;
+            }
+            case SIG_HOP:
+            default: {
+                float lift = Math.max(0f, sin(clamp(p / 0.72f, 0f, 1f) * (float) Math.PI));
+                out.dy = -66f * lift;
+                out.dx = 12f * lift;
+                out.rotation = -5f * lift;
+                out.scaleY = 1f + 0.07f * lift - 0.16f * landing(p, 0.72f);
+                out.scaleX = 2f - out.scaleY;
+                break;
+            }
+        }
+    }
+
+    /** A short spike as a hop touches down at {@code at}, for the squash on landing. */
+    private static float landing(float p, float at) {
+        return Math.max(0f, 1f - Math.abs(p - at) * 13f);
     }
 
     /**

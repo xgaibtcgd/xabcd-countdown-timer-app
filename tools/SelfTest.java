@@ -569,6 +569,8 @@ public final class SelfTest {
 
         drift();
         feastMoves();
+        signatureMoves();
+        temperaments();
 
         // No two states may be interchangeable. Sample a signature over several seconds
         // and require a meaningful difference.
@@ -666,6 +668,182 @@ public final class SelfTest {
                       + " action");
             }
         }
+    }
+
+    /**
+     * The signature moves -- a character's party piece, run when it is poked.
+     *
+     * <p>Same trap as the feast table: the switch behind it has a default, so a
+     * constant with no case of its own quietly gives that character the plain hop. And
+     * one more on top -- a signature that comes out the same as a FEAST_* move means
+     * poking the buddy and feeding it look identical, which is the entire point of
+     * having both.
+     */
+    private static void signatureMoves() {
+        Anim.Transform tr = new Anim.Transform();
+
+        for (int kind = 0; kind < Anim.SIG_COUNT; kind++) {
+            Anim.signature(kind, -0.1f, tr);
+            check(atRest(tr), "signature " + kind + " moves before it starts");
+            Anim.signature(kind, 1f, tr);
+            check(atRest(tr), "signature " + kind + " is still moving after it ends");
+
+            boolean moved = false;
+            for (float p = 0f; p <= 1f; p += 0.005f) {
+                Anim.signature(kind, p, tr);
+                check(finite(tr), "signature " + kind + " went non-finite at p=" + p);
+                check(Math.abs(tr.dx) <= 130f && Math.abs(tr.dy) <= 130f,
+                      "signature " + kind + " travels too far at p=" + p
+                      + ": " + tr.dx + "," + tr.dy);
+                check(Math.abs(tr.rotation) <= 361f,
+                      "signature " + kind + " rotates too far at p=" + p);
+                check(tr.scaleX > 0.5f && tr.scaleX < 1.6f
+                      && tr.scaleY > 0.5f && tr.scaleY < 1.6f,
+                      "signature " + kind + " scales out of range at p=" + p
+                      + ": " + tr.scaleX + "," + tr.scaleY);
+                if (!atRest(tr)) moved = true;
+
+                Anim.signature(kind, p, 0f, tr);
+                check(atRest(tr), "signature " + kind + " still moves at zero strength");
+            }
+            check(moved, "signature " + kind + " never actually moves");
+        }
+
+        for (int a = 0; a < Anim.SIG_COUNT; a++) {
+            for (int b = a + 1; b < Anim.SIG_COUNT; b++) {
+                check(moveDistance(Anim.signatureMoveId(a), Anim.signatureMoveId(b)) > 1.5f,
+                      "signatures " + a + " and " + b + " are the same movement; one is"
+                      + " falling through to the default hop");
+            }
+            for (int f = 0; f < Anim.FEAST_COUNT; f++) {
+                check(moveDistance(Anim.signatureMoveId(a), Anim.feastMoveId(f)) > 1.5f,
+                      "signature " + a + " and feast move " + f + " are the same"
+                      + " movement; poking and feeding would look identical");
+            }
+        }
+
+        // And the same rule the feast moves are held to: one each, none shared.
+        for (int i = 0; i < BuddyTheme.COUNT; i++) {
+            BuddyTheme b = BuddyTheme.ALL[i];
+            check(b.signatureKind >= 0 && b.signatureKind < Anim.SIG_COUNT,
+                  b.key + " has a signature outside the table: " + b.signatureKind);
+            for (int j = i + 1; j < BuddyTheme.COUNT; j++) {
+                check(b.signatureKind != BuddyTheme.ALL[j].signatureKind,
+                      b.key + " and " + BuddyTheme.ALL[j].key + " share a signature move");
+            }
+        }
+    }
+
+    /**
+     * Temperament: the dials that make each character move like itself.
+     *
+     * <p>The failure this is really guarding is silent. A temperament that is declared
+     * but never reaches {@code solve} -- one of the two call sites missed, say -- leaves
+     * every character moving exactly as before, and nothing about that looks broken. So
+     * the check is not that the numbers exist but that they change the motion: sampled
+     * against PLAIN, and against each other.
+     */
+    private static void temperaments() {
+        Anim.Transform tr = new Anim.Transform();
+
+        for (int i = 0; i < BuddyTheme.COUNT; i++) {
+            BuddyTheme b = BuddyTheme.ALL[i];
+            Anim.Temperament how = b.temperament;
+            check(how != null, b.key + " has no temperament");
+            check(how.tempo > 0.4f && how.tempo < 2.5f,
+                  b.key + " tempo " + how.tempo + " is outside anything watchable");
+            check(how.bounce >= 0f && how.bounce < 3f
+                  && how.sway >= 0f && how.sway < 3f
+                  && how.tilt >= 0f && how.tilt < 3f
+                  && how.squash >= 0f && how.squash < 3f
+                  && how.hover >= 0f && how.hover <= 1.5f,
+                  b.key + " has a temperament dial outside its range");
+
+            // Bounded through every state, with the dials on.
+            for (int state = 0; state < Anim.STATE_COUNT; state++) {
+                for (float t = 0f; t < 6f; t += 0.05f) {
+                    Anim.solve(state, how, t, tr);
+                    check(finite(tr), b.key + " state " + state + " went non-finite");
+                    check(Math.abs(tr.dx) <= 90f && Math.abs(tr.dy) <= 90f,
+                          b.key + " state " + state + " travels too far at t=" + t
+                          + ": " + tr.dx + "," + tr.dy);
+                    check(tr.scaleX > 0.6f && tr.scaleX < 1.5f
+                          && tr.scaleY > 0.6f && tr.scaleY < 1.5f,
+                          b.key + " state " + state + " scales out of range at t=" + t);
+                }
+            }
+
+            // Anything with hover is off the ground, in every state, always. A hover
+            // value too small to clear the state's own bob is a bee that keeps
+            // touching down, which is worse than not hovering at all.
+            if (how.hover > 0f) {
+                for (int state = 0; state < Anim.STATE_COUNT; state++) {
+                    for (float t = 0f; t < 6f; t += 0.02f) {
+                        Anim.solve(state, how, t, tr);
+                        check(tr.dy < 0f,
+                              b.key + " hovers, but state " + state + " puts it on the"
+                              + " ground at t=" + t + " (dy=" + tr.dy + ")");
+                    }
+                }
+            }
+        }
+
+        // Every one of the eight was given a body of its own. PLAIN stays in the code
+        // as the documented default for a caller that has no character to hand -- it is
+        // not something a row in the table should settle for.
+        for (int i = 0; i < BuddyTheme.COUNT; i++) {
+            BuddyTheme b = BuddyTheme.ALL[i];
+            check(temperamentDistance(b.temperament, Anim.PLAIN) > 1.5f,
+                  b.key + " still moves like the shared default");
+        }
+
+        // And no two characters may be interchangeable. This is the check that would
+        // survive the dials being declared and never passed to solve: ignored, all
+        // eight would come out identical and every pair here would fail.
+        for (int i = 0; i < BuddyTheme.COUNT; i++) {
+            for (int j = i + 1; j < BuddyTheme.COUNT; j++) {
+                check(temperamentDistance(BuddyTheme.ALL[i].temperament,
+                                          BuddyTheme.ALL[j].temperament) > 1.5f,
+                      BuddyTheme.ALL[i].key + " and " + BuddyTheme.ALL[j].key
+                      + " move identically");
+            }
+        }
+    }
+
+    /** Mean absolute difference between two temperaments, over every state. */
+    private static float temperamentDistance(Anim.Temperament a, Anim.Temperament b) {
+        Anim.Transform ta = new Anim.Transform();
+        Anim.Transform tb = new Anim.Transform();
+        float total = 0f;
+        int samples = 0;
+        for (int state = 0; state < Anim.STATE_COUNT; state++) {
+            for (float t = 0f; t < 4f; t += 0.05f) {
+                Anim.solve(state, a, t, ta);
+                Anim.solve(state, b, t, tb);
+                total += Math.abs(ta.dx - tb.dx) + Math.abs(ta.dy - tb.dy)
+                       + Math.abs(ta.rotation - tb.rotation) * 0.8f
+                       + Math.abs(ta.scaleY - tb.scaleY) * 120f;
+                samples++;
+            }
+        }
+        return samples == 0 ? 0f : total / samples;
+    }
+
+    /** Mean absolute difference between two one-shot moves, feast or signature. */
+    private static float moveDistance(int a, int b) {
+        Anim.Transform ta = new Anim.Transform();
+        Anim.Transform tb = new Anim.Transform();
+        float total = 0f;
+        int samples = 0;
+        for (float p = 0f; p <= 1f; p += 0.004f) {
+            Anim.move(a, p, 1f, ta);
+            Anim.move(b, p, 1f, tb);
+            total += Math.abs(ta.dx - tb.dx) + Math.abs(ta.dy - tb.dy)
+                   + Math.abs(ta.rotation - tb.rotation) * 0.8f
+                   + Math.abs(ta.scaleY - tb.scaleY) * 120f;
+            samples++;
+        }
+        return samples == 0 ? 0f : total / samples;
     }
 
     private static boolean atRest(Anim.Transform tr) {

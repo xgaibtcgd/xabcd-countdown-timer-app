@@ -366,26 +366,27 @@ final class MorningView extends View implements Choreographer.FrameCallback, Eng
      * buddy keeps breathing and bobbing through its chomp instead of freezing into a
      * canned clip.
      *
-     * @param feastKind an {@link Anim} FEAST_* constant, or -1 for no action
-     * @param feastBeat 0..1 across the action, or negative when there is none
+     * @param moveId    from {@link Anim#feastMoveId} or {@link Anim#signatureMoveId},
+     *                  or -1 for no action
+     * @param movePhase 0..1 across the action, or negative when there is none
      */
     void drawBuddy(Canvas c, int buddyIndex, float cx, float feetY, float height,
-                   boolean withShadow, int feastKind, float feastBeat) {
-        drawBuddy(c, buddyIndex, cx, feetY, height, withShadow, feastKind, feastBeat, 1f);
+                   boolean withShadow, int moveId, float movePhase) {
+        drawBuddy(c, buddyIndex, cx, feetY, height, withShadow, moveId, movePhase, 1f);
     }
 
-    /** The same, with the action scaled -- see {@link Anim#feast(int, float, float, Anim.Transform)}. */
+    /** The same, with the action scaled -- see {@link Anim#move(int, float, float, Anim.Transform)}. */
     void drawBuddy(Canvas c, int buddyIndex, float cx, float feetY, float height,
-                   boolean withShadow, int feastKind, float feastBeat, float feastStrength) {
+                   boolean withShadow, int moveId, float movePhase, float moveStrength) {
         Bitmap bitmap = art(buddyIndex, buddyIndex == buddy().index);
         if (bitmap == null || bitmap.isRecycled()) return;
 
         // Called once per frame, which is what lets the blend track velocity for squash
         // and stretch. drawBuddyPose below solves without touching that state, so the
         // seven dancing buddies in the picker cannot disturb it.
-        blend.solve(time, lastDelta, motion);
-        if (feastKind >= 0 && feastBeat >= 0f && feastBeat < 1f) {
-            Anim.feast(feastKind, feastBeat, feastStrength, feastMotion);
+        blend.solve(time, lastDelta, BuddyTheme.of(buddyIndex).temperament, motion);
+        if (moveId >= 0 && movePhase >= 0f && movePhase < 1f) {
+            Anim.move(moveId, movePhase, moveStrength, feastMotion);
             motion.dx += feastMotion.dx;
             motion.dy += feastMotion.dy;
             motion.rotation += feastMotion.rotation;
@@ -417,7 +418,7 @@ final class MorningView extends View implements Choreographer.FrameCallback, Eng
                        int state, float phaseOffset) {
         Bitmap bitmap = art(buddyIndex, false);
         if (bitmap == null || bitmap.isRecycled()) return;
-        Anim.solve(state, time + phaseOffset, motion);
+        Anim.solve(state, BuddyTheme.of(buddyIndex).temperament, time + phaseOffset, motion);
         float width = height * bitmap.getWidth() / (float) bitmap.getHeight();
         c.save();
         c.translate(cx + motion.dx, feetY - height * 0.5f + motion.dy);

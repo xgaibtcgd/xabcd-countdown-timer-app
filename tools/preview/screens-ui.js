@@ -176,6 +176,28 @@ function drawBuddy(ctx, index, cx, feetY, height, bob = 0, rotation = 0) {
  * Anim.feast, enough of it to show the pose. The preview draws a still, so only the
  * offsets and the rotation matter -- the squash is velocity-driven in the app.
  */
+/**
+ * Anim.Temperament, as far as this page needs it.
+ *
+ * NOTE this file is NOT a port of Anim: it reproduces feastTransform and three inline
+ * bobs (idle, walk, dance), not the seventeen-state table. What follows applies the
+ * per-character dials to those three, which is enough to see a heavy trike against a
+ * fluttering bee in a strip of frames. It is not enough to judge the motion -- that is
+ * what SelfTest measures and what the APK shows.
+ */
+function bodyBob(buddy, t, amplitude, rate) {
+  const lift = buddy.hover > 0
+    ? -buddy.hover * (34 + 5 * Math.sin(t * buddy.tempo * 2.1))
+      + buddy.hover * Math.sin(t * buddy.tempo * 19) * 1.6
+    : 0;
+  const dy = Math.sin(t * buddy.tempo * rate) * amplitude * buddy.bounce + lift;
+  return buddy.hover > 0 ? Math.min(dy, -buddy.hover * 6) : dy;
+}
+
+function bodySway(buddy, t, amplitude, rate) {
+  return Math.sin(t * buddy.tempo * rate) * amplitude * buddy.sway;
+}
+
 function feastTransform(kind, p, strength = 1) {
   const out = { dx: 0, dy: 0, rotation: 0 };
   if (p <= 0 || p >= 1) return out;
@@ -249,7 +271,7 @@ function screenHome(ctx, L, buddy, t) {
   ctx.stroke();
 
   drawBuddy(ctx, buddy.index, rcx(L.buddySlot), L.buddySlot[3] - rh(L.buddySlot) * 0.06,
-            rh(L.buddySlot) * 0.82, Math.sin(t * 1.15) * 7);
+            rh(L.buddySlot) * 0.82, bodyBob(buddy, t, 7, 1.15));
 
   // minute bubbles
   text(ctx, 'MINUTES', rcx(L.minutesLabel), rcy(L.minutesLabel), DATA.type.c1, '#5C7086', 'center', true);
@@ -420,9 +442,9 @@ function screenAdventure(ctx, L, buddy, t) {
     }
   }
   const feast = feastTransform(buddy.feastKind, chompP, chompStrength);
-  const bx = walkX + Math.sin(t * 1.5) * rw(L.advScene) * 0.016 + feast.dx;
+  const bx = walkX + bodySway(buddy, t, rw(L.advScene) * 0.016, 1.5) + feast.dx;
   drawBuddy(ctx, buddy.index, bx, rcy(trail), height,
-            Math.sin(t * 2.6) * 8 + feast.dy, feast.rotation);
+            bodyBob(buddy, t, 8, 2.6) + feast.dy, feast.rotation);
 
   if (beat >= 0 && beat < 0.72) {
     const bw = DATA.metrics.designWidth * 0.24, bh = bw * 0.42;
@@ -544,7 +566,7 @@ function screenComplete(ctx, L, buddy, t) {
   const height = Math.min(rh(stage) * 0.80, DATA.metrics.designWidth * 0.50);
   const cx = stage[0] + rw(stage) * 0.40;
   const feet = stage[3] - rh(stage) * 0.06;
-  const bob = Math.sin(t * 6.4) * 20;
+  const bob = bodyBob(buddy, t, 20, 6.4);
   drawBuddy(ctx, buddy.index, cx, feet, height, bob);
   drawGlyph(ctx, 'crown', cx, feet - height + bob - height * 0.06, height * 0.26, DATA.tokens.gold);
 
