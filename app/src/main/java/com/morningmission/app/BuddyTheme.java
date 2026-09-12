@@ -1,7 +1,7 @@
 package com.morningmission.app;
 
 /**
- * Everything that varies between the seven buddies, in one table.
+ * Everything that varies between the buddies, in one table.
  *
  * <p>This replaces ten parallel arrays and switch statements that were keyed by a bare
  * {@code prefs.getInt("buddy", 0)} and scattered across the old single-file build --
@@ -13,15 +13,16 @@ package com.morningmission.app;
  * <p>The palettes are sampled from the actual buddy PNGs, so anything drawn in code --
  * scenery, icons, collectibles, goals, buttons -- can be tinted to the chosen buddy and
  * still look like it belongs with the artwork. Before this, every accent in the app was
- * one of three hardcoded literals shared by all seven.
+ * one of three hardcoded literals shared by every character.
  *
  * <p>Index order is load-bearing: it is the value stored in SharedPreferences under
  * "buddy" by every previously shipped version, so it must stay
- * burger, bee, pug, shark, dino, cloud, kitty.
+ * burger, bee, pug, shark, dino, cloud, kitty. A new character goes on the END of the
+ * list, never in the middle, or every child in the world wakes up to a different animal.
  */
 final class BuddyTheme {
 
-    /** Cheek blush shared by all seven characters; the common highlight of the family. */
+    /** Cheek blush shared by every character; the common highlight of the family. */
     static final int CHEEK = 0xFFEA5A70;
 
     final int index;
@@ -145,6 +146,13 @@ final class BuddyTheme {
             .assets(R.drawable.buddy_kitty, R.raw.buddy_kitty_sound,
                     R.drawable.bg_adventure_kitty)
             .palette(0xFFF85798, 0xFFD03D6B, 0xFFFFFFFF, 0xFFFEE1EC, 0xFFF8ECE2, 0xFFA32354, 0xFFD4BBB7),
+
+        new BuddyTheme(7, "trike")
+            .words("Jungle Trike", "snort!", "CRUNCH!", "melon slice", "melon slices")
+            .feast(Anim.FEAST_TOSS)
+            .assets(R.drawable.buddy_trike, R.raw.buddy_trike_sound,
+                    R.drawable.bg_adventure_trike)
+            .palette(0xFFA6CC63, 0xFF39944F, 0xFFCE1B2C, 0xFFEEF7D9, 0xFFF2EAE0, 0xFF3C6B22, 0xFF24783C),
     };
 
     static final int COUNT = ALL.length;

@@ -15,7 +15,10 @@
 <script src="screens-ui.js"></script>
 <script>
 /* The real page owns image loading; this harness reproduces just that part. */
-const KEYS = ['burger', 'bee', 'pug', 'shark', 'dino', 'cloud', 'kitty'];
+/* Taken from the export, not typed out again: the hand-written copy of this list
+   was still seven long when the eighth character shipped, so the trike drew with
+   no sprite and no backdrop and the preview quietly lied about it. */
+const KEYS = DATA.buddies.map(b => b.key);
 const BUDDY_IMAGES = [];
 const BACKDROPS = { home: null, adventure: [] };
 window.READY = new Promise(resolve => {

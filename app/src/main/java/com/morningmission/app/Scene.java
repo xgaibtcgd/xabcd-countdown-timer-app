@@ -41,12 +41,12 @@ final class Scene {
 
     // Environments, one per buddy, in buddy order.
     static final int PICNIC = 0, HIVE = 1, PARK = 2, REEF = 3,
-                     JUNGLE = 4, SKY = 5, BLOSSOM = 6;
+                     JUNGLE = 4, SKY = 5, BLOSSOM = 6, VOLCANO = 7;
 
     /** Environment names, in buddy order, for the design preview. */
     static final String[] ENVIRONMENT_NAMES = {
         "Picnic meadow", "Flower meadow", "Park path", "Coral reef",
-        "Jungle", "Above the clouds", "Blossom meadow"
+        "Jungle", "Above the clouds", "Blossom meadow", "Volcano valley"
     };
 
     // Per environment: sky top, sky middle, sky bottom, ground near, ground far,
@@ -55,13 +55,13 @@ final class Scene {
     // Package-visible rather than private so tools/ExportScreens.java can dump them for
     // the design preview. These are plain arrays with no graphics in their initialiser,
     // so reading them does not drag native state in off-device.
-    static final int[] SKY_TOP    = {0xFFBFE9FF, 0xFFB7E6FB, 0xFFCDEBFF, 0xFF2BB3F0, 0xFFBDF0D8, 0xFF6FC4FA, 0xFFFFDCEA};
-    static final int[] SKY_MID    = {0xFFDDF4FF, 0xFFD9F2F6, 0xFFE0F4FF, 0xFF1785D4, 0xFFD3F3E4, 0xFFA8DBFB, 0xFFFFEAF2};
-    static final int[] SKY_LOW    = {0xFFE8F8E4, 0xFFE9F8EC, 0xFFEAF9E9, 0xFF0F63AE, 0xFFE4F6EF, 0xFFD9EFFE, 0xFFFFF4F8};
-    static final int[] GROUND_NEAR= {0xFF9DDD71, 0xFFA8DE74, 0xFF9BD98E, 0xFFF3DCA4, 0xFF6FC98F, 0xFFFFFFFF, 0xFFC7ECA8};
-    static final int[] GROUND_FAR = {0xFF7FCB5C, 0xFF85CC57, 0xFF7CC46C, 0xFFE4C88A, 0xFF4FAE72, 0xFFEAF4FF, 0xFFA8DC85};
-    static final float[] HORIZON  = {0.60f,      0.58f,      0.56f,      0.70f,      0.58f,      0.66f,      0.58f};
-    static final int[] SCRIM      = {0x33,       0x33,       0x33,       0x4D,       0x33,       0x2E,       0x33};
+    static final int[] SKY_TOP    = {0xFFBFE9FF, 0xFFB7E6FB, 0xFFCDEBFF, 0xFF2BB3F0, 0xFFBDF0D8, 0xFF6FC4FA, 0xFFFFDCEA, 0xFFC5E9DC};
+    static final int[] SKY_MID    = {0xFFDDF4FF, 0xFFD9F2F6, 0xFFE0F4FF, 0xFF1785D4, 0xFFD3F3E4, 0xFFA8DBFB, 0xFFFFEAF2, 0xFFF3EFCB};
+    static final int[] SKY_LOW    = {0xFFE8F8E4, 0xFFE9F8EC, 0xFFEAF9E9, 0xFF0F63AE, 0xFFE4F6EF, 0xFFD9EFFE, 0xFFFFF4F8, 0xFFFDF0BE};
+    static final int[] GROUND_NEAR= {0xFF9DDD71, 0xFFA8DE74, 0xFF9BD98E, 0xFFF3DCA4, 0xFF6FC98F, 0xFFFFFFFF, 0xFFC7ECA8, 0xFF8FC152};
+    static final int[] GROUND_FAR = {0xFF7FCB5C, 0xFF85CC57, 0xFF7CC46C, 0xFFE4C88A, 0xFF4FAE72, 0xFFEAF4FF, 0xFFA8DC85, 0xFF6FA86A};
+    static final float[] HORIZON  = {0.60f,      0.58f,      0.56f,      0.70f,      0.58f,      0.66f,      0.58f,      0.64f};
+    static final int[] SCRIM      = {0x33,       0x33,       0x33,       0x4D,       0x33,       0x2E,       0x33,       0x33};
 
     /**
      * The illustrated background for this scene, or null to draw one.
@@ -381,7 +381,7 @@ final class Scene {
     private void drawMidProps(Canvas c, BuddyTheme theme, float t) {
         switch (environment) {
             case REEF:    drawKelpAndCoral(c, t); break;
-            case JUNGLE:  drawJungle(c, t); break;
+            case JUNGLE:  case VOLCANO: drawJungle(c, t); break;
             case HIVE:    drawFlowerField(c, t); break;
             case BLOSSOM: drawBlossomTree(c, t); break;
             case PARK:    drawPath(c); drawTrees(c, t, 5); break;
@@ -681,7 +681,7 @@ final class Scene {
                     c.restore();
                     break;
                 }
-                case JUNGLE: {                     // leaves drift down
+                case JUNGLE: case VOLCANO: {       // leaves drift down
                     float y = area.top + progress * span;
                     c.save();
                     c.translate(x + drift, y);

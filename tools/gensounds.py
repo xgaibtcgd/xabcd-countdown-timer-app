@@ -4,8 +4,8 @@
 The seven that shipped were quarter-second synthetic blips -- pleasant enough, but a
 bee and a pug made much the same noise, and none of them sounded like the animal on
 the card. These are cartoon impressions instead: a bee that buzzes, a pug that barks,
-a kitty that meows, a shark that splashes, a dino that growls, a cloud pup that chimes
-and a burger buddy that chomps.
+a kitty that meows, a shark that splashes, a dino that growls, a cloud pup that chimes,
+a burger buddy that chomps and a trike that snorts.
 
 Everything is built from oscillators, noise and a couple of hand-written filters, so
 the sounds are reproducible and tweakable rather than binary blobs nobody can change.
@@ -279,6 +279,37 @@ def burger():
     return chomp(0.13, 210, 19) + [0.0] * seconds(0.05) + chomp(0.16, 170, 41)
 
 
+def trike():
+    """A snort: two puffs of air through a big nose, over a low rumble.
+
+    Kept away from the dino's growl on purpose -- they are the two reptiles and they
+    sit next to each other in the picker. The growl is voiced and long; this is mostly
+    unvoiced air, and the rumble beneath it stays below the growl's range.
+    """
+    def puff(dur, centre, seed, bright):
+        n = seconds(dur)
+        air = lowpass(noise(n, seed), sweep([(0, bright), (1, bright * 0.25)], n))
+        air = resonator(air, sweep([(0, centre), (1, centre * 0.6)], n), q=5.0)
+        return apply_env(air, envelope(n, 0.006, 0.09, 0.01))
+
+    n = seconds(0.52)
+    rumble = lowpass(apply_env(osc(sweep([(0, 96), (0.4, 78), (1, 62)], n), "saw"),
+                               envelope(n, 0.02, 0.26, 0.08)), 320)
+    out = [r * 0.45 for r in rumble]
+    # In then out, and the second one harder -- a snort that starts loud and tails off
+    # is a sigh. The gap between them has to survive the rumble underneath, which is
+    # why the quiet puff comes first.
+    for delay, dur, centre, seed, bright, gain in ((0.00, 0.15, 620, 61, 4200, 0.85),
+                                                   (0.21, 0.21, 470, 83, 3400, 1.25)):
+        p = puff(dur, centre, seed, bright)
+        start = seconds(delay)
+        if start + len(p) > len(out):
+            out += [0.0] * (start + len(p) - len(out))
+        for i, v in enumerate(p):
+            out[start + i] += v * gain
+    return out
+
+
 # --------------------------------------------------------------------- the song
 #
 # A loop for the title screen. Music box over a plucked bass and a soft shaker, in
@@ -434,6 +465,7 @@ SOUNDS = {
     "buddy_dino_sound": dino,
     "buddy_cloud_sound": cloud,
     "buddy_burger_sound": burger,
+    "buddy_trike_sound": trike,
 }
 
 

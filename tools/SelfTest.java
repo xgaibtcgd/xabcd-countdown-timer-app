@@ -350,8 +350,34 @@ public final class SelfTest {
             {"leaf", "leaves"},                // a leaf
             {"star", "stars"},                 // a star
             {"heart", "hearts"},               // a heart
+            {"melon slice", "melon slices"},   // a melon slice
         };
         check(nouns.length == BuddyTheme.COUNT, "the treat-noun table is the wrong length");
+
+        // Scene indexes seven parallel colour tables by the buddy's own index, so a new
+        // character whose row nobody extended does not misdraw -- it throws
+        // ArrayIndexOutOfBounds the first time its procedural scene is built.
+        check(Scene.ENVIRONMENT_NAMES.length == BuddyTheme.COUNT
+              && Scene.SKY_TOP.length == BuddyTheme.COUNT
+              && Scene.SKY_MID.length == BuddyTheme.COUNT
+              && Scene.SKY_LOW.length == BuddyTheme.COUNT
+              && Scene.GROUND_NEAR.length == BuddyTheme.COUNT
+              && Scene.GROUND_FAR.length == BuddyTheme.COUNT
+              && Scene.HORIZON.length == BuddyTheme.COUNT
+              && Scene.SCRIM.length == BuddyTheme.COUNT,
+              "Scene needs one environment per buddy; some table is still "
+              + Scene.SKY_TOP.length + " long against " + BuddyTheme.COUNT + " buddies");
+        for (int i = 0; i < BuddyTheme.COUNT; i++) {
+            check(notBlank(Scene.ENVIRONMENT_NAMES[i]),
+                  "environment " + i + " has no name");
+            check(opaque(Scene.SKY_TOP[i]) && opaque(Scene.SKY_MID[i])
+                  && opaque(Scene.SKY_LOW[i]) && opaque(Scene.GROUND_NEAR[i])
+                  && opaque(Scene.GROUND_FAR[i]),
+                  "environment " + Scene.ENVIRONMENT_NAMES[i] + " has a see-through band");
+            check(Scene.HORIZON[i] > 0.3f && Scene.HORIZON[i] < 0.85f,
+                  "environment " + Scene.ENVIRONMENT_NAMES[i] + " puts the horizon at "
+                  + Scene.HORIZON[i] + ", which leaves no sky or no ground");
+        }
         for (int i = 0; i < BuddyTheme.COUNT; i++) {
             BuddyTheme b = BuddyTheme.of(i);
             check(b.collectibleNoun(1).equals(nouns[i][0]),
@@ -458,6 +484,7 @@ public final class SelfTest {
         }
 
         drift();
+        feastMoves();
 
         // No two states may be interchangeable. Sample a signature over several seconds
         // and require a meaningful difference.
@@ -493,6 +520,91 @@ public final class SelfTest {
         check(finite(tr), "a long frame must not produce a non-finite transform");
         check(tr.scaleY > 0.6f && tr.scaleY < 1.5f,
               "squash and stretch must stay bounded after a long frame: " + tr.scaleY);
+    }
+
+    /**
+     * The collectible actions.
+     *
+     * <p>These are reached through a switch on a FEAST_* constant with a {@code default}
+     * that falls through to the plain bite, so a new constant added to the list without
+     * a case of its own compiles, runs, and quietly gives that character somebody else's
+     * move. Nothing but a distinctness check finds that. The rest is the same bar the
+     * idle states clear: bounded, finite, and at rest outside the beat.
+     */
+    private static void feastMoves() {
+        Anim.Transform tr = new Anim.Transform();
+
+        for (int kind = 0; kind < Anim.FEAST_COUNT; kind++) {
+            Anim.feast(kind, -0.1f, tr);
+            check(atRest(tr), "feast " + kind + " moves before its beat starts");
+            Anim.feast(kind, 1f, tr);
+            check(atRest(tr), "feast " + kind + " is still moving after its beat ends");
+
+            boolean moved = false;
+            for (float p = 0f; p <= 1f; p += 0.005f) {
+                Anim.feast(kind, p, tr);
+                check(finite(tr), "feast " + kind + " went non-finite at p=" + p);
+                check(Math.abs(tr.dx) <= 130f && Math.abs(tr.dy) <= 130f,
+                      "feast " + kind + " translates too far at p=" + p
+                      + ": " + tr.dx + "," + tr.dy);
+                check(Math.abs(tr.rotation) <= 361f,
+                      "feast " + kind + " rotates too far at p=" + p + ": " + tr.rotation);
+                check(tr.scaleX > 0.5f && tr.scaleX < 1.6f
+                      && tr.scaleY > 0.5f && tr.scaleY < 1.6f,
+                      "feast " + kind + " scales out of range at p=" + p
+                      + ": " + tr.scaleX + "," + tr.scaleY);
+                if (!atRest(tr)) moved = true;
+
+                // Scaling the move down has to scale it down, not change its shape.
+                Anim.feast(kind, p, 0f, tr);
+                check(atRest(tr), "feast " + kind + " still moves at zero strength, p=" + p);
+            }
+            check(moved, "feast " + kind + " never actually moves");
+        }
+
+        for (int a = 0; a < Anim.FEAST_COUNT; a++) {
+            for (int b = a + 1; b < Anim.FEAST_COUNT; b++) {
+                check(feastDistance(a, b) > 1.5f,
+                      "feast moves " + a + " and " + b + " are the same movement; one of"
+                      + " them is falling through to the default bite");
+            }
+        }
+
+        // And every character reaches one of them, with none shared: eight buddies that
+        // all lunge are one buddy drawn eight ways.
+        for (int i = 0; i < BuddyTheme.COUNT; i++) {
+            BuddyTheme b = BuddyTheme.ALL[i];
+            check(b.feastKind >= 0 && b.feastKind < Anim.FEAST_COUNT,
+                  b.key + " has a feast kind outside the table: " + b.feastKind);
+            for (int j = i + 1; j < BuddyTheme.COUNT; j++) {
+                check(b.feastKind != BuddyTheme.ALL[j].feastKind,
+                      b.key + " and " + BuddyTheme.ALL[j].key + " share a collectible"
+                      + " action");
+            }
+        }
+    }
+
+    private static boolean atRest(Anim.Transform tr) {
+        return Math.abs(tr.dx) < 0.001f && Math.abs(tr.dy) < 0.001f
+            && Math.abs(tr.rotation) < 0.001f
+            && Math.abs(tr.scaleX - 1f) < 0.001f && Math.abs(tr.scaleY - 1f) < 0.001f;
+    }
+
+    /** Mean absolute difference between two collectible actions across the beat. */
+    private static float feastDistance(int a, int b) {
+        Anim.Transform ta = new Anim.Transform();
+        Anim.Transform tb = new Anim.Transform();
+        float total = 0f;
+        int samples = 0;
+        for (float p = 0f; p <= 1f; p += 0.004f) {
+            Anim.feast(a, p, ta);
+            Anim.feast(b, p, tb);
+            total += Math.abs(ta.dx - tb.dx) + Math.abs(ta.dy - tb.dy)
+                   + Math.abs(ta.rotation - tb.rotation) * 0.8f
+                   + Math.abs(ta.scaleY - tb.scaleY) * 120f;
+            samples++;
+        }
+        return samples == 0 ? 0f : total / samples;
     }
 
     /**

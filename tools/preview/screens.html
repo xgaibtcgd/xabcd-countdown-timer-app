@@ -395,7 +395,10 @@ document.getElementById('motionToggle').addEventListener('click', function () {
 });
 
 /* ------------------------------------------------------------------- start */
-const KEYS = ['burger', 'bee', 'pug', 'shark', 'dino', 'cloud', 'kitty'];
+/* Taken from the export, not typed out again: the hand-written copy of this list
+   was still seven long when the eighth character shipped, so the trike drew with
+   no sprite and no backdrop and the preview quietly lied about it. */
+const KEYS = DATA.buddies.map(b => b.key);
 let pending = KEYS.length * 2 + 1;
 const done = () => { if (--pending === 0) start(); };
 

@@ -526,7 +526,7 @@ final class Art {
     static final int[][] COLLECTIBLE_FLAGS = new int[BuddyThemeCount.N][];
 
     /** Kept separate from BuddyTheme so this class imports nothing at all. */
-    static final class BuddyThemeCount { static final int N = 7; private BuddyThemeCount() {} }
+    static final class BuddyThemeCount { static final int N = 8; private BuddyThemeCount() {} }
 
     private static void collectible(int buddy, float[][] shapes, int[] colors, int[] flags) {
         COLLECTIBLE_SHAPES[buddy] = shapes;
@@ -599,6 +599,20 @@ final class Art {
             },
             new int[]{0xFFFF75A5, WHITE},
             new int[]{Clay.GLOSSY, Clay.FLAT});
+
+        // Trike -- a melon slice. Rind, flesh and pips, in that order: the bites cut
+        // every part, so the flesh has to sit inside the rind rather than beside it or
+        // a bitten slice shows red where the skin should be.
+        collectible(7,
+            new float[][]{
+                b().move(10, 28).quad(50, 20, 90, 28).quad(80, 92, 50, 92)
+                   .quad(20, 92, 10, 28).close().build(),
+                b().move(18, 34).quad(50, 28, 82, 34).quad(73, 84, 50, 84)
+                   .quad(27, 84, 18, 34).close().build(),
+                b().oval(34, 44, 42, 54).oval(58, 44, 66, 54).oval(46, 62, 54, 72).build(),
+            },
+            new int[]{0xFF4FA24C, 0xFFF4515F, 0xFF3A2A22},
+            new int[]{Clay.SOLID, Clay.MODEL, Clay.FLAT});
     }
 
     // ------------------------------------------------------------------------ goals
@@ -612,7 +626,7 @@ final class Art {
     static final int[] GOAL_LID = new int[BuddyThemeCount.N];
 
     static final String[] GOAL_NAMES = {
-        "Picnic", "Hive", "Doghouse", "Treasure", "Nest", "Rainbow", "Present"
+        "Picnic", "Hive", "Doghouse", "Treasure", "Nest", "Rainbow", "Present", "Volcano"
     };
 
     private static void goal(int buddy, float[][] shapes, int[] colors, int[] flags, int lid) {
@@ -710,6 +724,30 @@ final class Art {
             },
             new int[]{PINK, 0xFFE85E92, WHITE, 0xFFE85E92},
             new int[]{Clay.SOLID, Clay.MODEL, Clay.FLAT, Clay.GLOSSY}, 1);
+
+        // The volcano the trike's backdrop puts on the horizon, brought to the end of
+        // the lane so the thing it is walking toward is the thing you can see. Smoke is
+        // drawn first because it rises from behind the rim; the foliage last, in front
+        // of the foot of the cone.
+        goal(7,
+            new float[][]{
+                // Three puffs rising and shrinking, FLAT and translucent: modelled and
+                // opaque, two same-sized circles beside the rim read as bubbles stuck to
+                // the side of the cone rather than as smoke leaving it. The alpha is the
+                // one place in this file a colour is not solid -- FLAT paints the colour
+                // straight, so it is honoured, and the three circles are one path, so the
+                // overlaps do not darken.
+                b().circle(46, 18, 9).circle(57, 8, 5.5f).circle(66, 2, 3.5f).build(),
+                b().move(6, 92).quad(20, 64, 34, 36).quad(50, 32, 66, 36)
+                   .quad(80, 64, 94, 92).close().build(),
+                b().oval(31, 27, 69, 44).build(),
+                b().move(42, 39).quad(36, 54, 44, 68).quad(50, 58, 54, 71)
+                   .quad(60, 54, 59, 40).close().build(),
+                b().circle(17, 85, 11).circle(30, 89, 8)
+                   .circle(83, 85, 11).circle(70, 89, 8).build(),
+            },
+            new int[]{0xC2E2DBD1, 0xFF917765, 0xFFFFA23A, 0xFFF2603A, LEAF},
+            new int[]{Clay.FLAT, Clay.SOLID, Clay.GLOSSY, Clay.MODEL, Clay.SOLID}, -1);
     }
 
     // -------------------------------------------------------------------- UI glyphs

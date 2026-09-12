@@ -362,7 +362,8 @@ final class Anim {
     static final int FEAST_STOMP  = 4;   // rear back, slam down
     static final int FEAST_SPIN   = 5;   // rise and turn
     static final int FEAST_NIBBLE = 6;   // three quick little nods
-    static final int FEAST_COUNT  = 7;
+    static final int FEAST_TOSS   = 7;   // horns under it, then a flick of the head
+    static final int FEAST_COUNT  = 8;
 
     /** A 0..1..0 hump, peaking at {@code peak}. */
     private static float hump(float p, float peak) {
@@ -460,6 +461,21 @@ final class Anim {
                 out.dy = -58f * rise;
                 out.rotation = 360f * easeInOutCubic(p);
                 out.dx = 18f * rise;
+                break;
+            }
+            case FEAST_TOSS: {
+                // A horned animal does not lean in and bite, it scoops. The head goes
+                // down and forward to get the horns under the thing, then snaps up and
+                // back to throw it -- two peaks a fifth of the beat apart, which is what
+                // keeps the flick reading as a separate movement from the dip rather
+                // than one long nod.
+                float dip = hump(p, contact);
+                float flick = Math.max(0f, 1f - Math.abs(p - 0.55f) * 5.5f);
+                out.dx = 30f * dip;
+                out.dy = 8f * dip - 34f * flick;
+                out.rotation = 15f * dip - 26f * flick;
+                out.scaleY = 1f + 0.10f * flick;
+                out.scaleX = 2f - out.scaleY;
                 break;
             }
             case FEAST_NIBBLE: {

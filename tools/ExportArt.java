@@ -134,8 +134,21 @@ public final class ExportArt {
         return sb.append("]").toString();
     }
 
+    /**
+     * CSS hex. Eight digits when the colour is not opaque, six when it is.
+     *
+     * <p>This used to mask the alpha off unconditionally, which meant the one part in
+     * the art that is deliberately translucent -- the volcano's smoke plume -- rendered
+     * solid in the preview and solid nowhere else. A preview that quietly disagrees with
+     * the device on a colour is worse than no preview, since it is the surface the
+     * artwork gets judged on. Six digits is still the normal case, so nothing that parses
+     * these with a plain {@code slice(1, 7)} changes.
+     */
     private static String hex(int argb) {
-        return "\"#" + String.format("%06X", argb & 0xFFFFFF) + "\"";
+        int alpha = (argb >>> 24) & 0xFF;
+        String rgb = String.format("%06X", argb & 0xFFFFFF);
+        return alpha == 0xFF ? "\"#" + rgb + "\""
+                             : "\"#" + rgb + String.format("%02X", alpha) + "\"";
     }
 
     private static String str(String s) {

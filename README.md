@@ -31,7 +31,7 @@ The whole interface is drawn by one custom `View`. There is one XML layout: none
 | `Clay` / `Art` / `Icons` | The material language and every graphic that is not a buddy |
 | `Anim` / `Particles` | Buddy motion and the celebration |
 | `Screen*` | One class per screen |
-| `Theme` / `BuddyTheme` | Colour roles, type scale, and the seven buddies |
+| `Theme` / `BuddyTheme` | Colour roles, type scale, and the buddy table |
 
 Two conventions are worth knowing before changing anything.
 
@@ -72,8 +72,8 @@ Studio before shipping.**
 
 `tools/preview/` has two browser previews, for looking at the app without building it.
 
-- `index.html` -- every icon, collectible, goal and glyph, re-tintable across all
-  seven buddies.
+- `index.html` -- every icon, collectible, goal and glyph, re-tintable across every
+  buddy.
 - `screens.html` -- all seven screens, across four device shapes.
 
 Both render from data exported out of the app's own classes, so they cannot
@@ -98,12 +98,17 @@ builds, so the rounded lettering the design depends on was never guaranteed on a
 customer's device. Nunito is under the SIL Open Font License; the licence is in
 `licenses/nunito-OFL.txt` and must stay with the fonts.
 
-`app/src/main/res/drawable-nodpi/buddy_*.png` are the seven characters. They are
-720x720 cutouts with real alpha, and six of the seven share the vertical band
+`app/src/main/res/drawable-nodpi/buddy_*.png` are the eight characters. They are
+720x720 cutouts with real alpha, and all but Cloud Pup share the vertical band
 `y[50..669]` — that shared baseline is what makes them swappable, so do not crop
-them individually.
+them individually. A new character is fitted to it rather than dropped in at
+whatever size it arrived: trim to the alpha bounds, scale the longer side to 620,
+and centre in 720. Watch for a source that carries a halo of alpha 1..4 out to the
+edge of its canvas -- trimming on `getbbox()` then leaves the character small and
+off-centre inside a box of nothing, which is a difference of a few percent that is
+invisible in isolation and obvious the moment you switch buddies.
 
-`bg_home_storybook.png` and the seven `bg_adventure_*.png` are the illustrated
+`bg_home_storybook.png` and the eight `bg_adventure_*.png` are the illustrated
 worlds. They are 9:16; `Scene.layoutBackdrop` draws them at full width anchored
 to the bottom and extends the sky above with the artwork's own top-row colour, so
 a 20:9 phone crops nothing. Everything drawn over them -- light shafts, bubbles,
