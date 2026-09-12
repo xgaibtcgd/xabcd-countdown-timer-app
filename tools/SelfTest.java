@@ -370,6 +370,9 @@ public final class SelfTest {
             // the eating sounds exist as a second set rather than reusing the tap.
             check(b.eatRes != b.soundRes,
                   "BuddyTheme " + b.key + " eats with its own tap sound");
+            check(b.victoryRes != 0, "BuddyTheme " + b.key + " has no victory fanfare");
+            check(b.victoryRes != b.soundRes && b.victoryRes != b.eatRes,
+                  "BuddyTheme " + b.key + " celebrates with one of its own blips");
             check(b.backdropRes != 0, "BuddyTheme " + b.key + " has no backdrop");
             check(opaque(b.primary) && opaque(b.accent) && opaque(b.light)
                   && opaque(b.ink) && opaque(b.dark) && opaque(b.body),
@@ -390,7 +393,8 @@ public final class SelfTest {
             for (int j = i + 1; j < BuddyTheme.COUNT; j++) {
                 BuddyTheme a = BuddyTheme.ALL[i], b = BuddyTheme.ALL[j];
                 check(a.artRes != b.artRes && a.soundRes != b.soundRes
-                      && a.eatRes != b.eatRes && a.backdropRes != b.backdropRes,
+                      && a.eatRes != b.eatRes && a.victoryRes != b.victoryRes
+                      && a.backdropRes != b.backdropRes,
                       a.key + " and " + b.key + " share a resource");
             }
         }

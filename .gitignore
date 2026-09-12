@@ -14,3 +14,4 @@ captures/
 
 # Tooling caches (see tools/check.sh)
 tools/.cache/
+__pycache__/

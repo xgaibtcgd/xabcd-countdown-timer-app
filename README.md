@@ -119,9 +119,9 @@ which has none.
 
 ## Sound
 
-Everything in `app/src/main/res/raw/` except `victory.wav` is synthesised by
-`tools/gensounds.py` -- pure standard library, no numpy, no binary blobs nobody
-can change. Thirty-seven cues in five families, plus the title loop:
+Everything in `app/src/main/res/raw/` is synthesised by `tools/gensounds.py` --
+pure standard library, no numpy, no samples, no binary blobs nobody can change.
+Forty-five cues in six families, plus the title loop:
 
 - `buddy_<key>_sound` -- the tap sound, played when you choose the buddy in the
   picker, tick off a task, or poke the buddy on the adventure screen.
@@ -139,6 +139,13 @@ can change. Thirty-seven cues in five families, plus the title loop:
   detected by `Engine.pollMilestone()` and `Engine.pollTick()`, called from the
   frame loop beside `pollTimeUp()`, never as a side effect of a draw.
 - `poke_*` -- the escalating reaction to being poked.
+- `victory_<key>` -- the Mission Complete fanfare, one per character and eight
+  genuinely different pieces: arcade, swing, marching band, surf, ska, music
+  box, sparkly pop and taiko. These are the only sounds rendered at 44.1 kHz
+  (see `HIFI` and `at_rate`), because they are the only ones with cymbals on
+  them and a crash with nothing above 11 kHz is most of what makes synthesised
+  percussion sound cheap. About five and a half seconds each, which is what the
+  confetti lasts.
 - `title_song` is an eighteen-second loop. It is named in `LOOPING`, which
   suppresses the anti-click edge fade every other sound gets -- on a loop that
   fade lands on the seam and pumps the volume down and back up once a lap.
@@ -146,14 +153,30 @@ can change. Thirty-seven cues in five families, plus the title loop:
 Resource tables live in `Sounds.java` rather than in `MainActivity`, so
 SelfTest can hold `Sounds.ACTIVITY` exactly as long as `Art.ACT_COUNT`.
 
+The victory fanfares replaced a single hand-authored `victory.wav` that every
+character shared. It is worth knowing what it measured, because the gate below
+is written from it: 90% of its energy in one octave around 1 kHz, nothing at all
+below 350 Hz or above 1.7 kHz, and a peak of 0.38. One bare melody line, quiet.
+
 Regenerate with `python3 tools/gensounds.py`. Nothing here can be listened to in
-CI, so the property that matters is checked numerically by
-`tools/checksounds.py`, which runs in `check.sh`: within each family, every pair
-must differ on duration, burst count, dominant frequency or spectral centroid.
-Across families the bar would be wrong -- the interface tap and the backpack
-buckle are both meant to be a short click. What has to hold is that no two
-sounds a person hears as alternatives are the same sound: two characters, two
-routine tasks, a buddy's bite against its own tap.
+CI, so the properties that matter are checked numerically by
+`tools/checksounds.py`, which runs in `check.sh`:
+
+- **Distinctness**, within each compared family: every pair must differ on
+  duration, burst count, dominant frequency or spectral centroid. Across
+  families the bar would be wrong -- the interface tap and the backpack buckle
+  are both meant to be a short click. What has to hold is that no two sounds a
+  person hears as alternatives are the same sound.
+- **Not thin**, for the fanfares: a peak above 0.8, at least four octave bands
+  carrying real energy, and no single band owning more than half the piece.
+  Every one of those would have failed the file they replaced.
+
+The fanfares are deliberately left out of the distinctness comparison, and not
+because they failed it. Those four descriptors were built for sounds under a
+second; across five seconds of music they average out, and a swing quartet and
+a taiko ensemble both measure as "130 Hz, 22 bursts, centroid 430" -- true and
+useless. A measurement that cannot tell a march from a surf lick should not
+claim to.
 
 ## Reference
 

@@ -168,6 +168,10 @@ final class MorningView extends View implements Choreographer.FrameCallback, Eng
 
     void setPref(String key, boolean value) {
         activity.prefs.edit().putBoolean(key, value).apply();
+        // Both the Grown-Ups row and the Adventure mute chip come through here, so one
+        // guard covers them: turning sounds off has to stop the five-second fanfare
+        // that may be playing, not just prevent the next one.
+        if ("song".equals(key) && !value) activity.silence();
         invalidate();
     }
 
@@ -190,7 +194,9 @@ final class MorningView extends View implements Choreographer.FrameCallback, Eng
         // that would register hit regions for the state it is replacing. The routine
         // editor in particular starts empty and fills itself in onEnter.
         screens[current].onEnter();
-        activity.playUi(Sounds.UI_PAGE);
+        // Every route but this one. Arriving at the Complete screen the whoosh lands
+        // 780ms into the fanfare, on top of its first bar.
+        if (screen != SCREEN_COMPLETE) activity.playUi(Sounds.UI_PAGE);
         activity.setTitleMusic(current == SCREEN_HOME);
         requestLayoutPass();
         rebuildScene();
@@ -619,7 +625,8 @@ final class MorningView extends View implements Choreographer.FrameCallback, Eng
         // The goal opens first and the fanfare follows it. Fired together they were one
         // muddy noise; a beat apart they read as cause and effect.
         activity.playCue(Sounds.CUE_GOAL);
-        postDelayed(activity::playVictory, 420L);
+        final int who = buddy().index;
+        postDelayed(() -> activity.playVictory(who), 420L);
         if (pref("confetti", true)) {
             particles.celebrate(layout.play, buddy(), palette);
         }

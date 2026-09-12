@@ -273,14 +273,41 @@ public final class MainActivity extends Activity {
         play(eatIds, BuddyTheme.clampIndex(buddyIndex), 0.62f, rate);
     }
 
-    void playVictory() {
+    /**
+     * The Mission Complete fanfare, which is this character's and nobody else's.
+     *
+     * <p>Eight of them, in eight styles. Kept on MediaPlayer rather than the SoundPool
+     * everything else uses because these are five-second 44.1 kHz pieces, not blips --
+     * the ~80 ms MediaPlayer.create costs lands inside the 420 ms the caller already
+     * waits before starting it.
+     */
+    void playVictory(int buddyIndex) {
         if (!prefs.getBoolean("song", true)) return;
         try {
             releaseVictory();
-            victoryPlayer = MediaPlayer.create(this, R.raw.victory);
-            if (victoryPlayer != null) victoryPlayer.start();
+            victoryPlayer = MediaPlayer.create(this, BuddyTheme.of(buddyIndex).victoryRes);
+            if (victoryPlayer == null) return;
+            // Under full scale: it plays over confetti, a page turn and whatever the
+            // child taps next, and at 1.0 it was the loudest thing in the app by far.
+            victoryPlayer.setVolume(0.85f, 0.85f);
+            // Release itself when it ends. Without this a finished player was held
+            // until the next fanfare or onStop, which is a leak the title music does
+            // not have because that one loops and is released deliberately.
+            victoryPlayer.setOnCompletionListener(player -> releaseVictory());
+            victoryPlayer.start();
         } catch (Exception ignored) {
         }
+    }
+
+    /**
+     * Stops anything still sounding. Called when the sounds preference is turned off.
+     *
+     * <p>The fanfare is five seconds long and the mute chip exists to stop noise NOW.
+     * Without this, muting mid-celebration left the jingle playing over the top of the
+     * gesture that was meant to silence it.
+     */
+    void silence() {
+        releaseVictory();
     }
 
     /**

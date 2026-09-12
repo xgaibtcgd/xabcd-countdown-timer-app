@@ -464,6 +464,18 @@ final class Theme {
     }
 
     /**
+     * Supporting text inside a large card -- the captions around the finish time.
+     *
+     * <p>These were the fixed body size {@link #B1}, which is what a caption wants
+     * beside a paragraph and is half of what a task row title gets two screens earlier.
+     * Against a 78-unit clock, on a card a third of the screen tall, it read as fine
+     * print. Derived from the card like everything else that had this problem.
+     */
+    static float cardCaptionSize(RectF box) {
+        return clamp(box.height() * 0.115f, 22f, 40f);
+    }
+
+    /**
      * Horizontal room a label has inside a pill button: the full width less a pill's
      * worth of end padding, and less {@code taken} for anything sharing the line.
      */

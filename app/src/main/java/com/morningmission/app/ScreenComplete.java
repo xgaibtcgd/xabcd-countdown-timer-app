@@ -96,25 +96,27 @@ final class ScreenComplete extends Screen {
         Theme.card(c, box, box.height() * 0.20f, 0xFAFFFFFF);
         long remaining = engine.completionRemainingMs();
 
+        float caption = Theme.cardCaptionSize(box);
         if (remaining > 0L) {
             Theme.textCentered(c, "You finished with", box.centerX(),
-                               box.top + box.height() * 0.20f, Theme.B1,
+                               box.top + box.height() * 0.19f, caption,
                                Theme.INK_MUTED, Paint.Align.CENTER, false);
-            Theme.drawTime(c, remaining, box.centerX(), box.top + box.height() * 0.50f,
+            Theme.drawTime(c, remaining, box.centerX(), box.top + box.height() * 0.48f,
                            Math.min(Theme.D1, box.height() * 0.36f), Theme.INK,
                            Paint.Align.CENTER);
             Theme.textCentered(c, "left on the clock!", box.centerX(),
-                               box.top + box.height() * 0.72f, Theme.B1,
+                               box.top + box.height() * 0.68f, caption,
                                Theme.INK_MUTED, Paint.Align.CENTER, false);
         } else {
             Theme.textCentered(c, "You finished your mission!", box.centerX(),
-                               box.top + box.height() * 0.38f, Theme.H2,
+                               box.top + box.height() * 0.38f,
+                               Math.max(Theme.H2, caption * 1.25f),
                                Theme.INK, Paint.Align.CENTER, true);
         }
 
-        scratch.set(box.left + box.width() * 0.06f, box.bottom - box.height() * 0.24f,
-                    box.right - box.width() * 0.06f, box.bottom - box.height() * 0.04f);
-        Theme.fitText(c, PRAISE[praiseIndex], scratch, Theme.B1, 13f,
+        scratch.set(box.left + box.width() * 0.05f, box.bottom - box.height() * 0.26f,
+                    box.right - box.width() * 0.05f, box.bottom - box.height() * 0.03f);
+        Theme.fitText(c, PRAISE[praiseIndex], scratch, caption * 1.05f, 18f,
                       theme.ink, Paint.Align.CENTER, true);
     }
 
