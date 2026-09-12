@@ -13,6 +13,10 @@ const LOGO = ['#E8533F', '#F2A02C', '#F6C844', '#3FA96A', '#2879ED', '#7B5BD6', 
 const NAV = ['Today', 'Rewards', 'Routine', 'Grown-Ups'];
 /** Engine.FEAST_SECONDS and Engine.FEAST_LEAD, the beat of one collectible action. */
 const FEAST_SECONDS = 2.0, FEAST_LEAD = 0.45;
+/** ScreenTimePicker.PRESETS (seconds) and PRESET_COLORS. */
+const PRESETS = [30, 60, 120, 300, 600, 900, 1800, 3600];
+const PRESET_COLORS = ['#D9F8F2', '#CFEEFF', '#C9E4FF', '#DCDBFF',
+                       '#FFF0A9', '#FFD98A', '#FFB067', '#FF8A6B'];
 /** ScreenAdventure.EAT_START / EAT_END and Art.BITE_COUNT. */
 const EAT_START = 0.12, EAT_END = 0.82, BITE_COUNT = 3;
 const eatPhase = beat => (beat - EAT_START) / (EAT_END - EAT_START) * BITE_COUNT;
@@ -355,7 +359,8 @@ function screenHome(ctx, L, buddy, t) {
     const item = L.navItem[i];
     const colour = i === 0 ? buddy.primary : DATA.tokens.inkFaint;
     drawGlyph(ctx, NAV_GLYPH[i], rcx(item), rcy(item) - rh(item) * 0.12, rh(item) * 0.34, colour);
-    text(ctx, NAV[i], rcx(item), item[3] - rh(item) * 0.22, DATA.type.c1, colour, 'center', i === 0);
+    text(ctx, NAV[i], rcx(item), item[3] - rh(item) * 0.20,
+         clamp(rh(item) * 0.19, 16, 30), colour, 'center', i === 0);
   }
 }
 
@@ -460,6 +465,8 @@ function screenAdventure(ctx, L, buddy, t) {
            Math.min(DATA.type.d1, rh(clock) * 0.52), DATA.tokens.ink, 'center');
   text(ctx, 'Keep going!', rcx(clock), clock[3] - rh(clock) * 0.19,
        DATA.type.b2, DATA.tokens.inkMuted, 'center', true);
+
+  drawTreatBoard(ctx, L, buddy, total, collected, t);
 
   // the tally: one collectible at a size you can see, and the count
   const band = L.advTally;
@@ -666,6 +673,48 @@ function screenBuddyPicker(ctx, L, buddy, t) {
            buttonLabelSize(confirm), 18, '#ffffff', 'center');
 }
 
+/** ScreenAdventure.drawTreatBoard: every treat in the morning, in rows. */
+function drawTreatBoard(ctx, L, buddy, total, collected, t) {
+  if (total <= 0) return;
+  const top = L.advTally[3] + 24;
+  const bottom = rcy(L.advTrail)
+    - Math.min(rh(L.advScene) * 0.46, DATA.metrics.designWidth * 0.42) - 24;
+  const left = L.advScene[0] + 70, right = L.advScene[2] - 70;
+  if (bottom - top < 60 || right - left < 60) return;
+
+  const boardW = right - left, boardH = bottom - top;
+  const maxCell = DATA.metrics.designWidth * 0.115 / 0.82;
+  let bestCols = 1, bestCell = 0;
+  for (let c2 = 1; c2 <= total; c2++) {
+    const rows = Math.ceil(total / c2);
+    const cell = Math.min(boardW / c2, boardH / rows);
+    if (cell > bestCell) { bestCell = cell; bestCols = c2; }
+  }
+  const target = Math.min(bestCell, maxCell);
+  let cols = bestCols;
+  for (let c2 = total; c2 >= 1; c2--) {
+    if (Math.min(boardW / c2, boardH / Math.ceil(total / c2)) >= target - 0.01) {
+      cols = c2; break;
+    }
+  }
+  const rows = Math.ceil(total / cols);
+  cols = Math.ceil(total / rows);          // even the rows out
+  const size = Math.min(Math.min(boardW / cols, boardH / rows) * 0.82,
+                        DATA.metrics.designWidth * 0.115);
+  const cellW = boardW / cols, cellH = Math.min(boardH / rows, size * 1.5);
+  const gridTop = top + (boardH - cellH * rows) / 2;
+
+  for (let i = 0; i < total; i++) {
+    const row = Math.floor(i / cols), col = i % cols;
+    const inRow = Math.min(cols, total - row * cols);
+    const rowLeft = left + (boardW - inRow * cellW) / 2;
+    const x = rowLeft + col * cellW + cellW / 2;
+    const y = gridTop + row * cellH + cellH / 2 + Math.sin(t * 1.3 + i * 0.7) * size * 0.05;
+    const got = i < collected;
+    drawCollectible(ctx, buddy.index, x, y, size, got, 0, false);
+  }
+}
+
 /* =============================================================== TIME PICKER */
 
 function screenTimePicker(ctx, L, buddy, t) {
@@ -690,20 +739,27 @@ function screenTimePicker(ctx, L, buddy, t) {
   glyphChip(ctx, 'minus', L.timeMinus, '#ffffff', buddy.primary);
   glyphChip(ctx, 'plus', L.timePlus, '#ffffff', buddy.primary);
 
-  for (let i = 0; i < 7; i++) {
+  for (let i = 0; i < PRESETS.length; i++) {
     const box = L.presetBubble[i];
-    const on = MINUTES[i] === 30;
-    const scale = 0.62 + 0.38 * (i / 6);
+    if (!box) continue;
+    const on = PRESETS[i] === 900;
+    const scale = 0.62 + 0.38 * (i / (PRESETS.length - 1));
     let radius = Math.min(rw(box), rh(box)) * 0.5 * scale;
     const dr = drift(i, t, driftLimit(box, radius));
     radius *= dr.scale;
     const px = rcx(box) + dr.dx, py = rcy(box) + dr.dy;
     contactShadow(ctx, px, py + radius * 0.85, radius * 0.8, radius * 0.28, 0.85);
-    ctx.fillStyle = on ? buddy.primary : mix(buddy.light, '#ffffff', 0.25);
+    ctx.fillStyle = on ? buddy.primary : PRESET_COLORS[i % PRESET_COLORS.length];
     ctx.beginPath(); ctx.arc(px, py, radius, 0, Math.PI * 2); ctx.fill();
     glossCircle(ctx, px, py, radius, 1);
-    label(ctx, String(MINUTES[i]), px, py, Math.max(19, radius * 0.76),
-          on ? '#ffffff' : buddy.ink, 'center');
+    if (on) {
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = radius * 0.16;
+      ctx.beginPath(); ctx.arc(px, py, radius * 1.06, 0, Math.PI * 2); ctx.stroke();
+    }
+    const pl = PRESETS[i] < 60 ? PRESETS[i] + 's' : String(PRESETS[i] / 60);
+    label(ctx, pl, px, py, Math.max(19, radius * (PRESETS[i] < 60 ? 0.56 : 0.76)),
+          on ? '#ffffff' : '#4A3A22', 'center');
   }
 
   const slider = L.timeSlider;
@@ -721,8 +777,11 @@ function screenTimePicker(ctx, L, buddy, t) {
   ctx.beginPath(); ctx.arc(knobX, cy, knob, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = buddy.primary;
   ctx.beginPath(); ctx.arc(knobX, cy, knob * 0.42, 0, Math.PI * 2); ctx.fill();
-  text(ctx, '1', slider[0], slider[3] + rh(slider) * 0.16, DATA.type.c1, DATA.tokens.inkMuted, 'center', true);
-  text(ctx, '120', slider[2], slider[3] + rh(slider) * 0.16, DATA.type.c1, DATA.tokens.inkMuted, 'center', true);
+  const scaleSize = clamp(rh(slider) * 0.26, 20, 34);
+  text(ctx, '0:15', slider[0], slider[3] + rh(slider) * 0.24, scaleSize,
+       DATA.tokens.inkMuted, 'center', true);
+  text(ctx, '120:00', slider[2], slider[3] + rh(slider) * 0.24, scaleSize,
+       DATA.tokens.inkMuted, 'center', true);
 
   const set = L.timeSet;
   button(ctx, set, rh(set) / 2, buddy.primary, darken(buddy.primary, 0.22));

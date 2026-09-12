@@ -71,6 +71,7 @@ final class ScreenAdventure extends Screen {
         drawTopBar(c, layout, theme);
         drawClock(c, layout, theme, engine);
         drawTally(c, layout, theme, engine);
+        drawTreatBoard(c, layout, theme, engine, t);
         drawProgress(c, layout, theme, engine);
         drawTaskCard(c, layout, theme, engine);
         drawAction(c, layout, engine);
@@ -292,6 +293,76 @@ final class ScreenAdventure extends Screen {
      * to recognise. A single item at a size you can actually see, with a count beside
      * it, says the same thing and keeps saying it however long the timer runs.
      */
+    /**
+     * Every treat in the morning, laid out in rows above the lane.
+     *
+     * <p>The trail only ever shows the two or three the buddy is walking between, so a
+     * ninety-minute morning with two dozen treats in it looked exactly like a five-minute
+     * one. This is the whole set at once: eaten ones in full colour with their check,
+     * the rest waiting in grey, filling the empty sky the scene otherwise wastes.
+     *
+     * <p>The grid is solved rather than fixed. Every column count is tried and the one
+     * giving the largest tile wins, so three treats are big and two dozen still fit.
+     */
+    private void drawTreatBoard(Canvas c, Layout layout, BuddyTheme theme, Engine engine,
+                                float t) {
+        int total = engine.collectibleCount();
+        if (total <= 0) return;
+        int collected = engine.collectedCount();
+
+        // The sky between the tally chip and the top of the buddy.
+        float top = layout.advTally.bottom + 24f;
+        float bottom = layout.advTrail.centerY() - buddyHeight(layout) - 24f;
+        float left = layout.advScene.left + 70f;
+        float right = layout.advScene.right - 70f;
+        if (bottom - top < 60f || right - left < 60f) return;
+
+        float boardW = right - left, boardH = bottom - top;
+        // Capped so a three-treat morning does not show three dinner plates.
+        float maxCell = Layout.W * 0.115f / 0.82f;
+
+        int bestCols = 1;
+        float bestCell = 0f;
+        for (int cols = 1; cols <= total; cols++) {
+            int rows = (total + cols - 1) / cols;
+            float cell = Math.min(boardW / cols, boardH / rows);
+            if (cell > bestCell) { bestCell = cell; bestCols = cols; }
+        }
+        // Once the tile is at its cap, a taller grid buys nothing and just stacks three
+        // treats into a ragged two-by-two. Among the layouts that still reach the size
+        // we are going to draw at, take the widest -- the fewest rows.
+        float target = Math.min(bestCell, maxCell);
+        int cols = bestCols;
+        for (int candidate = total; candidate >= 1; candidate--) {
+            int rows = (total + candidate - 1) / candidate;
+            if (Math.min(boardW / candidate, boardH / rows) >= target - 0.01f) {
+                cols = candidate;
+                break;
+            }
+        }
+        int rows = (total + cols - 1) / cols;
+        // Even the rows out: eight treats read better as four and four than six and two.
+        cols = (total + rows - 1) / rows;
+        float size = Math.min(Math.min(boardW / cols, boardH / rows) * 0.82f,
+                              Layout.W * 0.115f);
+        float cellW = boardW / cols;
+        float cellH = Math.min(boardH / rows, size * 1.5f);
+        float gridTop = top + (boardH - cellH * rows) * 0.5f;
+
+        for (int i = 0; i < total; i++) {
+            int row = i / cols, col = i % cols;
+            int inRow = Math.min(cols, total - row * cols);
+            float rowLeft = left + (boardW - inRow * cellW) * 0.5f;
+            float x = rowLeft + col * cellW + cellW * 0.5f;
+            float y = gridTop + row * cellH + cellH * 0.5f
+                    + (float) Math.sin(t * 1.3f + i * 0.7f) * size * 0.05f;
+            // No check badge here: on a board of two dozen the green discs swamped the
+            // treats themselves, and colour against grey already says which are gone.
+            boolean got = i < collected;
+            Icons.collectible(c, theme.index, x, y, size, got, 0f, false);
+        }
+    }
+
     private void drawTally(Canvas c, Layout layout, BuddyTheme theme, Engine engine) {
         RectF band = layout.advTally;
         int total = engine.collectibleCount();

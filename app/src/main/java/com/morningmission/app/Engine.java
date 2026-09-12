@@ -36,7 +36,7 @@ final class Engine {
 
     /** The adventure shows at most this many collectibles, however long the routine. */
     static final int MIN_COLLECTIBLES = 3;
-    static final int MAX_COLLECTIBLES = 18;
+    static final int MAX_COLLECTIBLES = 24;
 
     /**
      * The beat of one collectible action, in seconds: wind-up, three bites, recovery.
@@ -112,9 +112,9 @@ final class Engine {
     // ------------------------------------------------------------------- lifecycle
 
     /** Starts the countdown. Does nothing if it is already running. */
-    void start(int minutes) {
+    void start(int seconds) {
         if (running) return;
-        durationMs = Math.max(1, minutes) * 60_000L;
+        durationMs = Math.max(1, seconds) * 1000L;
         endAt = clock.nowMs() + durationMs;
         running = true;
         timeUpFired = false;
@@ -134,8 +134,8 @@ final class Engine {
     }
 
     /** Sets the duration used by the next {@link #start}. */
-    void setDurationMinutes(int minutes) {
-        if (!running) durationMs = Math.max(1, minutes) * 60_000L;
+    void setDurationSeconds(int seconds) {
+        if (!running) durationMs = Math.max(1, seconds) * 1000L;
     }
 
     boolean isRunning() { return running; }
@@ -210,7 +210,7 @@ final class Engine {
 
     long durationMs() { return durationMs; }
 
-    int durationMinutes() { return (int) (durationMs / 60_000L); }
+    int durationSeconds() { return (int) (durationMs / 1000L); }
 
     /** Remaining time at the moment of completion, or -1 if not finished. */
     long completionRemainingMs() { return completionRemainingMs; }
@@ -243,13 +243,13 @@ final class Engine {
 
     // ----------------------------------------------------------------- collectibles
 
-    /** How many collectibles the trail shows: one a minute, capped so they stay legible. */
+    /** How many treats the morning holds. All of them are shown, so this can be a lot. */
     int collectibleCount() {
-        int minutes = Math.max(1, durationMinutes());
-        // Roughly one every two minutes, so a longer morning really does have more to
-        // find. Floored at three so even a one-minute timer is a journey rather than a
-        // single stop, and capped so the gaps never close up into a crowd.
-        int n = Math.round(minutes / 2f) + 2;
+        // Roughly one every three minutes. They are laid out as a board of every treat
+        // rather than a couple visible at a time, so a long morning can carry plenty of
+        // them; the cap is what keeps the board's tiles a size a child can make out.
+        float minutes = durationSeconds() / 60f;
+        int n = Math.round(minutes / 3f) + 3;
         return Math.max(MIN_COLLECTIBLES, Math.min(n, MAX_COLLECTIBLES));
     }
 

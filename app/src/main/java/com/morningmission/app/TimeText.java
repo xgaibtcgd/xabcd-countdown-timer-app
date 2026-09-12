@@ -44,6 +44,16 @@ final class TimeText {
         return format(ms, BUFFER);
     }
 
+    /**
+     * A duration as a person would say it, for settings rows: "15 min" when it lands on
+     * a whole number of minutes, "1:30" when it does not, "45 sec" under a minute.
+     */
+    static String describe(int seconds) {
+        if (seconds < 60) return Math.max(0, seconds) + " sec";
+        if (seconds % 60 == 0) return (seconds / 60) + " min";
+        return toText(seconds * 1000L);
+    }
+
     /** Allocating form, for the few places a String has to be composed. */
     static String toText(long ms) {
         char[] out = new char[8];

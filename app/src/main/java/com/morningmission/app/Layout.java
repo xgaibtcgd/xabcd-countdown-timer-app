@@ -122,6 +122,9 @@ final class Layout {
 
     // ---------------------------------------------------------------- time picker
 
+    /** How many time presets the picker offers; see ScreenTimePicker.PRESETS. */
+    static final int PRESET_BUBBLES = 8;
+
     final RectF timeSheet = new RectF();
     final RectF timeTitle = new RectF();
     final RectF timeClose = new RectF();
@@ -130,7 +133,7 @@ final class Layout {
     final RectF timePlus = new RectF();
     final RectF timeSlider = new RectF();
     final RectF timeSet = new RectF();
-    final RectF[] presetBubble = newRects(7);
+    final RectF[] presetBubble = newRects(PRESET_BUBBLES);
 
     // ------------------------------------------------------------------ grown-ups
 
@@ -593,16 +596,23 @@ final class Layout {
         touch(g1, g2, g3, g4);
     }
 
+    /**
+     * Eight presets in a tidy four by two; the seven before it needed a half-cell nudge.
+     *
+     * <p>The row pitch is capped rather than being half the band. The band grows with
+     * whatever slack the sheet has, and spreading two rows across all of it left the
+     * grid reading as two unrelated rows at opposite ends of an empty space.
+     */
     private void layoutPresetBubbles(RectF area) {
         float cellW = area.width() / 4f;
-        float cellH = area.height() / 2f;
+        float cellH = Math.min(area.height() / 2f, cellW * 1.12f);
         float size = Math.min(cellW, cellH) * 0.92f;
-        for (int i = 0; i < 7; i++) {
-            int row = i < 4 ? 0 : 1;
-            int col = i < 4 ? i : i - 4;
-            float rowLeft = area.left + (row == 0 ? 0f : cellW * 0.5f);
-            float cx = rowLeft + col * cellW + cellW / 2f;
-            float cy = area.top + row * cellH + cellH / 2f;
+        float top = area.top + (area.height() - cellH * 2f) * 0.5f;
+        for (int i = 0; i < PRESET_BUBBLES; i++) {
+            int row = i / 4;
+            int col = i % 4;
+            float cx = area.left + col * cellW + cellW / 2f;
+            float cy = top + row * cellH + cellH / 2f;
             presetBubble[i].set(cx - size / 2f, cy - size / 2f, cx + size / 2f, cy + size / 2f);
         }
     }

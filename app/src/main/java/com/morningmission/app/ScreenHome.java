@@ -114,7 +114,7 @@ final class ScreenHome extends Screen {
     }
 
     private void drawMinuteBubbles(Canvas c, Layout layout, BuddyTheme theme, float t) {
-        int selected = view.minutes();
+        int selected = view.durationSeconds() / 60;
         Theme.textCentered(c, "MINUTES", layout.minutesLabel.centerX(),
                            layout.minutesLabel.centerY(), Theme.C1, 0xFF5C7086,
                            Paint.Align.CENTER, true);
@@ -171,7 +171,7 @@ final class ScreenHome extends Screen {
         scratch.offset(0f, box.height() * 0.04f * view.pressOn(R_TIMER));
         Theme.card(c, scratch, scratch.height() * 0.30f, 0xF9FFFFFF);
         boolean running = view.engine.isRunning() && !view.engine.allDone();
-        Theme.drawTime(c, running ? view.engine.remainingMs() : view.minutes() * 60_000L,
+        Theme.drawTime(c, running ? view.engine.remainingMs() : view.durationSeconds() * 1000L,
                        scratch.centerX(), scratch.centerY() - scratch.height() * 0.10f,
                        Math.min(Theme.D1, scratch.height() * 0.50f),
                        running ? Theme.CTA_DEEP : Theme.INK, Paint.Align.CENTER);
@@ -320,9 +320,12 @@ final class ScreenHome extends Screen {
             float press = view.pressOn(R_NAV, i);
             float cy = item.centerY() - item.height() * 0.12f + item.height() * 0.05f * press;
             Icons.glyph(c, NAV_GLYPHS[i], item.centerX(), cy, item.height() * 0.34f, colour);
+            // Sized from the nav item, not the fixed C1 -- which was 17 units under a
+            // glyph already drawn at 0.34 of the same height.
             Theme.textCentered(c, NAV_LABELS[i], item.centerX(),
-                               item.bottom - item.height() * 0.22f,
-                               Theme.C1, colour, Paint.Align.CENTER, selected);
+                               item.bottom - item.height() * 0.20f,
+                               Theme.clamp(item.height() * 0.19f, 16f, 30f),
+                               colour, Paint.Align.CENTER, selected);
         }
     }
 
@@ -346,7 +349,7 @@ final class ScreenHome extends Screen {
                     view.activity.toast("The morning is already under way.");
                     break;
                 }
-                view.setMinutes(MINUTES[data]);
+                view.setDurationSeconds(MINUTES[data] * 60);
                 view.resetRoutine();
                 break;
             case R_TIMER:

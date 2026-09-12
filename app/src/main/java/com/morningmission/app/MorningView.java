@@ -135,14 +135,29 @@ final class MorningView extends View implements Choreographer.FrameCallback, Eng
         invalidate();
     }
 
-    int minutes() {
-        return Math.max(1, Math.min(120, activity.prefs.getInt("minutes", 15)));
+    /** Where the duration is stored, in seconds. See {@link #durationSeconds()}. */
+    static final String DURATION_KEY = "duration_seconds";
+    static final int MIN_DURATION_SECONDS = 15;
+    static final int MAX_DURATION_SECONDS = 120 * 60;
+
+    /**
+     * The chosen length of the morning, in seconds.
+     *
+     * <p>Stored under a different key from the old whole-minute {@code "minutes"}:
+     * writing seconds into that one would have turned an existing fifteen-minute morning
+     * into fifteen seconds. When the new key is absent the old one is read and scaled,
+     * so an upgrade keeps the length the household already had.
+     */
+    int durationSeconds() {
+        int stored = activity.prefs.getInt(DURATION_KEY, 0);
+        if (stored <= 0) stored = activity.prefs.getInt("minutes", 15) * 60;
+        return Math.max(MIN_DURATION_SECONDS, Math.min(MAX_DURATION_SECONDS, stored));
     }
 
-    void setMinutes(int value) {
-        int safe = Math.max(1, Math.min(120, value));
-        activity.prefs.edit().putInt("minutes", safe).apply();
-        engine.setDurationMinutes(safe);
+    void setDurationSeconds(int value) {
+        int safe = Math.max(MIN_DURATION_SECONDS, Math.min(MAX_DURATION_SECONDS, value));
+        activity.prefs.edit().putInt(DURATION_KEY, safe).apply();
+        engine.setDurationSeconds(safe);
         invalidate();
     }
 
@@ -595,7 +610,7 @@ final class MorningView extends View implements Choreographer.FrameCallback, Eng
     // ---------------------------------------------------------------------- actions
 
     void startMorning() {
-        engine.start(minutes());
+        engine.start(durationSeconds());
         route(SCREEN_ADVENTURE);
         rebuildScene();
         activity.startKidMode();

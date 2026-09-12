@@ -16,21 +16,74 @@ final class ScreenTimePicker extends Screen {
     private static final int R_CLOSE = 1, R_PRESET = 2, R_MINUS = 3, R_PLUS = 4,
                              R_SLIDER = 5, R_SET = 6;
 
-    private static final int[] PRESETS = {1, 2, 5, 10, 15, 30, 60};
-    private static final int MIN_MINUTES = 1;
-    private static final int MAX_MINUTES = 120;
+    /** Preset durations in seconds. Eight of them, so the grid is a tidy four by two. */
+    private static final int[] PRESETS = {30, 60, 120, 300, 600, 900, 1800, 3600};
+
+    /**
+     * Every duration the controls can land on, in seconds.
+     *
+     * <p>The slider used to map its width onto 1..120 whole minutes, so seconds were
+     * simply unreachable. Rather than adding a second control for them, the slider and
+     * the steppers now walk this table: fifteen-second steps where a short timer needs
+     * the resolution, half-minutes through the middle, whole minutes once a morning is
+     * long enough that thirty seconds either way makes no difference. Every value you
+     * can land on is one a person would actually choose -- there is no 7:43 -- and the
+     * display already reads m:ss, so nothing else had to change to show them.
+     */
+    private static final int[] STOPS = buildStops();
+
+    private static int[] buildStops() {
+        int[] out = new int[512];
+        int n = 0;
+        for (int s = 15; s < 120; s += 15) out[n++] = s;
+        for (int s = 120; s < 600; s += 30) out[n++] = s;
+        for (int s = 600; s <= 7200; s += 60) out[n++] = s;
+        int[] trimmed = new int[n];
+        System.arraycopy(out, 0, trimmed, 0, n);
+        return trimmed;
+    }
+
+    /** The stop at or below {@code seconds}, so a stored value always maps onto one. */
+    static int stopIndex(int seconds) {
+        int lo = 0, hi = STOPS.length - 1;
+        while (lo < hi) {
+            int mid = (lo + hi + 1) >>> 1;
+            if (STOPS[mid] <= seconds) lo = mid; else hi = mid - 1;
+        }
+        return lo;
+    }
+
+    static int stopCount() { return STOPS.length; }
+
+    static int stopAt(int index) {
+        return STOPS[index < 0 ? 0 : Math.min(index, STOPS.length - 1)];
+    }
+
+    /**
+     * A colour per preset, cool and light for a short morning through to deep and warm
+     * for a long one.
+     *
+     * <p>They used to share one tint -- the buddy's light shade mixed with white -- so
+     * eight bubbles differing only in size read as one shape repeated. The colour now
+     * says the same thing the size already says.
+     */
+    private static final int[] PRESET_COLORS = {
+        0xFFD9F8F2, 0xFFCFEEFF, 0xFFC9E4FF, 0xFFDCDBFF,
+        0xFFFFF0A9, 0xFFFFD98A, 0xFFFFB067, 0xFFFF8A6B
+    };
 
     private final RectF scratch = new RectF();
     /** Reused for the presets' idle float; see Anim.drift. */
     private final Anim.Transform drift = new Anim.Transform();
-    private int pending = 15;
+    /** The chosen duration in seconds, always one of {@link #STOPS}. */
+    private int pending = 900;
 
     ScreenTimePicker(MorningView view) {
         super(view);
     }
 
     @Override void onEnter() {
-        pending = view.minutes();
+        pending = stopAt(stopIndex(view.durationSeconds()));
     }
 
     @Override void layout(Layout layout, HitMap hits) {
@@ -71,15 +124,15 @@ final class ScreenTimePicker extends Screen {
                         Theme.INK_MUTED, view.pressOn(R_CLOSE));
 
         Theme.card(c, layout.timeDisplay, layout.timeDisplay.height() * 0.30f, 0xFFFFFFFF);
-        Theme.drawTime(c, pending * 60_000L, layout.timeDisplay.centerX(),
+        Theme.drawTime(c, pending * 1000L, layout.timeDisplay.centerX(),
                        layout.timeDisplay.centerY(),
                        Math.min(Theme.D1, layout.timeDisplay.height() * 0.50f),
                        Theme.INK, Paint.Align.CENTER);
 
         stepper(c, layout.timeMinus, Art.GLYPH_MINUS, theme, view.pressOn(R_MINUS),
-                pending > MIN_MINUTES);
+                pending > STOPS[0]);
         stepper(c, layout.timePlus, Art.GLYPH_PLUS, theme, view.pressOn(R_PLUS),
-                pending < MAX_MINUTES);
+                pending < STOPS[STOPS.length - 1]);
 
         drawPresets(c, layout, theme, t);
         drawSlider(c, layout, theme);
@@ -116,12 +169,24 @@ final class ScreenTimePicker extends Screen {
             float cx = box.centerX() + drift.dx, cy = box.centerY() + drift.dy;
             Clay.contactShadow(c, cx, cy + radius * 0.85f,
                                radius * 0.8f, radius * 0.28f, 0.85f);
-            fill.setColor(on ? theme.primary : Theme.mix(theme.light, 0xFFFFFFFF, 0.25f));
+            fill.setColor(on ? theme.primary : PRESET_COLORS[i % PRESET_COLORS.length]);
             c.drawCircle(cx, cy, radius, fill);
             Theme.glossCircle(c, cx, cy, radius, 1f);
-            Theme.label(c, Integer.toString(PRESETS[i]), cx, cy,
-                        Math.max(19f, radius * 0.76f),
-                        on ? 0xFFFFFFFF : theme.ink, Paint.Align.CENTER);
+            if (on) {
+                Paint stroke = Theme.STROKE;
+                stroke.setShader(null);
+                stroke.setStyle(Paint.Style.STROKE);
+                stroke.setStrokeWidth(radius * 0.16f);
+                stroke.setColor(0xFFFFFFFF);
+                c.drawCircle(cx, cy, radius * 1.06f, stroke);
+            }
+            // Minutes are bare numbers; the sub-minute preset carries its unit, so "30s"
+            // and "30" cannot be read as the same thing.
+            String label = PRESETS[i] < 60 ? PRESETS[i] + "s"
+                                           : Integer.toString(PRESETS[i] / 60);
+            Theme.label(c, label, cx, cy,
+                        Math.max(19f, radius * (PRESETS[i] < 60 ? 0.56f : 0.76f)),
+                        on ? 0xFFFFFFFF : 0xFF4A3A22, Paint.Align.CENTER);
         }
     }
 
@@ -136,7 +201,7 @@ final class ScreenTimePicker extends Screen {
         fill.setColor(0xFFD7E4F3);
         c.drawRoundRect(scratch, trackHeight * 0.5f, trackHeight * 0.5f, fill);
 
-        float fraction = (pending - MIN_MINUTES) / (float) (MAX_MINUTES - MIN_MINUTES);
+        float fraction = stopIndex(pending) / (float) (STOPS.length - 1);
         float knobX = box.left + box.width() * fraction;
         scratch.set(box.left, cy - trackHeight * 0.5f, knobX, cy + trackHeight * 0.5f);
         fill.setColor(theme.primary);
@@ -149,11 +214,14 @@ final class ScreenTimePicker extends Screen {
         fill.setColor(theme.primary);
         c.drawCircle(knobX, cy, knob * 0.42f, fill);
 
-        Theme.textCentered(c, Integer.toString(MIN_MINUTES), box.left,
-                           box.bottom + box.height() * 0.16f, Theme.C1,
+        // Sized from the slider rather than the fixed C1, which was 17 units against a
+        // 150-unit control -- and the labels are longer strings now besides.
+        float scaleSize = Theme.clamp(box.height() * 0.26f, 20f, 34f);
+        Theme.textCentered(c, TimeText.toText(STOPS[0] * 1000L), box.left,
+                           box.bottom + box.height() * 0.24f, scaleSize,
                            Theme.INK_MUTED, Paint.Align.CENTER, true);
-        Theme.textCentered(c, Integer.toString(MAX_MINUTES), box.right,
-                           box.bottom + box.height() * 0.16f, Theme.C1,
+        Theme.textCentered(c, TimeText.toText(STOPS[STOPS.length - 1] * 1000L), box.right,
+                           box.bottom + box.height() * 0.24f, scaleSize,
                            Theme.INK_MUTED, Paint.Align.CENTER, true);
     }
 
@@ -171,7 +239,7 @@ final class ScreenTimePicker extends Screen {
         RectF box = view.layout.timeSlider;
         float fraction = (x - box.left) / Math.max(1f, box.width());
         fraction = Theme.clamp(fraction, 0f, 1f);
-        pending = MIN_MINUTES + Math.round(fraction * (MAX_MINUTES - MIN_MINUTES));
+        pending = STOPS[Math.round(fraction * (STOPS.length - 1))];
     }
 
     @Override void onRegion(int id, int data) {
@@ -180,13 +248,13 @@ final class ScreenTimePicker extends Screen {
                 pending = PRESETS[data];
                 break;
             case R_MINUS:
-                pending = Math.max(MIN_MINUTES, pending - 1);
+                pending = stopAt(stopIndex(pending) - 1);
                 break;
             case R_PLUS:
-                pending = Math.min(MAX_MINUTES, pending + 1);
+                pending = stopAt(stopIndex(pending) + 1);
                 break;
             case R_SET:
-                view.setMinutes(pending);
+                view.setDurationSeconds(pending);
                 view.resetRoutine();
                 view.route(MorningView.SCREEN_HOME);
                 break;

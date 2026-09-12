@@ -118,7 +118,11 @@ public final class MainActivity extends Activity {
     }
 
     private void ensureDefaults() {
-        if (!prefs.contains("minutes")) prefs.edit().putInt("minutes", 15).apply();
+        // Seeded only when neither key is present: an install that already has the old
+        // whole-minute key keeps it, and MorningView.durationSeconds scales it forward.
+        if (!prefs.contains(MorningView.DURATION_KEY) && !prefs.contains("minutes")) {
+            prefs.edit().putInt(MorningView.DURATION_KEY, 15 * 60).apply();
+        }
         // The shark is the buddy every mockup leads with, so it is what a new install
         // opens on. Previously it opened on the burger.
         if (!prefs.contains("buddy")) prefs.edit().putInt("buddy", 3).apply();

@@ -680,14 +680,14 @@ public final class SelfTest {
         FakeClock clock = new FakeClock();
         Engine e = new Engine(clock);
         e.setRoutine(tasks(3), keys(3));
-        e.start(10);
+        e.start(10 * 60);
         boolean[] seen = new boolean[Art.BITE_COUNT + 1];
         long segment = 10 * 60_000L / e.collectibleCount();
         long step = 20L;
         for (long at = segment - (long) (Engine.FEAST_LEAD * 1000f) - 100L;
              at < segment + (long) (Engine.FEAST_SECONDS * 1000f) + 200L; at += step) {
             e.reset();
-            e.start(10);
+            e.start(10 * 60);
             clock.advance(at);
             float beat = e.feastBeat();
             if (beat < 0f) continue;
@@ -844,7 +844,7 @@ public final class SelfTest {
         e.setRoutine(tasks(5), keys(5));
 
         check(e.remainingMs() == 15L * 60_000L, "an idle engine should report the full duration");
-        e.start(15);
+        e.start(15 * 60);
         check(e.remainingMs() == 900_000L, "remaining should be 15:00 at the start");
         check(!e.allDone(), "a fresh routine is not complete");
 
@@ -891,7 +891,7 @@ public final class SelfTest {
         FakeClock clock = new FakeClock();
         Engine e = new Engine(clock);
         e.setRoutine(new String[0], new String[0]);
-        e.start(10);
+        e.start(10 * 60);
         check(!e.allDone(), "an empty routine must never report itself complete");
         check(!e.completeActive(), "an empty routine has nothing to complete");
         check(e.taskCount() == 0, "an empty routine has no tasks");
@@ -904,7 +904,7 @@ public final class SelfTest {
         Engine e = new Engine(clock);
         e.setListener(rec);
         e.setRoutine(tasks(3), keys(3));
-        e.start(1);
+        e.start(1 * 60);
 
         check(!e.pollTimeUp(), "time up must not fire while time remains");
         clock.advance(61_000L);
@@ -926,7 +926,7 @@ public final class SelfTest {
         FakeClock clock = new FakeClock();
         Engine e = new Engine(clock);
         e.setRoutine(tasks(3), keys(3));
-        e.start(10);
+        e.start(10 * 60);
         clock.advance(120_000L);
         check(e.remainingMs() == 480_000L, "eight minutes should be left before pausing");
 
@@ -948,16 +948,70 @@ public final class SelfTest {
               "finishing while paused should freeze the paused time");
     }
 
+    /**
+     * The duration table behind the time picker's slider and steppers.
+     *
+     * <p>Its whole job is that every value the controls can land on is one a person
+     * would choose, and that the two controls agree: the slider maps a position to an
+     * index, the steppers move by one index, and both must stay inside the table.
+     */
+    private static void durationStops() {
+        int n = ScreenTimePicker.stopCount();
+        check(n > 100, "the duration table is suspiciously short: " + n);
+        check(ScreenTimePicker.stopAt(0) == MorningView.MIN_DURATION_SECONDS,
+              "the table should start at the shortest allowed morning");
+        check(ScreenTimePicker.stopAt(n - 1) == MorningView.MAX_DURATION_SECONDS,
+              "the table should end at the longest allowed morning");
+
+        for (int i = 1; i < n; i++) {
+            check(ScreenTimePicker.stopAt(i) > ScreenTimePicker.stopAt(i - 1),
+                  "the duration table is not strictly increasing at " + i);
+        }
+
+        // A stop must resolve to itself, and stepping up then down must come back to
+        // where it started -- otherwise + and - would drift the value.
+        for (int i = 0; i < n; i++) {
+            int seconds = ScreenTimePicker.stopAt(i);
+            check(ScreenTimePicker.stopIndex(seconds) == i,
+                  "stop " + seconds + "s does not resolve back to its own index");
+            if (i < n - 1) {
+                int up = ScreenTimePicker.stopAt(ScreenTimePicker.stopIndex(seconds) + 1);
+                int back = ScreenTimePicker.stopAt(ScreenTimePicker.stopIndex(up) - 1);
+                check(back == seconds,
+                      "stepping up from " + seconds + "s and back gave " + back + "s");
+            }
+        }
+
+        // Anything off the table -- a stored value, a slider landing between stops --
+        // has to clamp onto one rather than throw or run off the end.
+        for (int seconds : new int[]{-5, 0, 1, 14, 17, 61, 3607, 99999}) {
+            int index = ScreenTimePicker.stopIndex(seconds);
+            check(index >= 0 && index < n,
+                  seconds + "s resolved to an out-of-range index " + index);
+        }
+
+        // Sub-minute durations are the point of the exercise.
+        check(ScreenTimePicker.stopAt(ScreenTimePicker.stopIndex(30)) == 30,
+              "thirty seconds should be settable");
+        check(TimeText.describe(30).equals("30 sec"), "under a minute reads as seconds");
+        check(TimeText.describe(900).equals("15 min"), "a whole quarter hour reads as minutes");
+        check(TimeText.describe(90).equals("1:30"), "a mixed duration reads as m:ss");
+    }
+
     private static void collectibles() {
+        durationStops();
+
         FakeClock clock = new FakeClock();
         Engine e = new Engine(clock);
         e.setRoutine(tasks(5), keys(5));
 
-        // Roughly one every two minutes, floored at three and capped at eighteen.
-        int[][] expected = {{1, 3}, {5, 5}, {12, 8}, {15, 10}, {30, 17}, {60, 18}, {120, 18}};
+        // Roughly one every three minutes, floored at three and capped at twenty-four.
+        // Every treat is shown on the board, so a long morning really does carry a lot.
+        int[][] expected = {{1, 3}, {5, 5}, {12, 7}, {15, 8}, {30, 13}, {60, 23}, {94, 24},
+                            {120, 24}};
         for (int[] pair : expected) {
             e.reset();
-            e.start(pair[0]);
+            e.start(pair[0] * 60);
             check(e.collectibleCount() == pair[1],
                   pair[0] + " minutes should show " + pair[1] + " collectibles, showed "
                   + e.collectibleCount());
@@ -968,7 +1022,7 @@ public final class SelfTest {
         int previousCount = 0;
         for (int minutes = 1; minutes <= 120; minutes++) {
             e.reset();
-            e.start(minutes);
+            e.start(minutes * 60);
             int n = e.collectibleCount();
             check(n >= previousCount,
                   "collectible count went backwards at " + minutes + " minutes");
@@ -979,7 +1033,7 @@ public final class SelfTest {
         }
 
         e.reset();
-        e.start(12);
+        e.start(12 * 60);
         check(e.collectedCount() == 0, "nothing is collected at the start");
         int previous = 0;
         for (int minute = 1; minute <= 12; minute++) {
@@ -1006,11 +1060,14 @@ public final class SelfTest {
         Engine e = new Engine(clock);
         e.setRoutine(tasks(3), keys(3));
 
-        for (int minutes : new int[]{2, 10, 30, 90}) {
+        // Includes the shortest timer the picker can now set, where a segment is only a
+        // few seconds and the two-second eating beat has the least room.
+        for (int seconds : new int[]{MorningView.MIN_DURATION_SECONDS, 120, 600, 1800, 5400}) {
             e.reset();
-            e.start(minutes);
+            e.start(seconds);
             int total = e.collectibleCount();
-            long segment = minutes * 60_000L / total;
+            long segment = seconds * 1000L / total;
+            int minutes = seconds / 60;
             check(segment > (long) (Engine.FEAST_SECONDS * 1000f),
                   minutes + " minutes packs collectibles closer than one action beat");
 
@@ -1043,7 +1100,7 @@ public final class SelfTest {
 
         // Before the first item there is nothing to have just eaten.
         e.reset();
-        e.start(10);
+        e.start(10 * 60);
         check(e.secondsSinceCollected() == Float.MAX_VALUE,
               "nothing has been collected yet at the start");
         check(e.secondsUntilCollect() < Float.MAX_VALUE,

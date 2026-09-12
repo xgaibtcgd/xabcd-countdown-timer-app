@@ -124,7 +124,7 @@ final class ScreenGrownUps extends Screen {
             case ROW_BUDDY: return view.buddy().name;
             case ROW_SOUNDS: return view.pref("song", true) ? "On" : "Off";
             case ROW_CELEBRATION: return view.pref("confetti", true) ? "On" : "Off";
-            case ROW_TIMER: return view.minutes() + " min";
+            case ROW_TIMER: return TimeText.describe(view.durationSeconds());
             case ROW_KID_LOCK: return view.activity.isKidLocked() ? "On" : "Off";
             default: return null;
         }
