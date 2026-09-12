@@ -30,8 +30,20 @@ final class ScreenAdventure extends Screen {
      */
     private static final float POKE_SECONDS = 0.55f;
 
+    /** Seconds of quiet after which a run of pokes is over and the count starts again. */
+    private static final float POKE_STREAK_RESET = 2.4f;
+    /** How often a hurrying buddy throws off a bead of sweat. */
+    private static final float SWEAT_SECONDS = 2.2f;
+
     /** Seconds left of the current poke, counted down in {@link #draw}. */
     private float pokeRemaining;
+    /** How many pokes in a row. Keep going and the reaction grows. */
+    private int pokeStreak;
+    /** Seconds since the last poke, which is what ends a streak. */
+    private float pokeIdle = POKE_STREAK_RESET;
+    /** One dust puff per stomp landing, not one per frame of it. */
+    private boolean stompPuffed;
+    private float sweatTimer;
 
     /** Fires the pickup burst once per item rather than on every frame of the window. */
     private int burstedThrough = 0;
@@ -44,6 +56,9 @@ final class ScreenAdventure extends Screen {
     @Override void onEnter() {
         burstedThrough = view.engine.collectedCount();
         pokeRemaining = 0f;
+        pokeStreak = 0;
+        pokeIdle = POKE_STREAK_RESET;
+        sweatTimer = 0f;
     }
 
     @Override void layout(Layout layout, HitMap hits) {
@@ -66,6 +81,8 @@ final class ScreenAdventure extends Screen {
         BuddyTheme theme = view.buddy();
         Engine engine = view.engine;
         if (pokeRemaining > 0f) pokeRemaining = Math.max(0f, pokeRemaining - dt);
+        pokeIdle += dt;
+        sweatTimer += dt;
 
         view.scene.drawBackground(c, theme, t);
         // Trail first: the goal stands at the end of the lane, so items still to be
@@ -121,6 +138,15 @@ final class ScreenAdventure extends Screen {
 
         int moveId = Anim.feastMoveId(theme.feastKind);
 
+        // Running out of time: the buddy starts to sweat. The HURRY state is already
+        // faster and more frantic; this is the part a five-year-old reads instantly.
+        if (engine.isLowTime() && !engine.isPaused() && sweatTimer >= SWEAT_SECONDS) {
+            sweatTimer = 0f;
+            view.particles.emote(Art.GLYPH_DROP, 2, x + height * 0.16f,
+                                 feet - height * 0.78f, height * 0.13f, 0xFF7FC6F0,
+                                 130f, height * 0.10f, 0.35f);
+        }
+
         // A poke. There is one action slot on the buddy, and while it is eating the
         // chomp owns it -- so a poke mid-meal is layered outside instead, as a hop and a
         // grow about the feet, which composes with whatever the chomp is doing. Poked
@@ -132,7 +158,20 @@ final class ScreenAdventure extends Screen {
             if (chomp < 0f) {
                 moveId = Anim.signatureMoveId(theme.signatureKind);
                 chomp = poke;
-                strength = 1f;
+                // Keep poking and it commits harder. The first two are a shrug; the
+                // third is the whole party piece.
+                strength = pokeStreak >= 3 ? 1f : 0.62f;
+                // The trike lands its stomp hard enough to raise dust. Edge-detected
+                // rather than emitted every frame of the impact, the same way the
+                // pickup burst below is.
+                if (theme.signatureKind == Anim.SIG_STOMP && !stompPuffed && poke > 0.60f) {
+                    stompPuffed = true;
+                    burstPalette[0] = 0xFFCFC3B2;
+                    burstPalette[1] = 0xFFE3DACB;
+                    burstPalette[2] = 0xFFBFB3A2;
+                    burstPalette[3] = 0xFFF0E9DD;
+                    view.particles.burst(9, x, feet, -90f, 168f, 70f, 240f, burstPalette);
+                }
             } else {
                 float hop = (float) Math.sin(poke * (float) Math.PI);
                 feet -= height * 0.11f * hop;
@@ -172,11 +211,37 @@ final class ScreenAdventure extends Screen {
         // Not through the paused veil: it says "Tap play to carry on", and a buddy
         // barking from behind it is answering a different question.
         if (!view.engine.isPaused() && onBuddy(view.layout, view.engine, x, y)) {
+            pokeStreak = pokeIdle > POKE_STREAK_RESET ? 1 : pokeStreak + 1;
+            pokeIdle = 0f;
             pokeRemaining = POKE_SECONDS;
+            stompPuffed = false;
             view.activity.playBuddySound(view.buddy().index);
+            emitPokeEmote();
             view.startClock();
         }
         return true;                         // in the lane either way; see above
+    }
+
+    /**
+     * Hearts for a poke, and stars once the child has worked out that it keeps going.
+     *
+     * <p>Two or three pieces, never more: a dozen hearts off one tap reads as a bug
+     * rather than as affection.
+     */
+    private void emitPokeEmote() {
+        Layout layout = view.layout;
+        float height = buddyHeight(layout);
+        float hx = walkX(layout, view.engine);
+        float hy = layout.advTrail.centerY() - height * 0.92f;
+        if (pokeStreak >= 3) {
+            view.particles.emote(Art.GLYPH_STAR, 5, hx, hy, height * 0.16f,
+                                 Theme.GOLD, 260f, height * 0.22f, -0.15f);
+        } else {
+            // The cheek blush, which is the one colour all eight characters share, so a
+            // heart reads as coming off the buddy whichever one it is.
+            view.particles.emote(Art.GLYPH_HEART, 3, hx, hy, height * 0.15f,
+                                 BuddyTheme.CHEEK, 200f, height * 0.16f, -0.1f);
+        }
     }
 
     /**

@@ -31,6 +31,10 @@ final class ScreenHome extends Screen {
     private final Anim.Transform drift = new Anim.Transform();
     private float taskScroll;
 
+    /** How often the sleeping buddy lets out a Z. Slow: it is asleep, not snoring. */
+    private static final float DOZE_SECONDS = 2.6f;
+    private float dozeTimer;
+
     ScreenHome(MorningView view) {
         super(view);
     }
@@ -61,12 +65,27 @@ final class ScreenHome extends Screen {
         view.scene.drawBackground(c, theme, t);
 
         drawWordmark(c, layout);
-        view.drawBuddy(c, theme.index, layout.buddySlot.centerX(),
-                       layout.buddySlot.bottom - layout.buddySlot.height() * 0.06f,
-                       layout.buddySlot.height() * 0.82f, true);
+        float buddyHeight = layout.buddySlot.height() * 0.82f;
+        float buddyFeet = layout.buddySlot.bottom - layout.buddySlot.height() * 0.06f;
+        view.drawBuddy(c, theme.index, layout.buddySlot.centerX(), buddyFeet,
+                       buddyHeight, true);
+
+        // The buddy is in the SLEEPY state until the morning starts -- barely moving, a
+        // slow breath -- which is easy to miss. A Z drifting off it says why.
+        dozeTimer += dt;
+        if (!view.engine.isRunning() && dozeTimer >= DOZE_SECONDS) {
+            dozeTimer = 0f;
+            view.particles.emote(Art.GLYPH_ZZZ, 1,
+                                 layout.buddySlot.centerX() + buddyHeight * 0.30f,
+                                 buddyFeet - buddyHeight * 0.86f, buddyHeight * 0.17f,
+                                 0xB2FFFFFF, 76f, buddyHeight * 0.05f, -0.06f);
+        }
         drawMinuteBubbles(c, layout, theme, t);
 
         view.scene.drawForeground(c, theme, t, true);
+        // Over the scene and under the interface: the Zs belong to the buddy, not to
+        // the cards stacked on top of it.
+        view.particles.draw(c);
 
         drawHeader(c, layout, theme);
         drawTimerCard(c, layout, theme);

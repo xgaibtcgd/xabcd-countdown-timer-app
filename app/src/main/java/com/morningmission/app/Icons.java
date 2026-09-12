@@ -261,12 +261,18 @@ final class Icons {
      * often drawn small enough that the clay passes would only muddy them.
      */
     static void glyph(Canvas c, int which, float cx, float cy, float size, int color) {
+        glyph(c, which, cx, cy, size, color, 0f);
+    }
+
+    /** The same, turned. Used by the emote particles, which tumble as they rise. */
+    static void glyph(Canvas c, int which, float cx, float cy, float size, int color,
+                      float rotationDegrees) {
         if (which < 0 || which >= Art.GLYPH_COUNT) return;
         Paint fill = Theme.FILL;
         fill.setShader(null);
         fill.setColor(color);
         fill.setStyle(Paint.Style.FILL);
-        Clay.begin(c, cx, cy, size);
+        Clay.begin(c, cx, cy, size, rotationDegrees);
         c.drawPath(GLYPH[which], fill);
         Clay.end(c);
     }

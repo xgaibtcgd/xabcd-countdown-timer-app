@@ -761,8 +761,8 @@ final class Art {
                      GLYPH_PEOPLE = 11, GLYPH_LOCK = 12, GLYPH_DRAG = 13, GLYPH_PLUS = 14,
                      GLYPH_SPEAKER = 15, GLYPH_REFRESH = 16, GLYPH_CROWN = 17,
                      GLYPH_HEART = 18, GLYPH_MINUS = 19, GLYPH_NOTE = 20,
-                     GLYPH_SPEAKER_OFF = 21,
-                     GLYPH_COUNT = 22;
+                     GLYPH_SPEAKER_OFF = 21, GLYPH_ZZZ = 22, GLYPH_DROP = 23,
+                     GLYPH_COUNT = 24;
 
     static final float[][] GLYPHS = new float[GLYPH_COUNT][];
 
@@ -779,7 +779,8 @@ final class Art {
     static final String[] GLYPH_NAMES = {
         "gear", "chevron-left", "chevron-right", "pause", "check", "star", "play",
         "close", "pencil", "home", "list", "people", "lock", "drag", "plus",
-        "speaker", "refresh", "crown", "heart", "minus", "note", "speaker-off"
+        "speaker", "refresh", "crown", "heart", "minus", "note", "speaker-off",
+        "zzz", "drop"
     };
 
     static {
@@ -865,6 +866,21 @@ final class Art {
             .quad(58, 85, 52, 80).line(34, 62).line(16, 62).quad(10, 62, 10, 56)
             .line(10, 44).quad(10, 38, 16, 38).close()
             .capsule(74, 37, 96, 63, 10).capsule(96, 37, 74, 63, 10).build();
+
+        // A stack of three Zs, the small one on top, for a buddy that is still asleep.
+        // Drawn as capsules rather than as letters: the app ships two typefaces and
+        // neither is guaranteed to place a glyph the same way at 20 units across.
+        GLYPHS[GLYPH_ZZZ] = b()
+            .capsule(56, 20, 84, 20, 8).capsule(84, 20, 56, 44, 8)
+            .capsule(56, 44, 84, 44, 8)
+            .capsule(26, 54, 48, 54, 7).capsule(48, 54, 26, 72, 7)
+            .capsule(26, 72, 48, 72, 7)
+            .capsule(8, 78, 22, 78, 5).capsule(22, 78, 8, 90, 5)
+            .capsule(8, 90, 22, 90, 5).build();
+
+        // A bead of sweat: a drop, tipped, so it reads as flying off rather than
+        // hanging. The same primitive the bee's honey collectible uses.
+        GLYPHS[GLYPH_DROP] = b().drop(50, 54, 52, 72).build();
 
         GLYPHS[GLYPH_REFRESH] = b()
             .move(50, 14).quad(86, 14, 86, 50).quad(86, 86, 50, 86)
