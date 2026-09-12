@@ -196,6 +196,7 @@
 <script src="screens-ui.js"></script>
 <script>
 const BUDDY_IMAGES = [];
+const CHEER_IMAGES = [];
 const BACKDROPS = { home: null, adventure: [] };
 const PROPS = {};
 let currentBuddy = 3;      // Splash Buddy, the default on a new install
@@ -400,7 +401,7 @@ document.getElementById('motionToggle').addEventListener('click', function () {
    was still seven long when the eighth character shipped, so the trike drew with
    no sprite and no backdrop and the preview quietly lied about it. */
 const KEYS = DATA.buddies.map(b => b.key);
-let pending = KEYS.length * 2 + 1;
+let pending = KEYS.length * 3 + 1;
 const done = () => { if (--pending === 0) start(); };
 
 KEYS.forEach((key, i) => {
@@ -408,6 +409,11 @@ KEYS.forEach((key, i) => {
   buddy.onload = buddy.onerror = done;
   buddy.src = 'buddies/' + key + '.png';
   BUDDY_IMAGES[i] = buddy;
+
+  const cheering = new Image();
+  cheering.onload = cheering.onerror = done;
+  cheering.src = 'buddies/' + key + '_cheer.png';
+  CHEER_IMAGES[i] = cheering;
 
   const scene = new Image();
   scene.onload = scene.onerror = done;

@@ -164,6 +164,26 @@ function partBounds(d) {
   return { left, bottom };
 }
 
+// MorningView.topFraction measures this off the decoded bitmap. Here it is measured
+// by tools/buildpreview.sh and shipped in data.js, because a file:// page is not
+// allowed to getImageData its own sprites -- the same reason the backdrop skies are
+// sampled at build time rather than in the browser.
+function cheerTopFraction(index) {
+  return DATA.buddies[index].cheerTop || 0;
+}
+
+// Mirrors MorningView.drawBuddyCheering: the cheer art is fitted to the walking
+// sprite's own framing, so it is the same call with a different bitmap.
+function drawBuddyCheering(ctx, index, cx, feetY, height, bob = 0) {
+  const img = CHEER_IMAGES[index];
+  if (!img || !img.complete || !img.naturalWidth) {
+    drawBuddy(ctx, index, cx, feetY, height, bob);
+    return;
+  }
+  contactShadow(ctx, cx, feetY + height * 0.02, height * 0.36, height * 0.055, 0.9);
+  ctx.drawImage(img, cx - height / 2, feetY - height + bob, height, height);
+}
+
 function drawBuddy(ctx, index, cx, feetY, height, bob = 0, rotation = 0) {
   const img = BUDDY_IMAGES[index];
   if (!img || !img.complete) return;
@@ -592,8 +612,9 @@ function screenComplete(ctx, L, buddy, t) {
   const cx = stage[0] + rw(stage) * 0.40;
   const feet = stage[3] - rh(stage) * 0.06;
   const bob = bodyBob(buddy, t, 20, 6.4);
-  drawBuddy(ctx, buddy.index, cx, feet, height, bob);
-  drawGlyph(ctx, 'crown', cx, feet - height + bob - height * 0.06, height * 0.26, DATA.tokens.gold);
+  drawBuddyCheering(ctx, buddy.index, cx, feet, height, bob);
+  const crest = feet - height * (1 - cheerTopFraction(buddy.index));
+  drawGlyph(ctx, 'crown', cx, crest + bob - height * 0.06, height * 0.26, DATA.tokens.gold);
 
   for (let i = 0; i < 7; i++) {
     const ang = t * 0.8 + i * 0.9;

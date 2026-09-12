@@ -44,11 +44,23 @@ try:
         px = [im.getpixel((x, 0)) for x in range(0, w, step)]
         return "#%02X%02X%02X" % tuple(sum(c[i] for c in px) // len(px) for i in range(3))
 
+    def top_fraction(path):
+        """Where the artwork starts inside its padded frame -- MorningView.topFraction.
+
+        Same reason as the sky above: the crown has to sit on the head rather than on
+        the frame, and a file:// page cannot getImageData its own sprites to find out.
+        """
+        im = Image.open(path).convert("RGBA")
+        box = im.split()[3].getbbox()
+        return round(box[1] / im.height, 5) if box else 0.0
+
     drawable = os.path.join(root, "app/src/main/res/drawable-nodpi")
     merged["homeBackdropSky"] = top_row(os.path.join(drawable, "bg_home_storybook.png"))
     for i, b in enumerate(merged["buddies"]):
         merged["environments"][i]["backdropSky"] = top_row(
             os.path.join(drawable, "bg_adventure_%s.png" % b["key"]))
+        b["cheerTop"] = top_fraction(
+            os.path.join(drawable, "buddy_%s_cheer.png" % b["key"]))
 except Exception as exc:                       # a preview without it still renders
     print("buildpreview: could not sample backdrop skies (%s)" % exc)
 

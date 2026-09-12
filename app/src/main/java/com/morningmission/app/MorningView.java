@@ -75,6 +75,11 @@ final class MorningView extends View implements Choreographer.FrameCallback, Eng
     // others are halved, since they are only ever seen at picker size.
     private final Bitmap[] art = new Bitmap[BuddyTheme.COUNT];
     private final int[] artSample = new int[BuddyTheme.COUNT];
+    // One slot, not eight: exactly one buddy ever cheers, on one screen.
+    private Bitmap cheerBitmap;
+    private int cheerIndex = -1;
+    private float cheerTop;
+    private int[] scanRow;
     private final Bitmap[] props = new Bitmap[PROP_COUNT];
 
     // Backgrounds are large, and at most two are ever wanted at once: the storybook
@@ -395,7 +400,14 @@ final class MorningView extends View implements Choreographer.FrameCallback, Eng
                    boolean withShadow, int moveId, float movePhase, float moveStrength) {
         Bitmap bitmap = art(buddyIndex, buddyIndex == buddy().index);
         if (bitmap == null || bitmap.isRecycled()) return;
+        drawSprite(c, bitmap, buddyIndex, cx, feetY, height, withShadow,
+                   moveId, movePhase, moveStrength);
+    }
 
+    /** The shared body of the two above: motion, contact shadow, transform, draw. */
+    private void drawSprite(Canvas c, Bitmap bitmap, int buddyIndex, float cx, float feetY,
+                            float height, boolean withShadow, int moveId, float movePhase,
+                            float moveStrength) {
         // Called once per frame, which is what lets the blend track velocity for squash
         // and stretch. drawBuddyPose below solves without touching that state, so the
         // seven dancing buddies in the picker cannot disturb it.
@@ -426,6 +438,24 @@ final class MorningView extends View implements Choreographer.FrameCallback, Eng
         Theme.BMP.setAlpha(255);
         c.drawBitmap(bitmap, null, scratch, Theme.BMP);
         c.restore();
+    }
+
+    /**
+     * The buddy with its arms up, for the celebration.
+     *
+     * <p>The cheer artwork is fitted to the walking sprite's own framing, so this is the
+     * same call with a different bitmap -- same height, same feet, same centre. Falls
+     * back to the walking sprite if the decode fails, which is a buddy that celebrates
+     * without raising its arms rather than a Complete screen with nothing on it.
+     */
+    void drawBuddyCheering(Canvas c, int buddyIndex, float cx, float feetY, float height,
+                           boolean withShadow) {
+        Bitmap bitmap = cheer(buddyIndex);
+        if (bitmap == null || bitmap.isRecycled()) {
+            drawBuddy(c, buddyIndex, cx, feetY, height, withShadow);
+            return;
+        }
+        drawSprite(c, bitmap, buddyIndex, cx, feetY, height, withShadow, -1, -1f, 1f);
     }
 
     /** Draws a buddy with a fixed pose, for the picker where seven dance at once. */
@@ -551,6 +581,71 @@ final class MorningView extends View implements Choreographer.FrameCallback, Eng
         c.restore();
     }
 
+    /**
+     * Decodes the current buddy's cheer artwork.
+     *
+     * <p>One slot. The celebration shows one character and the picker never cheers, so a
+     * per-buddy cache would hold seven bitmaps nothing is going to ask for.
+     */
+    private Bitmap cheer(int index) {
+        int i = BuddyTheme.clampIndex(index);
+        if (cheerIndex == i && cheerBitmap != null && !cheerBitmap.isRecycled()) {
+            return cheerBitmap;
+        }
+        if (cheerBitmap != null && !cheerBitmap.isRecycled()) cheerBitmap.recycle();
+        cheerBitmap = null;
+        cheerIndex = -1;
+        try {
+            // allocgate: ok - decode path, reached once per celebration
+            BitmapFactory.Options options = new BitmapFactory.Options();
+            options.inPreferredConfig = Bitmap.Config.ARGB_8888;
+            cheerBitmap = BitmapFactory.decodeResource(
+                    getResources(), BuddyTheme.of(i).cheerRes, options);
+            if (cheerBitmap != null) {
+                cheerIndex = i;
+                cheerTop = topFraction(cheerBitmap);
+            }
+        } catch (OutOfMemoryError | Exception e) {
+            cheerBitmap = null;
+            cheerIndex = -1;
+        }
+        return cheerBitmap;
+    }
+
+    /**
+     * How far down its own frame a sprite's artwork starts, 0..1.
+     *
+     * <p>For anything that has to sit ON the character rather than on the frame -- the
+     * celebration crown, which was floating a tenth of a body above some heads because
+     * the frames are padded and the padding is not the same on every pose.
+     *
+     * <p>Row at a time from the top, stopping at the first one with any ink in it, so a
+     * character occupying most of its frame costs a few dozen rows rather than the lot.
+     */
+    private float topFraction(Bitmap bitmap) {
+        int w = bitmap.getWidth(), h = bitmap.getHeight();
+        if (w <= 0 || h <= 0) return 0f;
+        // allocgate: ok - decode path, reached once per celebration
+        if (scanRow == null || scanRow.length < w) scanRow = new int[w];
+        for (int y = 0; y < h; y++) {
+            bitmap.getPixels(scanRow, 0, w, 0, y, w, 1);
+            for (int x = 0; x < w; x++) {
+                if ((scanRow[x] >>> 24) > 8) return y / (float) h;
+            }
+        }
+        return 0f;
+    }
+
+    /**
+     * The top of the celebrating buddy's artwork within its frame, 0..1.
+     *
+     * <p>Zero if the cheer art is missing, which is also right: the fallback is the
+     * walking sprite, and this is only ever used to nudge something downward.
+     */
+    float cheerTopFraction(int index) {
+        return cheer(index) == null ? 0f : cheerTop;
+    }
+
     /** Decodes an illustrated background, keeping the last two. */
     private Bitmap backdrop(int res) {
         if (res == 0) return null;
@@ -580,6 +675,9 @@ final class MorningView extends View implements Choreographer.FrameCallback, Eng
     }
 
     private void releaseArt() {
+        if (cheerBitmap != null && !cheerBitmap.isRecycled()) cheerBitmap.recycle();
+        cheerBitmap = null;
+        cheerIndex = -1;
         for (int i = 0; i < PROP_COUNT; i++) {
             if (props[i] != null && !props[i].isRecycled()) props[i].recycle();
             props[i] = null;

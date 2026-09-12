@@ -82,11 +82,15 @@ final class ScreenComplete extends Screen {
         float height = Math.min(stage.height() * 0.80f, Layout.W * 0.50f);
         float cx = stage.left + stage.width() * 0.40f;
         float feet = stage.bottom - stage.height() * 0.06f;
-        view.drawBuddy(c, theme.index, cx, feet, height, true);
+        view.drawBuddyCheering(c, theme.index, cx, feet, height, true);
 
-        // The crown rides on top of the buddy, following the same bob.
+        // The crown rides on top of the buddy, following the same bob. Anchored to where
+        // the artwork actually starts, not to the top of its frame -- the frames are
+        // padded, by different amounts per pose, and the crown was floating clear of
+        // some heads by a tenth of a body.
         float bob = (float) Math.sin(t * 6.4f) * 20f;
-        Icons.glyph(c, Art.GLYPH_CROWN, cx, feet - height + bob - height * 0.06f,
+        float crest = feet - height * (1f - view.cheerTopFraction(theme.index));
+        Icons.glyph(c, Art.GLYPH_CROWN, cx, crest + bob - height * 0.06f,
                     height * 0.26f, Theme.GOLD);
 
         for (int i = 0; i < 7; i++) {

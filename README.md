@@ -117,6 +117,16 @@ collectible and glyph. `Scene` still contains a complete procedural environment
 per buddy, used when no artwork is present and for the celebration, which has
 none.
 
+The eight `buddy_<key>_cheer.png` are the same characters with their arms up, on
+the Complete screen. They are fitted to the walking sprite's own framing rather
+than to their own bounding box -- a cheer is a different shape from a stand, so
+normalising by bounds makes a character change size the moment it celebrates.
+The placement was solved by maximising silhouette overlap against the walking
+sprite (0.80-0.94 IoU on the eight), which lands head on head and body on body
+whatever the limbs are doing. Anything that sits ON the character rather than on
+its frame -- the crown -- is anchored to `MorningView.topFraction`, since the
+frames are padded by different amounts per pose.
+
 `prize_chest_0..4.png` and `prize_star.png` are the finale. The chest is the
 last collectible and the destination at once, shared by all eight characters
 where each used to have its own goal drawn from `float[]` geometry -- a basket,
