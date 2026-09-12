@@ -222,7 +222,13 @@ function drawRig(ctx, index, buddy, height, t, bodyRotation) {
   const width = height * rig.aspect;
   // The lagged sample: the same bob function a beat ago, differenced.
   const trail = bodyBob(buddy, t, 8, 2.6) - bodyBob(buddy, t - RIG_LAG, 8, 2.6);
-  for (let i = 0; i < rig.parts.length; i++) {
+  // Draw ORDER, which is not part order for every character: Burger Buddy's signature
+  // part is the cheeseburger it is holding, and that goes in front. Rig.partAt.
+  const order = [];
+  for (let slot = 0; slot < rig.parts.length; slot++) {
+    order.push(rig.inFront ? (slot === rig.parts.length - 1 ? 0 : slot + 1) : slot);
+  }
+  for (const i of order) {
     const img = imgs[i];
     if (!img || !img.complete || !img.naturalWidth) continue;
     const p = rig.parts[i];
@@ -233,7 +239,7 @@ function drawRig(ctx, index, buddy, height, t, bodyRotation) {
     ctx.translate((p.cx - 0.5) * width, (p.cy - 0.5) * height);
     ctx.translate(px, py);
     ctx.rotate(deg * Math.PI / 180);
-    const squash = partScaleY(i, t, rig.beat);
+    const squash = rig.squash ? partScaleY(i, t, rig.beat) : 1;
     if (squash !== 1) ctx.scale(1, squash);
     ctx.translate(-px, -py);
     ctx.drawImage(img, -w / 2, -h / 2, w, h);

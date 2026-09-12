@@ -769,9 +769,13 @@ final class Anim {
      * cannot flap by rotating -- that see-saws it -- but squashing it toward its root
      * reads exactly as a downstroke seen from the front, which is the view the app has.
      * It is also how the beat stays symmetric without asking for two more drawables.
+     *
+     * <p>Only for a wing, which is why the rig has to say. Seven of the eight signature
+     * parts are a tail, a pair of ears or a frill, and a tail that shortened and
+     * lengthened on the beat would read as broken rather than as wagging.
      */
-    static float partScaleY(int part, float t, float beat) {
-        if (part != Rig.SIGNATURE) return 1f;
+    static float partScaleY(int part, float t, float beat, boolean squash) {
+        if (part != Rig.SIGNATURE || !squash) return 1f;
         return 1f - 0.34f * (0.5f + 0.5f * (float) Math.sin(t * beat));
     }
 

@@ -541,7 +541,10 @@ final class MorningView extends View implements Choreographer.FrameCallback, Eng
         Anim.solve(animState, theme.temperament, at - Anim.RIG_LAG, laggedMotion);
         float trail = motion.dy - laggedMotion.dy;
 
-        for (int part = 0; part < Rig.PART_COUNT; part++) {
+        for (int slot = 0; slot < Rig.PART_COUNT; slot++) {
+            // Draw ORDER, which is not part order for every character: Burger Buddy's
+            // signature part is the cheeseburger it is holding, and that goes in front.
+            int part = rig.partAt(slot);
             Bitmap piece = rigPart(rig, buddyIndex, part);
             if (piece == null || piece.isRecycled()) continue;
             float w = rig.width(part) * width;
@@ -554,7 +557,8 @@ final class MorningView extends View implements Choreographer.FrameCallback, Eng
             c.save();
             c.translate((rig.cx(part) - 0.5f) * width, (rig.cy(part) - 0.5f) * height);
             c.rotate(degrees, px, py);
-            float squash = Anim.partScaleY(part, at, rig.signatureBeat);
+            float squash = Anim.partScaleY(part, at, rig.signatureBeat,
+                                           rig.signatureSquash);
             if (squash != 1f) c.scale(1f, squash, px, py);
             scratch.set(-w * 0.5f, -h * 0.5f, w * 0.5f, h * 0.5f);
             c.drawBitmap(piece, null, scratch, Theme.BMP);
@@ -590,12 +594,16 @@ final class MorningView extends View implements Choreographer.FrameCallback, Eng
     /** Draws a buddy with a fixed pose, for the picker where seven dance at once. */
     void drawBuddyPose(Canvas c, int buddyIndex, float cx, float feetY, float height,
                        int state, float phaseOffset) {
-        BuddyTheme theme = BuddyTheme.of(buddyIndex);
-        Bitmap bitmap = theme.rig != null ? null : art(buddyIndex, false);
-        if (bitmap == null && theme.rig == null) return;
+        // The FLAT sprite here, even for a rigged character. The picker lays out all
+        // eight at once and the rig bitmap cache holds one buddy's parts, so rigging
+        // this path would evict and re-decode five PNGs eight times a frame. Caching
+        // all of them instead costs 9.6MB to animate limbs on a thumbnail nobody is
+        // looking at that closely; seven of the eight were flat here until today.
+        Bitmap bitmap = art(buddyIndex, false);
+        if (bitmap == null) return;
         // Solved statelessly, so the eight dancing cards cannot disturb the blend the
         // rest of the app is riding.
-        Anim.solve(state, theme.temperament, time + phaseOffset, motion);
+        Anim.solve(state, BuddyTheme.of(buddyIndex).temperament, time + phaseOffset, motion);
         paintSprite(c, bitmap, buddyIndex, cx, feetY, height, false, time + phaseOffset,
                     state, false);
     }

@@ -53,6 +53,8 @@ public final class ExportArt {
                 sb.append(",\"rig\":{\"aspect\":").append(round(b.rig.aspect))
                   .append(",\"beat\":").append(round(b.rig.signatureBeat))
                   .append(",\"sweep\":").append(round(b.rig.signatureSweep))
+                  .append(",\"squash\":").append(b.rig.signatureSquash)
+                  .append(",\"inFront\":").append(b.rig.signatureInFront)
                   .append(",\"parts\":[");
                 for (int part = 0; part < Rig.PART_COUNT; part++) {
                     if (part > 0) sb.append(",");

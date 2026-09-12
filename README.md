@@ -146,6 +146,29 @@ whatever the limbs are doing. Anything that sits ON the character rather than on
 its frame -- the crown -- is anchored to `MorningView.topFraction`, since the
 frames are padded by different amounts per pose.
 
+All eight characters are rigged. Each has five parts -- signature, torso, two
+arms, head -- placed by a fitter rather than by hand: the head is located in the
+shipped flat sprite by masked normalised cross-correlation, which fixes the
+scale for every part (the sheets draw all of a character's pieces at one scale;
+measured on the bee, the sheet's torso/head width ratio is 1.017 and the
+hand-authored rig's is 1.017), and the rest of the body is then nudged part by
+part until the assembly matches the sprite IN COLOUR, pixel by pixel.
+
+Colour, not silhouette. Silhouette overlap was the obvious objective and is
+actively misleading: an arm folded flat against the belly has the same
+silhouette as no arm at all, so it rewards hiding every limb inside the torso --
+which it did, on all eight at once, and the scores went up while the bee lost
+its arms. Final silhouette agreement with the sprite each rig replaces runs
+0.76 to 0.91; the bee's hand-authored rig, the only one anybody eyeballed into
+place, scores 0.77.
+
+Two things vary per character and the rig carries both. Only a wing squashes
+toward its root (`signatureSquash`) -- a tail that shortened and lengthened on
+the beat would read as broken. Only Burger Buddy's signature part draws in front
+of the body (`signatureInFront`), because it is the cheeseburger being held, not
+a limb. The buddy picker deliberately still draws flat sprites: it lays out all
+eight at once and the rig bitmap cache holds one character's parts.
+
 `prize_chest_0..4.png` and `prize_star.png` are the finale. The chest is the
 last collectible and the destination at once, shared by all eight characters
 where each used to have its own goal drawn from `float[]` geometry -- a basket,

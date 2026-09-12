@@ -77,13 +77,45 @@ final class Rig {
     /** How far it swings, in degrees. */
     final float signatureSweep;
 
+    /**
+     * Whether the signature part squashes toward its root as well as turning.
+     *
+     * <p>True for a wing, which is a pair drawn as one bitmap and cannot flap by
+     * rotating -- squashing it toward the back is what stands in for the beat. False
+     * for everything else: a tail that shortened and lengthened would read as broken,
+     * not as wagging.
+     */
+    final boolean signatureSquash;
+
+    /**
+     * Whether the signature part draws in FRONT of the body instead of behind it.
+     *
+     * <p>One of the eight needs this. Burger Buddy's signature part is the cheeseburger
+     * it is holding, which is not a limb and is not behind anything.
+     */
+    final boolean signatureInFront;
+
     private Rig(int[] res, float[] layout, float aspect,
                 float signatureBeat, float signatureSweep) {
+        this(res, layout, aspect, signatureBeat, signatureSweep, true, false);
+    }
+
+    private Rig(int[] res, float[] layout, float aspect,
+                float signatureBeat, float signatureSweep,
+                boolean signatureSquash, boolean signatureInFront) {
         this.res = res;
         this.layout = layout;
         this.aspect = aspect;
         this.signatureBeat = signatureBeat;
         this.signatureSweep = signatureSweep;
+        this.signatureSquash = signatureSquash;
+        this.signatureInFront = signatureInFront;
+    }
+
+    /** The parts in draw order for THIS rig, which depends on where the signature goes. */
+    int partAt(int slot) {
+        if (!signatureInFront) return slot;
+        return slot == PART_COUNT - 1 ? SIGNATURE : slot + 1;
     }
 
     /**
@@ -128,7 +160,7 @@ final class Rig {
      */
     static final Rig BEE = new Rig(
         new int[] {
-            R.drawable.buddy_bee_part_wings,
+            R.drawable.buddy_bee_part_sig,
             R.drawable.buddy_bee_part_torso,
             R.drawable.buddy_bee_part_arm_l,
             R.drawable.buddy_bee_part_arm_r,
@@ -143,4 +175,191 @@ final class Rig {
             0.5450f, 0.3316f, 0.5326f, 0.4815f,    0f,    0.50f, 0.92f,   // head
         },
         1f, 15f, 17f);
+
+    /**
+     * Great White Buddy. Its signature part is the tail fin, which sways rather
+     * than beats -- a fin driven at a wing's rate reads as a twitch.
+     *
+     * <p>Placed by the fitter rather than by hand: the head located in the flat sprite
+     * by masked cross-correlation, which fixes the scale for every part, then the whole
+     * body nudged until the assembly matches the sprite in colour, pixel by pixel.
+     * Silhouette overlap 0.789 against the sprite it replaces.
+     */
+    static final Rig SHARK = new Rig(
+        new int[] {
+            R.drawable.buddy_shark_part_sig,
+            R.drawable.buddy_shark_part_torso,
+            R.drawable.buddy_shark_part_arm_l,
+            R.drawable.buddy_shark_part_arm_r,
+            R.drawable.buddy_shark_part_head,
+        },
+        new float[] {
+            //  cx        cy        w        h       rest    pivotX pivotY
+              0.5880f,  0.6291f,  0.4791f,  0.4872f,    -5.2f,  0.29f,  0.21f,   // sig
+              0.4750f,  0.5984f,  0.5621f,  0.4765f,     5.2f,  0.50f,  0.50f,   // torso
+              0.3821f,  0.6002f,  0.4336f,  0.4399f,    79.8f,  0.74f,  0.24f,   // arm_l
+              0.5429f,  0.5513f,  0.3654f,  0.3671f,   -92.0f,  0.35f,  0.32f,   // arm_r
+              0.5000f,  0.3743f,  0.6182f,  0.7733f,   -11.3f,  0.48f,  0.65f,   // head
+        },
+        1f, 4.0f, 9.0f, false, false);
+
+    /**
+     * Pug Buddy. The signature part is its curled tail; the "arms" are its front
+     * paws, which is why they hang so low on the body.
+     *
+     * <p>Placed by the fitter rather than by hand: the head located in the flat sprite
+     * by masked cross-correlation, which fixes the scale for every part, then the whole
+     * body nudged until the assembly matches the sprite in colour, pixel by pixel.
+     * Silhouette overlap 0.843 against the sprite it replaces.
+     */
+    static final Rig PUG = new Rig(
+        new int[] {
+            R.drawable.buddy_pug_part_sig,
+            R.drawable.buddy_pug_part_torso,
+            R.drawable.buddy_pug_part_arm_l,
+            R.drawable.buddy_pug_part_arm_r,
+            R.drawable.buddy_pug_part_head,
+        },
+        new float[] {
+            //  cx        cy        w        h       rest    pivotX pivotY
+              0.5095f,  0.6526f,  0.3333f,  0.3634f,    26.2f,  0.43f,  0.08f,   // sig
+              0.4928f,  0.5277f,  0.5913f,  0.4750f,    -1.7f,  0.50f,  0.50f,   // torso
+              0.3454f,  0.4086f,  0.3282f,  0.3078f,    76.3f,  0.92f,  0.51f,   // arm_l
+              0.6041f,  0.6206f,  0.4308f,  0.3847f,   -86.8f,  0.23f,  0.08f,   // arm_r
+              0.4808f,  0.2942f,  0.5904f,  0.4300f,    10.3f,  0.51f,  0.77f,   // head
+        },
+        1f, 5.0f, 12.0f, false, false);
+
+    /**
+     * Kitty Buddy, whose signature part is its tail and whose torso is the dress.
+     *
+     * <p>Placed by the fitter rather than by hand: the head located in the flat sprite
+     * by masked cross-correlation, which fixes the scale for every part, then the whole
+     * body nudged until the assembly matches the sprite in colour, pixel by pixel.
+     * Silhouette overlap 0.908 against the sprite it replaces.
+     */
+    static final Rig KITTY = new Rig(
+        new int[] {
+            R.drawable.buddy_kitty_part_sig,
+            R.drawable.buddy_kitty_part_torso,
+            R.drawable.buddy_kitty_part_arm_l,
+            R.drawable.buddy_kitty_part_arm_r,
+            R.drawable.buddy_kitty_part_head,
+        },
+        new float[] {
+            //  cx        cy        w        h       rest    pivotX pivotY
+              0.6034f,  0.6247f,  0.4374f,  0.2870f,     8.8f,  0.27f,  0.08f,   // sig
+              0.4726f,  0.6668f,  0.5974f,  0.5165f,    -1.8f,  0.50f,  0.50f,   // torso
+              0.3039f,  0.4692f,  0.2965f,  0.2432f,   104.2f,  0.92f,  0.60f,   // arm_l
+              0.7034f,  0.6072f,  0.3428f,  0.2842f,   -55.3f,  0.08f,  0.10f,   // arm_r
+              0.5346f,  0.3192f,  0.5251f,  0.4799f,   -13.7f,  0.44f,  0.86f,   // head
+        },
+        1f, 4.6f, 12.0f, false, false);
+
+    /**
+     * Cloud Pup. The signature part is the pair of long ears, which is the widest
+     * signature of the eight and the reason its head match came back oversized.
+     *
+     * <p>Placed by the fitter rather than by hand: the head located in the flat sprite
+     * by masked cross-correlation, which fixes the scale for every part, then the whole
+     * body nudged until the assembly matches the sprite in colour, pixel by pixel.
+     * Silhouette overlap 0.891 against the sprite it replaces.
+     */
+    static final Rig CLOUD = new Rig(
+        new int[] {
+            R.drawable.buddy_cloud_part_sig,
+            R.drawable.buddy_cloud_part_torso,
+            R.drawable.buddy_cloud_part_arm_l,
+            R.drawable.buddy_cloud_part_arm_r,
+            R.drawable.buddy_cloud_part_head,
+        },
+        new float[] {
+            //  cx        cy        w        h       rest    pivotX pivotY
+              0.4515f,  0.3813f,  0.7578f,  0.3895f,     3.5f,  0.56f,  0.60f,   // sig
+              0.5005f,  0.5080f,  0.5745f,  0.5169f,   -24.5f,  0.50f,  0.50f,   // torso
+              0.3575f,  0.6198f,  0.3995f,  0.3686f,    79.8f,  0.86f,  0.08f,   // arm_l
+              0.7117f,  0.3698f,  0.3328f,  0.2954f,   -88.5f,  0.08f,  0.67f,   // arm_r
+              0.5005f,  0.3293f,  0.8105f,  0.4290f,    12.0f,  0.50f,  0.71f,   // head
+        },
+        1f, 3.4f, 8.0f, false, false);
+
+    /**
+     * Dino Buddy. Two candidates for the signature part -- the tail and the sprout
+     * on its head -- and the sheet supplies the tail, so the sprout rides the head.
+     *
+     * <p>Placed by the fitter rather than by hand: the head located in the flat sprite
+     * by masked cross-correlation, which fixes the scale for every part, then the whole
+     * body nudged until the assembly matches the sprite in colour, pixel by pixel.
+     * Silhouette overlap 0.758 against the sprite it replaces.
+     */
+    static final Rig DINO = new Rig(
+        new int[] {
+            R.drawable.buddy_dino_part_sig,
+            R.drawable.buddy_dino_part_torso,
+            R.drawable.buddy_dino_part_arm_l,
+            R.drawable.buddy_dino_part_arm_r,
+            R.drawable.buddy_dino_part_head,
+        },
+        new float[] {
+            //  cx        cy        w        h       rest    pivotX pivotY
+              0.5692f,  0.1512f,  0.4716f,  0.2595f,     1.8f,  0.31f,  0.92f,   // sig
+              0.4442f,  0.6512f,  0.6271f,  0.4137f,     5.3f,  0.50f,  0.50f,   // torso
+              0.4393f,  0.5386f,  0.3321f,  0.3227f,    88.5f,  0.63f,  0.36f,   // arm_l
+              0.5492f,  0.7266f,  0.3630f,  0.3388f,   -57.0f,  0.31f,  0.08f,   // arm_r
+              0.5192f,  0.3346f,  0.5105f,  0.5819f,     6.0f,  0.43f,  0.77f,   // head
+        },
+        1f, 3.0f, 7.0f, false, false);
+
+    /**
+     * Jungle Trike, whose signature part is the frill behind its head.
+     *
+     * <p>Placed by the fitter rather than by hand: the head located in the flat sprite
+     * by masked cross-correlation, which fixes the scale for every part, then the whole
+     * body nudged until the assembly matches the sprite in colour, pixel by pixel.
+     * Silhouette overlap 0.859 against the sprite it replaces.
+     */
+    static final Rig TRIKE = new Rig(
+        new int[] {
+            R.drawable.buddy_trike_part_sig,
+            R.drawable.buddy_trike_part_torso,
+            R.drawable.buddy_trike_part_arm_l,
+            R.drawable.buddy_trike_part_arm_r,
+            R.drawable.buddy_trike_part_head,
+        },
+        new float[] {
+            //  cx        cy        w        h       rest    pivotX pivotY
+              0.5346f,  0.4097f,  0.6586f,  0.5032f,   -22.7f,  0.50f,  0.58f,   // sig
+              0.5346f,  0.6126f,  0.6706f,  0.4996f,   -26.2f,  0.50f,  0.50f,   // torso
+              0.3881f,  0.4566f,  0.4725f,  0.3375f,    83.2f,  0.81f,  0.49f,   // arm_l
+              0.6811f,  0.4946f,  0.3825f,  0.2732f,   -71.0f,  0.12f,  0.34f,   // arm_r
+              0.5346f,  0.2910f,  0.5780f,  0.4914f,    -6.0f,  0.50f,  0.83f,   // head
+        },
+        1f, 2.6f, 5.0f, false, false);
+
+    /**
+     * Burger Buddy. The only one whose signature part is drawn IN FRONT of the
+     * body: it is the cheeseburger being held, not a limb, and it does not move.
+     *
+     * <p>Placed by the fitter rather than by hand: the head located in the flat sprite
+     * by masked cross-correlation, which fixes the scale for every part, then the whole
+     * body nudged until the assembly matches the sprite in colour, pixel by pixel.
+     * Silhouette overlap 0.894 against the sprite it replaces.
+     */
+    static final Rig BURGER = new Rig(
+        new int[] {
+            R.drawable.buddy_burger_part_sig,
+            R.drawable.buddy_burger_part_torso,
+            R.drawable.buddy_burger_part_arm_l,
+            R.drawable.buddy_burger_part_arm_r,
+            R.drawable.buddy_burger_part_head,
+        },
+        new float[] {
+            //  cx        cy        w        h       rest    pivotX pivotY
+              0.5870f,  0.6113f,  0.4199f,  0.3645f,    -3.5f,  0.28f,  0.22f,   // sig
+              0.4870f,  0.6889f,  0.5871f,  0.3790f,   -15.7f,  0.50f,  0.50f,   // torso
+              0.4710f,  0.4355f,  0.2480f,  0.2400f,    78.0f,  0.59f,  0.81f,   // arm_l
+              0.5290f,  0.6855f,  0.2915f,  0.2839f,   -74.5f,  0.38f,  0.08f,   // arm_r
+              0.5000f,  0.3288f,  0.5593f,  0.5317f,     6.0f,  0.49f,  0.84f,   // head
+        },
+        1f, 3.0f, 4.0f, false, true);
 }

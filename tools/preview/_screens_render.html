@@ -37,7 +37,7 @@ window.READY = new Promise(resolve => {
     if (rig) {
       RIG_IMAGES[i] = rig.parts.map(part => {
         const im = new Image();
-        im.src = 'buddies/' + key + '_part_' + part.name.replace('signature', 'wings') + '.png';
+        im.src = 'buddies/' + key + '_part_' + part.name.replace('signature', 'sig') + '.png';
         return im;
       });
     }

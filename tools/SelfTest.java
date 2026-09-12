@@ -2263,9 +2263,24 @@ public final class SelfTest {
                     moved += Math.abs(a);
                 }
             }
-            float squash = Anim.partScaleY(Rig.SIGNATURE, t, rig.signatureBeat);
+            float squash = Anim.partScaleY(Rig.SIGNATURE, t, rig.signatureBeat,
+                                           rig.signatureSquash);
             check(squash > 0.2f && squash <= 1f,
                   who + " squashed its signature part to " + squash);
+            check(rig.signatureSquash || squash == 1f,
+                  who + " squashes a signature part that is not a wing");
+            // Every slot drawn exactly once, whichever end the signature goes on.
+            boolean[] drawn = new boolean[Rig.PART_COUNT];
+            for (int slot = 0; slot < Rig.PART_COUNT; slot++) {
+                int at = rig.partAt(slot);
+                check(at >= 0 && at < Rig.PART_COUNT && !drawn[at],
+                      who + " draws part slot " + slot + " as " + at + ", twice or off the end");
+                drawn[at] = true;
+            }
+            check(rig.signatureInFront
+                  ? rig.partAt(Rig.PART_COUNT - 1) == Rig.SIGNATURE
+                  : rig.partAt(0) == Rig.SIGNATURE,
+                  who + " draws its signature part on the wrong side of the body");
         }
         check(moved > 100f, who + " has parts that never move");
     }

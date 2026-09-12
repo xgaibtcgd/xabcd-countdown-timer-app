@@ -421,7 +421,7 @@ KEYS.forEach((key, i) => {
   if (rigData) {
     RIG_IMAGES[i] = rigData.parts.map(part => {
       const im = new Image();
-      im.src = 'buddies/' + key + '_part_' + part.name.replace('signature', 'wings') + '.png';
+      im.src = 'buddies/' + key + '_part_' + part.name.replace('signature', 'sig') + '.png';
       return im;
     });
   }

@@ -154,6 +154,7 @@ final class BuddyTheme {
             .assets(R.drawable.buddy_burger, R.drawable.buddy_burger_cheer,
                     R.raw.buddy_burger_sound, R.raw.buddy_burger_eat,
                     R.raw.victory_burger, R.drawable.bg_adventure_burger)
+            .rigged(Rig.BURGER)
             .palette(0xFFF39B28, 0xFF2772C9, 0xFFEC4777, 0xFFFDEDD8, 0xFFFBF4EA, 0xFF8A4A12, 0xFFC7B8B9),
 
         new BuddyTheme(1, "bee")
@@ -173,6 +174,7 @@ final class BuddyTheme {
             .assets(R.drawable.buddy_pug, R.drawable.buddy_pug_cheer,
                     R.raw.buddy_pug_sound, R.raw.buddy_pug_eat,
                     R.raw.victory_pug, R.drawable.bg_adventure_pug)
+            .rigged(Rig.PUG)
             .palette(0xFFFA6801, 0xFFDF8542, 0xFFF9D6A8, 0xFFFEE4D1, 0xFFF9EFE4, 0xFF7A3300, 0xFF382826),
 
         new BuddyTheme(3, "shark")
@@ -182,6 +184,7 @@ final class BuddyTheme {
             .assets(R.drawable.buddy_shark, R.drawable.buddy_shark_cheer,
                     R.raw.buddy_shark_sound, R.raw.buddy_shark_eat,
                     R.raw.victory_shark, R.drawable.bg_adventure_shark)
+            .rigged(Rig.SHARK)
             .palette(0xFF25A7F9, 0xFF0776D9, 0xFFAE3242, 0xFFD3ECFE, 0xFFF6F7F9, 0xFF0B4D8F, 0xFF246FC8),
 
         new BuddyTheme(4, "dino")
@@ -191,6 +194,7 @@ final class BuddyTheme {
             .assets(R.drawable.buddy_dino, R.drawable.buddy_dino_cheer,
                     R.raw.buddy_dino_sound, R.raw.buddy_dino_eat,
                     R.raw.victory_dino, R.drawable.bg_adventure_dino)
+            .rigged(Rig.DINO)
             .palette(0xFF67CFA4, 0xFF259474, 0xFF83D126, 0xFFE4F6EF, 0xFFF2FBF7, 0xFF1B6B52, 0xFF49B893),
 
         new BuddyTheme(5, "cloud")
@@ -200,6 +204,7 @@ final class BuddyTheme {
             .assets(R.drawable.buddy_cloud, R.drawable.buddy_cloud_cheer,
                     R.raw.buddy_cloud_sound, R.raw.buddy_cloud_eat,
                     R.raw.victory_cloud, R.drawable.bg_adventure_cloud)
+            .rigged(Rig.CLOUD)
             .palette(0xFF57B9F3, 0xFF3798E4, 0xFFFFFFFF, 0xFFF0F7FF, 0xFFF5FBFF, 0xFF1D6FA8, 0xFF45A8EB),
 
         new BuddyTheme(6, "kitty")
@@ -209,6 +214,7 @@ final class BuddyTheme {
             .assets(R.drawable.buddy_kitty, R.drawable.buddy_kitty_cheer,
                     R.raw.buddy_kitty_sound, R.raw.buddy_kitty_eat,
                     R.raw.victory_kitty, R.drawable.bg_adventure_kitty)
+            .rigged(Rig.KITTY)
             .palette(0xFFF85798, 0xFFD03D6B, 0xFFFFFFFF, 0xFFFEE1EC, 0xFFF8ECE2, 0xFFA32354, 0xFFD4BBB7),
 
         new BuddyTheme(7, "trike")
@@ -218,6 +224,7 @@ final class BuddyTheme {
             .assets(R.drawable.buddy_trike, R.drawable.buddy_trike_cheer,
                     R.raw.buddy_trike_sound, R.raw.buddy_trike_eat,
                     R.raw.victory_trike, R.drawable.bg_adventure_trike)
+            .rigged(Rig.TRIKE)
             .palette(0xFFA6CC63, 0xFF39944F, 0xFFCE1B2C, 0xFFEEF7D9, 0xFFF2EAE0, 0xFF3C6B22, 0xFF24783C),
     };
 
