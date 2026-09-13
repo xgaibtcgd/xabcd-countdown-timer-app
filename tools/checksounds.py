@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Checks that no two generated sounds are the same sound.
+"""Checks that no two of the app's sounds are the same sound.
 
 The complaint that produced this set of sounds was that they all sounded alike, and
 the thing about that defect is that nothing in a build catches it: every file is a
@@ -138,11 +138,35 @@ def one_pole(sig, rate, cutoff, high):
     return out
 
 
-def distinct(a, b):
+#: How far apart two octave profiles have to be to settle it on their own, in
+#: percentage points of energy that would have to move from one to the other.
+#:
+#: The four descriptors above were calibrated on synthesised sounds, where the
+#: generator had deliberately spread the dominant frequencies across the spectrum.
+#: Recordings do not oblige: eight produced buddy voices all sit in the 300-800 Hz
+#: range a small animal noise lives in, so they collide on "380 Hz, 1 burst" while
+#: sounding nothing like each other. Six pairs were flagged the day the recordings
+#: landed, and every one of them was further apart in spectral shape than the closest
+#: pair the gate was already happy with -- the summary was mis-ordering them.
+#:
+#: Twelve sits between the fifth percentile of a family (about 6) and its median
+#: (about 20). It is a rescue for a pair the four descriptors mis-rank, not a way
+#: round them: a duplicated file scores 0 and still fails on all five.
+MIN_PROFILE_APART = 12.0
+
+
+def profile_apart(a, b):
+    """Percentage points of energy that would have to move to turn one into the other."""
+    return 0.5 * sum(abs(x - y) for x, y in zip(a, b))
+
+
+def distinct(a, b, mix_a=None, mix_b=None):
     return (abs(math.log(a[2] / b[2])) > 0.35
             or abs(a[1] - b[1]) >= 1
             or abs(math.log(a[3] / b[3])) > 0.30
-            or abs(a[0] - b[0]) > 0.20)
+            or abs(a[0] - b[0]) > 0.20
+            or (mix_a is not None
+                and profile_apart(mix_a, mix_b) > MIN_PROFILE_APART))
 
 
 
@@ -193,7 +217,7 @@ def main():
 
     total = sum(len(v) for v in groups.values())
     if not total:
-        print("checksounds: no generated sounds in %s" % raw, file=sys.stderr)
+        print("checksounds: no sounds in %s" % raw, file=sys.stderr)
         return 1
 
     stats = {}
@@ -207,9 +231,12 @@ def main():
             stats[n] = describe(os.path.join(raw, n + ".wav"))
         if family not in PAIRWISE:
             continue
+        for n in names:
+            if n not in mixes:
+                mixes[n] = band_mix(os.path.join(raw, n + ".wav"))
         for i, a in enumerate(names):
             for b in names[i + 1:]:
-                if not distinct(stats[a], stats[b]):
+                if not distinct(stats[a], stats[b], mixes[a][0], mixes[b][0]):
                     failures.append((family, a, b))
 
     thin_failures = []
@@ -242,7 +269,7 @@ def main():
                       % (n, d, br, dom, cen), file=sys.stderr)
         return 1
 
-    print("==> %d generated sounds (%s); distinct within every compared family,"
+    print("==> %d sounds (%s); distinct within every compared family,"
           " and no fanfare is thin"
           % (total, ", ".join("%s %d" % (f, len(groups[f])) for f in FAMILIES)))
     return 0

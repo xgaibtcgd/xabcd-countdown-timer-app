@@ -241,8 +241,15 @@ preview, which `tools/routeproof.cjs` checks against real paths exported from
 
 ## Sound
 
-Everything in `app/src/main/res/raw/` is synthesised by `tools/gensounds.py` --
-pure standard library, no numpy, no samples, no binary blobs nobody can change.
+Most of `app/src/main/res/raw/` is synthesised by `tools/gensounds.py` -- pure
+standard library, no numpy, no samples, no binary blobs nobody can change. The
+rest is produced audio, brought in under the app's own names by
+`tools/importsounds.py`, whose table is the record of which slot is which: eight
+buddy taps became six recordings (the dino's and the shark's are held back, see
+that file), five of the twelve activities, the interface tap, two cues and the
+title loop, which is now an mp3 because it plays through MediaPlayer and the mp3
+is a twentieth the size of the same twelve seconds as a wav.
+
 Forty-five cues in six families, plus the title loop:
 
 - `buddy_<key>_sound` -- the tap sound, played when you choose the buddy in the
@@ -280,12 +287,18 @@ character shared. It is worth knowing what it measured, because the gate below
 is written from it: 90% of its energy in one octave around 1 kHz, nothing at all
 below 350 Hz or above 1.7 kHz, and a peak of 0.38. One bare melody line, quiet.
 
-Regenerate with `python3 tools/gensounds.py`. Nothing here can be listened to in
-CI, so the properties that matter are checked numerically by
-`tools/checksounds.py`, which runs in `check.sh`:
+Regenerate the synthesised ones with `python3 tools/gensounds.py`, then
+`python3 tools/importsounds.py` to put the recordings back over the top of them.
+Nothing here can be listened to in CI, so the properties that matter are checked
+numerically by `tools/checksounds.py`, which runs in `check.sh`:
 
 - **Distinctness**, within each compared family: every pair must differ on
-  duration, burst count, dominant frequency or spectral centroid. Across
+  duration, burst count, dominant frequency, spectral centroid or octave
+  profile. The profile is the newest and exists because the first four were
+  calibrated on synthesised sounds, which the generator had spread across the
+  spectrum on purpose; eight produced buddy voices all sit where a small animal
+  noise sits and collided on "380 Hz, one burst" while sounding nothing alike.
+  Across
   families the bar would be wrong -- the interface tap and the backpack buckle
   are both meant to be a short click. What has to hold is that no two sounds a
   person hears as alternatives are the same sound.

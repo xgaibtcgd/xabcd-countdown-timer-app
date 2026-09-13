@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
-"""Synthesises every sound the app makes except the victory jingle.
+"""Synthesises the app's sounds, for the slots that have no recording.
+
+It used to make all of them, victory fanfares included -- the docstring said
+"except the victory jingle" long after that stopped being true. Now roughly a
+third of res/raw is produced audio brought in by tools/importsounds.py, whose
+table is the record of which slot is which. Running this script overwrites
+every name in SOUNDS below, so re-run importsounds.py after it to put the
+recordings back.
 
 The seven that shipped were quarter-second synthetic blips -- pleasant enough, but a
 bee and a pug made much the same noise, and none of them sounded like the animal on
