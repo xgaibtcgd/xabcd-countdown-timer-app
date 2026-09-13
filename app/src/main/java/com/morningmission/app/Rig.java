@@ -41,6 +41,16 @@ package com.morningmission.app;
  * place, so there was no position to recover — the rest pose is authored. It was
  * assembled offline, then fitted into the flat sprite's own frame by silhouette overlap
  * (IoU 0.767 for the bee), which is the same fitter that placed the cheer poses.
+ *
+ * <p>The other seven are fitted rather than authored: the head is located in the flat
+ * sprite by masked cross-correlation, which fixes the scale for every part, and the body
+ * is then nudged until the assembly matches the sprite in COLOUR, pixel by pixel.
+ * Silhouette overlap was tried first and is actively misleading — an arm folded flat
+ * against the belly has the same silhouette as no arm at all, so it rewards hiding every
+ * limb inside the torso, and it did, on all eight. The overlap figures quoted per
+ * character below are reported, not optimised.
+ *
+ * <p>Three of the seven needed a step before any of that: see {@link #DINO}.
  */
 final class Rig {
 
@@ -147,10 +157,12 @@ final class Rig {
     /**
      * Queen Bee, the first character to be rigged.
      *
-     * <p>Chosen because it is the only one of the eight whose signature part appears
+     * <p>Chosen because it was the only one of the eight whose signature part appeared
      * nowhere else: its wings are absent from both the head and the abdomen, where the
-     * pug's tail is baked into its torso and the trike's frill, the dino's sprout and the
-     * cloud pup's ears are baked into their heads. Its abdomen is even drawn with an open
+     * pug's tail is drawn into its torso and the trike's frill, the dino's sprout and the
+     * cloud pup's ears were each drawn into their heads as well as supplied loose. Those
+     * three are unpicked now — the sheet's copy is keyed back out of the head bitmap, so
+     * the loose part is the only one there is. Its abdomen is even drawn with an open
      * socket where the head sits. It is also the only character with {@code hover} at
      * full, so it never touches the ground and there is no leg planting to get right —
      * the legs stay part of the abdomen.
@@ -195,7 +207,7 @@ final class Rig {
         },
         new float[] {
             //  cx        cy        w        h       rest    pivotX pivotY
-              0.5880f,  0.6291f,  0.4791f,  0.4872f,    -5.2f,  0.29f,  0.21f,   // sig
+              0.5880f,  0.6291f,  0.4791f,  0.4872f,    -5.2f,  0.26f,  0.44f,   // sig
               0.4750f,  0.5984f,  0.5621f,  0.4765f,     5.2f,  0.50f,  0.50f,   // torso
               0.3821f,  0.6002f,  0.4336f,  0.4399f,    79.8f,  0.74f,  0.24f,   // arm_l
               0.5429f,  0.5513f,  0.3654f,  0.3671f,   -92.0f,  0.35f,  0.32f,   // arm_r
@@ -222,7 +234,7 @@ final class Rig {
         },
         new float[] {
             //  cx        cy        w        h       rest    pivotX pivotY
-              0.5095f,  0.6526f,  0.3333f,  0.3634f,    26.2f,  0.43f,  0.08f,   // sig
+              0.5095f,  0.6526f,  0.3333f,  0.3634f,    26.2f,  0.45f,  0.16f,   // sig
               0.4928f,  0.5277f,  0.5913f,  0.4750f,    -1.7f,  0.50f,  0.50f,   // torso
               0.3454f,  0.4086f,  0.3282f,  0.3078f,    76.3f,  0.92f,  0.51f,   // arm_l
               0.6041f,  0.6206f,  0.4308f,  0.3847f,   -86.8f,  0.23f,  0.08f,   // arm_r
@@ -248,7 +260,7 @@ final class Rig {
         },
         new float[] {
             //  cx        cy        w        h       rest    pivotX pivotY
-              0.6034f,  0.6247f,  0.4374f,  0.2870f,     8.8f,  0.27f,  0.08f,   // sig
+              0.6034f,  0.6247f,  0.4374f,  0.2870f,     8.8f,  0.20f,  0.65f,   // sig
               0.4726f,  0.6668f,  0.5974f,  0.5165f,    -1.8f,  0.50f,  0.50f,   // torso
               0.3039f,  0.4692f,  0.2965f,  0.2432f,   104.2f,  0.92f,  0.60f,   // arm_l
               0.7034f,  0.6072f,  0.3428f,  0.2842f,   -55.3f,  0.08f,  0.10f,   // arm_r
@@ -257,13 +269,17 @@ final class Rig {
         1f, 4.6f, 12.0f, false, false);
 
     /**
-     * Cloud Pup. The signature part is the pair of long ears, which is the widest
-     * signature of the eight and the reason its head match came back oversized.
+     * Cloud Pup, whose signature part is the pair of long ears — the widest of the
+     * eight, and the hardest to key out of the head, because they are very nearly the
+     * same blue as the head they hang off.
+     *
+     * <p>Its ears were drawn into the head bitmap as well as supplied loose. See
+     * {@link #DINO} for what that cost and how it is undone.
      *
      * <p>Placed by the fitter rather than by hand: the head located in the flat sprite
      * by masked cross-correlation, which fixes the scale for every part, then the whole
      * body nudged until the assembly matches the sprite in colour, pixel by pixel.
-     * Silhouette overlap 0.891 against the sprite it replaces.
+     * Silhouette overlap 0.828 against the sprite it replaces.
      */
     static final Rig CLOUD = new Rig(
         new int[] {
@@ -275,22 +291,36 @@ final class Rig {
         },
         new float[] {
             //  cx        cy        w        h       rest    pivotX pivotY
-              0.4515f,  0.3813f,  0.7578f,  0.3895f,     3.5f,  0.56f,  0.60f,   // sig
-              0.5005f,  0.5080f,  0.5745f,  0.5169f,   -24.5f,  0.50f,  0.50f,   // torso
-              0.3575f,  0.6198f,  0.3995f,  0.3686f,    79.8f,  0.86f,  0.08f,   // arm_l
-              0.7117f,  0.3698f,  0.3328f,  0.2954f,   -88.5f,  0.08f,  0.67f,   // arm_r
-              0.5005f,  0.3293f,  0.8105f,  0.4290f,    12.0f,  0.50f,  0.71f,   // head
+              0.4804f,  0.3246f,  0.8529f,  0.3910f,    15.3f,  0.51f,  0.56f,   // sig
+              0.5177f,  0.5254f,  0.5492f,  0.4940f,    10.5f,  0.50f,  0.50f,   // torso
+              0.4614f,  0.4463f,  0.4469f,  0.4124f,    76.3f,  0.60f,  0.48f,   // arm_l
+              0.5739f,  0.6213f,  0.3637f,  0.3229f,  -102.5f,  0.31f,  0.08f,   // arm_r
+              0.4927f,  0.3492f,  0.4234f,  0.3991f,    10.3f,  0.53f,  0.72f,   // head
         },
         1f, 3.4f, 8.0f, false, false);
 
     /**
-     * Dino Buddy. Two candidates for the signature part -- the tail and the sprout
-     * on its head -- and the sheet supplies the tail, so the sprout rides the head.
+     * Dino Buddy, whose signature part is the sprout growing out of its head.
+     *
+     * <p>The sprout was drawn INTO the head bitmap as well as supplied as a loose part,
+     * and that is worse than it sounds. At rest the character looked right, because the
+     * sprout was there — in the head. But head pixels cannot move, and the loose copy
+     * was redundant, so the fitter (which scores colour against the flat sprite) put it
+     * where it did least harm, which is off the character. The visible sprout could not
+     * move and the movable one could not be seen: the signature animation animated
+     * nothing. Same for the trike's frill and the cloud pup's ears.
+     *
+     * <p>Undone by keying the painted copy back out of the head — matched by
+     * cross-correlation, erased only where the head agrees with the part about what
+     * colour it is, so the trike's cheek survives the frill that was hiding it. Putting
+     * the loose part back where the painted one sat reproduces the original head to
+     * within about one per cent of its pixels, so the character is unchanged standing
+     * still; the difference is that the part can now move.
      *
      * <p>Placed by the fitter rather than by hand: the head located in the flat sprite
      * by masked cross-correlation, which fixes the scale for every part, then the whole
      * body nudged until the assembly matches the sprite in colour, pixel by pixel.
-     * Silhouette overlap 0.758 against the sprite it replaces.
+     * Silhouette overlap 0.803 against the sprite it replaces.
      */
     static final Rig DINO = new Rig(
         new int[] {
@@ -302,21 +332,26 @@ final class Rig {
         },
         new float[] {
             //  cx        cy        w        h       rest    pivotX pivotY
-              0.5692f,  0.1512f,  0.4716f,  0.2595f,     1.8f,  0.31f,  0.92f,   // sig
-              0.4442f,  0.6512f,  0.6271f,  0.4137f,     5.3f,  0.50f,  0.50f,   // torso
-              0.4393f,  0.5386f,  0.3321f,  0.3227f,    88.5f,  0.63f,  0.36f,   // arm_l
-              0.5492f,  0.7266f,  0.3630f,  0.3388f,   -57.0f,  0.31f,  0.08f,   // arm_r
-              0.5192f,  0.3346f,  0.5105f,  0.5819f,     6.0f,  0.43f,  0.77f,   // head
+              0.5805f,  0.1552f,  0.3475f,  0.2066f,    -2.5f,  0.34f,  0.92f,   // sig
+              0.4638f,  0.6068f,  0.6570f,  0.4334f,    19.2f,  0.50f,  0.50f,   // torso
+              0.3843f,  0.5965f,  0.2991f,  0.2906f,    72.8f,  0.87f,  0.19f,   // arm_l
+              0.5423f,  0.7345f,  0.3249f,  0.3032f,   -55.2f,  0.35f,  0.08f,   // arm_r
+              0.5258f,  0.4040f,  0.4959f,  0.4260f,     2.5f,  0.44f,  0.74f,   // head
         },
         1f, 3.0f, 7.0f, false, false);
 
     /**
      * Jungle Trike, whose signature part is the frill behind its head.
      *
+     * <p>Its frill was drawn into the head bitmap as well as supplied loose. See
+     * {@link #DINO} for what that cost and how it is undone. The frill is the awkward
+     * one: it sits BEHIND the head, so most of it is hidden, and a match that scores a
+     * hidden band as a mismatch settles for the top of the frill and nothing else.
+     *
      * <p>Placed by the fitter rather than by hand: the head located in the flat sprite
      * by masked cross-correlation, which fixes the scale for every part, then the whole
      * body nudged until the assembly matches the sprite in colour, pixel by pixel.
-     * Silhouette overlap 0.859 against the sprite it replaces.
+     * Silhouette overlap 0.823 against the sprite it replaces.
      */
     static final Rig TRIKE = new Rig(
         new int[] {
@@ -328,11 +363,11 @@ final class Rig {
         },
         new float[] {
             //  cx        cy        w        h       rest    pivotX pivotY
-              0.5346f,  0.4097f,  0.6586f,  0.5032f,   -22.7f,  0.50f,  0.58f,   // sig
-              0.5346f,  0.6126f,  0.6706f,  0.4996f,   -26.2f,  0.50f,  0.50f,   // torso
-              0.3881f,  0.4566f,  0.4725f,  0.3375f,    83.2f,  0.81f,  0.49f,   // arm_l
-              0.6811f,  0.4946f,  0.3825f,  0.2732f,   -71.0f,  0.12f,  0.34f,   // arm_r
-              0.5346f,  0.2910f,  0.5780f,  0.4914f,    -6.0f,  0.50f,  0.83f,   // head
+              0.5359f,  0.2607f,  0.6347f,  0.4572f,    -6.0f,  0.47f,  0.66f,   // sig
+              0.5047f,  0.5807f,  0.6658f,  0.4960f,    -7.0f,  0.50f,  0.50f,   // torso
+              0.3158f,  0.5103f,  0.3582f,  0.2559f,   104.2f,  0.92f,  0.29f,   // arm_l
+              0.6196f,  0.6734f,  0.4650f,  0.3322f,  -100.7f,  0.27f,  0.08f,   // arm_r
+              0.5177f,  0.3335f,  0.4802f,  0.4344f,    -6.0f,  0.49f,  0.79f,   // head
         },
         1f, 2.6f, 5.0f, false, false);
 
@@ -355,7 +390,7 @@ final class Rig {
         },
         new float[] {
             //  cx        cy        w        h       rest    pivotX pivotY
-              0.5870f,  0.6113f,  0.4199f,  0.3645f,    -3.5f,  0.28f,  0.22f,   // sig
+              0.5870f,  0.6113f,  0.4199f,  0.3645f,    -3.5f,  0.26f,  0.71f,   // sig
               0.4870f,  0.6889f,  0.5871f,  0.3790f,   -15.7f,  0.50f,  0.50f,   // torso
               0.4710f,  0.4355f,  0.2480f,  0.2400f,    78.0f,  0.59f,  0.81f,   // arm_l
               0.5290f,  0.6855f,  0.2915f,  0.2839f,   -74.5f,  0.38f,  0.08f,   // arm_r
