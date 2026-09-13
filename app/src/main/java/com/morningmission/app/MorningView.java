@@ -992,10 +992,9 @@ final class MorningView extends View implements Choreographer.FrameCallback, Eng
             // pool is not cleared in between. So it has to be the volley the morning's
             // celebration actually wants, or the handover shows a seam: paper confetti
             // for a beat and then a firework display.
-            int mode = Celebration.modeFor(engine.routeSeed());
-            if (mode != Celebration.MODE_FIREWORKS) {
-                particles.celebrate(layout.play, buddy(), palette);
-            }
+            ScreenComplete.paletteFor(buddy(), palette);
+            ScreenComplete.openVolley(particles, Celebration.modeFor(engine.routeSeed()),
+                                      layout.play, palette);
         }
         postDelayed(this::celebrate, 1200L);
     }

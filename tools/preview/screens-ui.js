@@ -768,8 +768,7 @@ function screenComplete(ctx, L, buddy, t) {
   // and UNDER the interface. ScreenComplete.draw.
   if (party) {
     if (cmode === 'fireworks') drawFireworks(ctx, L.play, buddy, t, true);
-    else if (cmode === 'starfall') drawStarfall(ctx, L.play, t);
-    if (cmode !== 'fireworks') drawConfetti(ctx, L.play, buddy, t);
+    else drawPool(ctx, L.play, buddy, t, cmode);
   }
 
   const box = L.cmpCard;
@@ -817,7 +816,6 @@ function labelledButton(ctx, r, g, text, face, edge, colour, glow = 0) {
   label(ctx, text, x + size + 18, rcy(r), px, colour, 'left');
 }
 
-/** A still frame of the particle system: two corner cannons under gravity. */
 /**
  * Celebration.glow, ported. The preview has to agree on the brightness because that
  * is the number the flash limit is written on -- a preview that pulsed harder than
@@ -919,7 +917,7 @@ function radialBlob(ctx, cx, cy, rx, ry, strength, colour) {
   ctx.restore();
 }
 
-/** Big slow stars drifting down, the gentle mode. Closed-form, like drawConfetti. */
+/** Big slow stars drifting down, the gentle mode. Closed-form, like spray. */
 function drawStarfall(ctx, area, t) {
   const w = rw(area), h = rh(area);
   for (let i = 0; i < 22; i++) {
@@ -936,7 +934,7 @@ function drawStarfall(ctx, area, t) {
 
 /**
  * A still of the fireworks: three shells on a loop, each shown wherever its own
- * phase has got to. Closed-form, the way drawConfetti already is.
+ * phase has got to. Closed-form, the way spray already is.
  *
  * Drawn in two passes because the app draws it in two places. The climbing shell and
  * the flash of its burst are the screen's own drawing and go under the foreground;
@@ -987,31 +985,50 @@ function drawFireworks(ctx, area, buddy, t, pieces) {
   }
 }
 
-function drawConfetti(ctx, area, buddy, t) {
-  const palette = [buddy.primary, buddy.accent, DATA.tokens.gold, '#FF6B6B', '#5ED6F2', '#9B7BFF'];
+/**
+ * A still frame of the particle pool, in the shape THIS celebration throws.
+ *
+ * Confetti fires two corner cannons; disco and chase drizzle slowly off the top;
+ * starfall drizzles slower still and adds its glyphs. It used to draw the corner
+ * cannons for all four, which was true of every mode back when every mode opened
+ * with the same cannon, and stopped being true the moment they stopped.
+ * ScreenComplete.openVolley and .refillWave are the two calls being stood in for.
+ */
+function drawPool(ctx, area, buddy, t, mode) {
   const w = rw(area), h = rh(area);
-  let seed = 1;
+  if (mode === 'confetti') {
+    spray(ctx, area, buddy, 1, 60, area[0] + w * 0.06, area[3] - h * 0.10, -68, 44, 1500, 2300);
+    spray(ctx, area, buddy, 2, 60, area[2] - w * 0.06, area[3] - h * 0.10, -112, 44, 1500, 2300);
+    spray(ctx, area, buddy, 3, 30, (area[0] + area[2]) / 2, area[1] - 40, 90, 120, 120, 420);
+  } else if (mode === 'starfall') {
+    spray(ctx, area, buddy, 4, 46, (area[0] + area[2]) / 2, area[1] - 30, 90, 150, 60, 210);
+    drawStarfall(ctx, area, t);
+  } else {
+    spray(ctx, area, buddy, 5, 74, (area[0] + area[2]) / 2, area[1] - 30, 90, 130, 110, 380);
+  }
+}
+
+/** One burst, aged and integrated closed-form. Mirrors Particles.burst plus its drag. */
+function spray(ctx, area, buddy, seedBase, n, ox, oy, base, spread, speedLo, speedHi) {
+  const palette = [buddy.primary, buddy.accent, DATA.tokens.gold, '#FF6B6B', '#5ED6F2', '#9B7BFF'];
+  let seed = seedBase;
   const rnd = () => { seed = (Math.imul(seed, 1103515245) + 12345) | 0; return ((seed >>> 8) & 0xFFFFFF) / 0xFFFFFF; };
-  for (let cannon = 0; cannon < 2; cannon++) {
-    const ox = cannon === 0 ? area[0] + w * 0.06 : area[2] - w * 0.06;
-    const base = cannon === 0 ? -68 : -112;
-    for (let i = 0; i < 60; i++) {
-      const ang = (base + (rnd() - 0.5) * 44) * Math.PI / 180;
-      const speed = 1500 + rnd() * 800;
-      const age = 0.45 + rnd() * 1.5;
-      const drag = (1 - Math.exp(-1.6 * age)) / 1.6;
-      const x = ox + Math.cos(ang) * speed * drag + (rnd() - 0.5) * 28;
-      const y = area[3] - h * 0.10 + Math.sin(ang) * speed * drag + 450 * age * age;
-      if (y < area[1] - 40 || y > area[3] + 40) continue;
-      const size = 11 + rnd() * 15;
-      ctx.save();
-      ctx.translate(x, y);
-      ctx.rotate(rnd() * Math.PI * 2 + t);
-      ctx.fillStyle = palette[Math.floor(rnd() * palette.length) % palette.length];
-      const hh = size * (0.35 + rnd() * 0.5) / 2;
-      ctx.beginPath(); ctx.roundRect(-size / 2, -hh, size, hh * 2, hh * 0.5); ctx.fill();
-      ctx.restore();
-    }
+  for (let i = 0; i < n; i++) {
+    const ang = (base + (rnd() - 0.5) * spread) * Math.PI / 180;
+    const speed = speedLo + rnd() * (speedHi - speedLo);
+    const age = 0.45 + rnd() * 1.5;
+    const drag = (1 - Math.exp(-1.6 * age)) / 1.6;
+    const x = ox + Math.cos(ang) * speed * drag + (rnd() - 0.5) * 28;
+    const y = oy + Math.sin(ang) * speed * drag + 450 * age * age;
+    if (y < area[1] - 40 || y > area[3] + 40) continue;
+    const size = 11 + rnd() * 15;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(rnd() * Math.PI * 2);
+    ctx.fillStyle = palette[Math.floor(rnd() * palette.length) % palette.length];
+    const hh = size * (0.35 + rnd() * 0.5) / 2;
+    ctx.beginPath(); ctx.roundRect(-size / 2, -hh, size, hh * 2, hh * 0.5); ctx.fill();
+    ctx.restore();
   }
 }
 

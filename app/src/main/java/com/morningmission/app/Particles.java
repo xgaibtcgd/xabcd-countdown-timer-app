@@ -58,6 +58,9 @@ final class Particles {
 
     boolean isActive() { return count > 0; }
 
+    /** How many pieces are alive. Package-visible so SelfTest can price a volley. */
+    int count() { return count; }
+
     void clear() { count = 0; }
 
     private float random() {
@@ -129,25 +132,6 @@ final class Particles {
             glyph[slot] = glyphId;
             pull[slot] = gravityScale;
         }
-    }
-
-    /**
-     * The celebration: two corner cannons plus a drizzle from the top, which is what the
-     * mockup shows. The palette is seeded with the buddy's own colours, so the confetti
-     * belongs to the character rather than always being the same five hues.
-     */
-    void celebrate(RectF area, BuddyTheme theme, int[] scratchPalette) {
-        scratchPalette[0] = theme.primary;
-        scratchPalette[1] = theme.accent;
-        scratchPalette[2] = Theme.GOLD;
-        scratchPalette[3] = 0xFFFF6B6B;
-        scratchPalette[4] = 0xFF5ED6F2;
-        scratchPalette[5] = 0xFF9B7BFF;
-        burst(64, area.left + area.width() * 0.06f, area.bottom - area.height() * 0.10f,
-              -68f, 44f, 1500f, 2300f, scratchPalette);
-        burst(64, area.right - area.width() * 0.06f, area.bottom - area.height() * 0.10f,
-              -112f, 44f, 1500f, 2300f, scratchPalette);
-        burst(40, area.centerX(), area.top - 40f, 90f, 120f, 120f, 420f, scratchPalette);
     }
 
     /** Advances the simulation. Dead pieces are swapped in from the end of the pool. */

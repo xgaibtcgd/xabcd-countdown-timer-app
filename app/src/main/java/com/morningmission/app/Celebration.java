@@ -204,7 +204,14 @@ final class Celebration {
      *
      * <p>{@code Particles} holds 220 and drops silently once it is full, so a mode that
      * overspends does not crash -- it stops looking like anything, which is worse to
-     * find. Today's celebration alone spends 168 of the 220 in one call.
+     * find. Confetti alone spends 168 of the 220 in one call.
+     *
+     * <p>This is the declared budget for {@code ScreenComplete.openVolley}, and SelfTest
+     * holds the two together by firing each opening into a pool and counting what comes
+     * out. It used to be neither: nothing called it but the gate, and the gate compared
+     * it against a constant, while the app threw the same 168-piece cannon whatever the
+     * morning had picked. Three of these five numbers described a volley no code path
+     * produced.
      */
     static int volley(int mode) {
         switch (mode) {

@@ -688,16 +688,55 @@ public final class SelfTest {
               "a firework hits full brightness in " + peakAt
               + "s, which is the instantaneous onset the limit exists for");
 
-        // -- and nobody spends particles that do not exist
+        // -- and nobody spends particles that do not exist.
+        //
+        // Fired for real and counted, not read off a constant. The version of this that
+        // compared Celebration.volley(mode) against Particles.CAPACITY passed happily
+        // while the app threw the same 168-piece cannon whatever the morning had picked:
+        // both numbers were true and neither was about the code.
+        Particles pool = new Particles();
+        RectF play = new RectF(0f, 0f, Layout.W, Layout.W * 1.9f);
+        int[] pal = new int[6];
+        ScreenComplete.paletteFor(BuddyTheme.of(0), pal);
         for (int mode = 0; mode < Celebration.MODE_COUNT; mode++) {
-            int spend = Celebration.volley(mode);
+            String who = Celebration.NAMES[mode];
+
+            pool.clear();
+            ScreenComplete.openVolley(pool, mode, play, pal);
+            check(pool.count() == Celebration.volley(mode),
+                  who + " opens with " + pool.count() + " pieces where Celebration.volley"
+                  + " declares " + Celebration.volley(mode));
+
+            // The worst moment is the opening still in the air when the first wave lands.
+            int opening = pool.count();
+            float delay = ScreenComplete.refillWave(pool, mode, play, pal, 0.5f);
+            check(delay > 0f, who + " asks for its next wave in " + delay + "s, which never comes");
+            check(pool.count() <= Particles.CAPACITY,
+                  who + " spends " + opening + " on its opening and " + (pool.count() - opening)
+                  + " on a wave, which is " + pool.count() + " of " + Particles.CAPACITY
+                  + "; the pool drops the rest silently");
+
+            // Fireworks opens empty and pays instead for three shells alive at once.
             if (mode == Celebration.MODE_FIREWORKS) {
-                spend += Celebration.SHELL_PIECES * Celebration.SHELLS;
+                pool.clear();
+                for (int i = 0; i < Celebration.SHELLS; i++) {
+                    pool.burst(Celebration.SHELL_PIECES, play.centerX(), play.centerY(),
+                               -90f, 360f, 260f, 620f, pal);
+                }
+                check(pool.count() == Celebration.SHELL_PIECES * Celebration.SHELLS
+                      && pool.count() <= Particles.CAPACITY,
+                      "three firework shells want " + Celebration.SHELL_PIECES * Celebration.SHELLS
+                      + " pieces and the pool gave " + pool.count() + " of " + Particles.CAPACITY);
             }
-            check(spend <= Particles.CAPACITY,
-                  Celebration.NAMES[mode] + " spends " + spend + " particles of "
-                  + Particles.CAPACITY + "; the pool drops the rest silently");
         }
+
+        // -- the gentle mode opens gently. Not a rate or an amplitude: a count. Every
+        //    mode used to open with the loudest volley there is, starfall included.
+        check(Celebration.volley(Celebration.MODE_STARFALL)
+              < Celebration.volley(Celebration.MODE_CONFETTI) / 2,
+              "the gentle celebration opens with "
+              + Celebration.volley(Celebration.MODE_STARFALL) + " pieces against confetti's "
+              + Celebration.volley(Celebration.MODE_CONFETTI) + "; that is the same bang");
     }
 
     /**

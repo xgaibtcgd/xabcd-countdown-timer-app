@@ -139,7 +139,7 @@ final class ScreenComplete extends Screen {
      */
     private void advanceCelebration(Layout layout, BuddyTheme theme, float dt) {
         RectF play = layout.play;
-        paletteFor(theme);
+        paletteFor(theme, palette);
 
         if (mode == Celebration.MODE_FIREWORKS) {
             for (int i = 0; i < Celebration.SHELLS; i++) {
@@ -172,43 +172,14 @@ final class ScreenComplete extends Screen {
             return;
         }
 
-        // The rest keep topping themselves up, in small waves. One 168-piece volley is
+        // The rest keep topping themselves up, in small waves. An opening volley is
         // spent well before the card lands, and a pool that has run dry looks like the
         // celebration finished early.
         refill -= dt;
         if (refill > 0f) return;
-        refill = 1.5f;
-        switch (mode) {
-            case Celebration.MODE_CONFETTI:
-                view.particles.burst(26, play.left + play.width() * 0.08f,
-                                     play.bottom - play.height() * 0.10f,
-                                     -66f, 40f, 1400f, 2100f, palette);
-                view.particles.burst(26, play.right - play.width() * 0.08f,
-                                     play.bottom - play.height() * 0.10f,
-                                     -114f, 40f, 1400f, 2100f, palette);
-                break;
-            case Celebration.MODE_DISCO:
-            case Celebration.MODE_CHASE:
-                view.particles.burst(18, play.centerX(), play.top - 30f,
-                                     90f, 130f, 110f, 380f, palette);
-                break;
-            case Celebration.MODE_STARFALL:
-                // Big slow stars FALLING, spread across the width, with barely any
-                // gravity so they drift down rather than arc. A negative rise makes
-                // emote's upward throw a downward one.
-                refill = 0.85f;
-                view.particles.emote(Art.GLYPH_STAR, 5,
-                                     play.left + play.width() * (0.16f + 0.68f * drift()),
-                                     play.top - play.height() * 0.02f,
-                                     play.width() * 0.075f, Theme.GOLD,
-                                     -90f, play.width() * 0.16f, 0.16f);
-                break;
-            default:
-                break;
-        }
+        refill = refillWave(view.particles, mode, play, palette, drift());
     }
 
-    /** A wandering 0..1, so the starfall does not always drop down the same line. */
     private float drift() {
         driftSeed = driftSeed * 1103515245 + 12345;
         return ((driftSeed >>> 8) & 0xFFFF) / 65535f;
@@ -216,14 +187,104 @@ final class ScreenComplete extends Screen {
 
     private int driftSeed = 7;
 
-    /** The buddy's colours plus the fixed party four, the way Particles.celebrate does. */
-    private void paletteFor(BuddyTheme theme) {
-        palette[0] = theme.primary;
-        palette[1] = theme.accent;
-        palette[2] = Theme.GOLD;
-        palette[3] = 0xFFFF6B6B;
-        palette[4] = 0xFF5ED6F2;
-        palette[5] = 0xFF9B7BFF;
+    /** The buddy's colours plus the fixed party four. Six, matching the array. */
+    static void paletteFor(BuddyTheme theme, int[] out) {
+        out[0] = theme.primary;
+        out[1] = theme.accent;
+        out[2] = Theme.GOLD;
+        out[3] = 0xFFFF6B6B;
+        out[4] = 0xFF5ED6F2;
+        out[5] = 0xFF9B7BFF;
+    }
+
+    /**
+     * The opening volley: what the COUNTDOWN screen throws, 1.2 seconds before this one
+     * appears. The pool is not cleared in between, so whatever it throws is still in the
+     * air on arrival and is the first thing a child sees of the celebration.
+     *
+     * <p>Which is why it has to be this mode's own opening rather than one shared one.
+     * It was one shared one -- the full 168-piece paper cannon, for every mode except
+     * fireworks -- so Starfall, whose whole job is to be the calm one, opened with a
+     * cannon and turned into a slow drift of stars a beat later. The seam the comment on
+     * the call site warned about, in the one mode that could least afford it.
+     *
+     * <p>Each opening is the shape {@link #refillWave} goes on to sustain, scaled up:
+     * cannons stay cannons and a drizzle stays a drizzle. Spends exactly
+     * {@link Celebration#volley}, which SelfTest holds it to by counting.
+     */
+    static void openVolley(Particles particles, int mode, RectF play, int[] palette) {
+        switch (mode) {
+            case Celebration.MODE_CONFETTI:
+                // Two corner cannons and a drizzle off the top, which is what the mockup
+                // shows and what every mode used to get.
+                particles.burst(64, play.left + play.width() * 0.06f,
+                                play.bottom - play.height() * 0.10f,
+                                -68f, 44f, 1500f, 2300f, palette);
+                particles.burst(64, play.right - play.width() * 0.06f,
+                                play.bottom - play.height() * 0.10f,
+                                -112f, 44f, 1500f, 2300f, palette);
+                particles.burst(40, play.centerX(), play.top - 40f,
+                                90f, 120f, 120f, 420f, palette);
+                break;
+            case Celebration.MODE_DISCO:
+                particles.burst(90, play.centerX(), play.top - 30f,
+                                90f, 130f, 110f, 380f, palette);
+                break;
+            case Celebration.MODE_CHASE:
+                particles.burst(110, play.centerX(), play.top - 30f,
+                                90f, 130f, 110f, 380f, palette);
+                break;
+            case Celebration.MODE_STARFALL:
+                // Slower and wider than the other two, and no cannon: this is the mode
+                // with no flash in it and it should not open with a bang either. Paper
+                // rather than the star glyphs the screen itself drifts down, because a
+                // glyph lives about a second and would be gone before the screen it was
+                // meant to carry into had even appeared.
+                particles.burst(60, play.centerX(), play.top - 30f,
+                                90f, 150f, 60f, 210f, palette);
+                break;
+            default:
+                break;                    // fireworks opens empty; the shells arrive
+        }
+    }
+
+    /**
+     * One top-up wave for this mode, and how many seconds until the next.
+     *
+     * <p>Static, and returning the delay rather than assigning it, so the gate can fire
+     * a wave into a pool of its own and count what it costs.
+     *
+     * @param drift 0..1, where across the width a starfall wave comes down
+     */
+    static float refillWave(Particles particles, int mode, RectF play, int[] palette,
+                            float drift) {
+        switch (mode) {
+            case Celebration.MODE_CONFETTI:
+                particles.burst(26, play.left + play.width() * 0.08f,
+                                play.bottom - play.height() * 0.10f,
+                                -66f, 40f, 1400f, 2100f, palette);
+                particles.burst(26, play.right - play.width() * 0.08f,
+                                play.bottom - play.height() * 0.10f,
+                                -114f, 40f, 1400f, 2100f, palette);
+                return 1.5f;
+            case Celebration.MODE_DISCO:
+            case Celebration.MODE_CHASE:
+                particles.burst(18, play.centerX(), play.top - 30f,
+                                90f, 130f, 110f, 380f, palette);
+                return 1.5f;
+            case Celebration.MODE_STARFALL:
+                // Big slow stars FALLING, spread across the width, with barely any
+                // gravity so they drift down rather than arc. A negative rise makes
+                // emote's upward throw a downward one.
+                particles.emote(Art.GLYPH_STAR, 5,
+                                play.left + play.width() * (0.16f + 0.68f * drift),
+                                play.top - play.height() * 0.02f,
+                                play.width() * 0.075f, Theme.GOLD,
+                                -90f, play.width() * 0.16f, 0.16f);
+                return 0.85f;
+            default:
+                return 1.5f;
+        }
     }
 
     /**
