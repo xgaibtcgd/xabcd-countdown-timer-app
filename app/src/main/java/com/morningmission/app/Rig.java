@@ -50,6 +50,27 @@ package com.morningmission.app;
  * limb inside the torso, and it did, on all eight. The overlap figures quoted per
  * character below are reported, not optimised.
  *
+ * <p>Those figures are measured on the assembly AS THIS CLASS DRAWS IT, which was not
+ * always true. The fitter used to compose the way its own image library does by default
+ * — anticlockwise, about each part's centre — where {@link MorningView#drawRig} composes
+ * clockwise, about each part's pivot, and the table came here unchanged. So seven rigs
+ * were tuned against a picture nobody would ever see, and the numbers quoted were of
+ * that picture. Making the two agree improved every character:
+ *
+ * <pre>
+ *              as it shipped   now      (the old quoted figure)
+ *   shark          0.709      0.755          0.789
+ *   pug            0.739      0.848          0.843
+ *   kitty          0.758      0.854          0.908
+ *   cloud pup      0.629      0.795          0.828
+ *   dino           0.688      0.881          0.803
+ *   trike          0.757      0.862          0.823
+ *   burger         0.804      0.872          0.894
+ * </pre>
+ *
+ * <p>Three of the quoted figures were higher than what replaced them, which is the whole
+ * point: they were describing a composite that was never drawn.
+ *
  * <p>Three of the seven needed a step before any of that: see {@link #DINO}.
  */
 final class Rig {
@@ -195,7 +216,7 @@ final class Rig {
      * <p>Placed by the fitter rather than by hand: the head located in the flat sprite
      * by masked cross-correlation, which fixes the scale for every part, then the whole
      * body nudged until the assembly matches the sprite in colour, pixel by pixel.
-     * Silhouette overlap 0.789 against the sprite it replaces.
+     * Silhouette overlap, as drawn, 0.755 against the sprite it replaces.
      */
     static final Rig SHARK = new Rig(
         new int[] {
@@ -207,11 +228,11 @@ final class Rig {
         },
         new float[] {
             //  cx        cy        w        h       rest    pivotX pivotY
-              0.5880f,  0.6291f,  0.4791f,  0.4872f,    -5.2f,  0.26f,  0.44f,   // sig
-              0.4750f,  0.5984f,  0.5621f,  0.4765f,     5.2f,  0.50f,  0.50f,   // torso
-              0.3821f,  0.6002f,  0.4336f,  0.4399f,    79.8f,  0.74f,  0.24f,   // arm_l
-              0.5429f,  0.5513f,  0.3654f,  0.3671f,   -92.0f,  0.35f,  0.32f,   // arm_r
-              0.5000f,  0.3743f,  0.6182f,  0.7733f,   -11.3f,  0.48f,  0.65f,   // head
+              0.5380f,  0.6291f,  0.4787f,  0.4868f,    12.2f,  0.34f,  0.59f,   // sig
+              0.4620f,  0.6734f,  0.5413f,  0.4589f,     0.0f,  0.50f,  0.50f,   // torso
+              0.3701f,  0.5883f,  0.4955f,  0.5027f,    62.3f,  0.71f,  0.36f,   // arm_l
+              0.6169f,  0.5753f,  0.4961f,  0.4985f,   -65.8f,  0.21f,  0.39f,   // arm_r
+              0.4880f,  0.3623f,  0.5987f,  0.7489f,    -2.8f,  0.48f,  0.71f,   // head
         },
         1f, 4.0f, 9.0f, false, false);
 
@@ -222,7 +243,7 @@ final class Rig {
      * <p>Placed by the fitter rather than by hand: the head located in the flat sprite
      * by masked cross-correlation, which fixes the scale for every part, then the whole
      * body nudged until the assembly matches the sprite in colour, pixel by pixel.
-     * Silhouette overlap 0.843 against the sprite it replaces.
+     * Silhouette overlap, as drawn, 0.848 against the sprite it replaces.
      */
     static final Rig PUG = new Rig(
         new int[] {
@@ -234,11 +255,11 @@ final class Rig {
         },
         new float[] {
             //  cx        cy        w        h       rest    pivotX pivotY
-              0.5095f,  0.6526f,  0.3333f,  0.3634f,    26.2f,  0.45f,  0.16f,   // sig
-              0.4928f,  0.5277f,  0.5913f,  0.4750f,    -1.7f,  0.50f,  0.50f,   // torso
-              0.3454f,  0.4086f,  0.3282f,  0.3078f,    76.3f,  0.92f,  0.51f,   // arm_l
-              0.6041f,  0.6206f,  0.4308f,  0.3847f,   -86.8f,  0.23f,  0.08f,   // arm_r
-              0.4808f,  0.2942f,  0.5904f,  0.4300f,    10.3f,  0.51f,  0.77f,   // head
+              0.5215f,  0.6396f,  0.3303f,  0.3601f,     8.8f,  0.45f,  0.26f,   // sig
+              0.5058f,  0.5527f,  0.6227f,  0.5003f,     8.7f,  0.50f,  0.50f,   // torso
+              0.4074f,  0.3836f,  0.3461f,  0.3246f,    93.8f,  0.77f,  0.62f,   // arm_l
+              0.6532f,  0.5086f,  0.3800f,  0.3393f,   -67.5f,  0.10f,  0.25f,   // arm_r
+              0.4928f,  0.2942f,  0.5772f,  0.4205f,    -6.7f,  0.51f,  0.81f,   // head
         },
         1f, 5.0f, 12.0f, false, false);
 
@@ -248,7 +269,7 @@ final class Rig {
      * <p>Placed by the fitter rather than by hand: the head located in the flat sprite
      * by masked cross-correlation, which fixes the scale for every part, then the whole
      * body nudged until the assembly matches the sprite in colour, pixel by pixel.
-     * Silhouette overlap 0.908 against the sprite it replaces.
+     * Silhouette overlap, as drawn, 0.854 against the sprite it replaces.
      */
     static final Rig KITTY = new Rig(
         new int[] {
@@ -260,11 +281,11 @@ final class Rig {
         },
         new float[] {
             //  cx        cy        w        h       rest    pivotX pivotY
-              0.6034f,  0.6247f,  0.4374f,  0.2870f,     8.8f,  0.20f,  0.65f,   // sig
-              0.4726f,  0.6668f,  0.5974f,  0.5165f,    -1.8f,  0.50f,  0.50f,   // torso
-              0.3039f,  0.4692f,  0.2965f,  0.2432f,   104.2f,  0.92f,  0.60f,   // arm_l
-              0.7034f,  0.6072f,  0.3428f,  0.2842f,   -55.3f,  0.08f,  0.10f,   // arm_r
-              0.5346f,  0.3192f,  0.5251f,  0.4799f,   -13.7f,  0.44f,  0.86f,   // head
+              0.6414f,  0.6867f,  0.3879f,  0.2546f,    10.5f,  0.10f,  0.52f,   // sig
+              0.4846f,  0.6918f,  0.5974f,  0.5165f,     1.7f,  0.50f,  0.50f,   // torso
+              0.5029f,  0.4072f,  0.3576f,  0.2932f,    72.8f,  0.50f,  0.86f,   // arm_l
+              0.7904f,  0.4942f,  0.3789f,  0.3142f,   -81.5f,  0.08f,  0.56f,   // arm_r
+              0.5226f,  0.3322f,  0.5205f,  0.4757f,     6.7f,  0.46f,  0.88f,   // head
         },
         1f, 4.6f, 12.0f, false, false);
 
@@ -279,7 +300,7 @@ final class Rig {
      * <p>Placed by the fitter rather than by hand: the head located in the flat sprite
      * by masked cross-correlation, which fixes the scale for every part, then the whole
      * body nudged until the assembly matches the sprite in colour, pixel by pixel.
-     * Silhouette overlap 0.828 against the sprite it replaces.
+     * Silhouette overlap, as drawn, 0.795 against the sprite it replaces.
      */
     static final Rig CLOUD = new Rig(
         new int[] {
@@ -291,11 +312,11 @@ final class Rig {
         },
         new float[] {
             //  cx        cy        w        h       rest    pivotX pivotY
-              0.4804f,  0.3246f,  0.8529f,  0.3910f,    15.3f,  0.51f,  0.56f,   // sig
-              0.5177f,  0.5254f,  0.5492f,  0.4940f,    10.5f,  0.50f,  0.50f,   // torso
-              0.4614f,  0.4463f,  0.4469f,  0.4124f,    76.3f,  0.60f,  0.48f,   // arm_l
-              0.5739f,  0.6213f,  0.3637f,  0.3229f,  -102.5f,  0.31f,  0.08f,   // arm_r
-              0.4927f,  0.3492f,  0.4234f,  0.3991f,    10.3f,  0.53f,  0.72f,   // head
+              0.5053f,  0.3243f,  0.8613f,  0.3948f,   -15.2f,  0.51f,  0.56f,   // sig
+              0.5177f,  0.5254f,  0.5492f,  0.4940f,    26.2f,  0.50f,  0.50f,   // torso
+              0.4994f,  0.5083f,  0.3911f,  0.3609f,    90.2f,  0.55f,  0.30f,   // arm_l
+              0.5739f,  0.6213f,  0.3553f,  0.3155f,  -100.7f,  0.34f,  0.08f,   // arm_r
+              0.5177f,  0.3492f,  0.4275f,  0.4030f,   -10.2f,  0.50f,  0.72f,   // head
         },
         1f, 3.4f, 8.0f, false, false);
 
@@ -320,7 +341,7 @@ final class Rig {
      * <p>Placed by the fitter rather than by hand: the head located in the flat sprite
      * by masked cross-correlation, which fixes the scale for every part, then the whole
      * body nudged until the assembly matches the sprite in colour, pixel by pixel.
-     * Silhouette overlap 0.803 against the sprite it replaces.
+     * Silhouette overlap, as drawn, 0.881 against the sprite it replaces.
      */
     static final Rig DINO = new Rig(
         new int[] {
@@ -332,11 +353,11 @@ final class Rig {
         },
         new float[] {
             //  cx        cy        w        h       rest    pivotX pivotY
-              0.5805f,  0.1552f,  0.3475f,  0.2066f,    -2.5f,  0.34f,  0.92f,   // sig
-              0.4638f,  0.6068f,  0.6570f,  0.4334f,    19.2f,  0.50f,  0.50f,   // torso
-              0.3843f,  0.5965f,  0.2991f,  0.2906f,    72.8f,  0.87f,  0.19f,   // arm_l
-              0.5423f,  0.7345f,  0.3249f,  0.3032f,   -55.2f,  0.35f,  0.08f,   // arm_r
-              0.5258f,  0.4040f,  0.4959f,  0.4260f,     2.5f,  0.44f,  0.74f,   // head
+              0.5896f,  0.1682f,  0.3421f,  0.2034f,    -1.0f,  0.39f,  0.92f,   // sig
+              0.4638f,  0.7058f,  0.6912f,  0.4559f,     3.5f,  0.50f,  0.50f,   // torso
+              0.4853f,  0.5595f,  0.3423f,  0.3326f,    72.7f,  0.56f,  0.50f,   // arm_l
+              0.7043f,  0.6345f,  0.3159f,  0.2949f,   -69.2f,  0.08f,  0.25f,   // arm_r
+              0.5508f,  0.4160f,  0.4882f,  0.4194f,    -6.0f,  0.41f,  0.84f,   // head
         },
         1f, 3.0f, 7.0f, false, false);
 
@@ -351,7 +372,7 @@ final class Rig {
      * <p>Placed by the fitter rather than by hand: the head located in the flat sprite
      * by masked cross-correlation, which fixes the scale for every part, then the whole
      * body nudged until the assembly matches the sprite in colour, pixel by pixel.
-     * Silhouette overlap 0.823 against the sprite it replaces.
+     * Silhouette overlap, as drawn, 0.862 against the sprite it replaces.
      */
     static final Rig TRIKE = new Rig(
         new int[] {
@@ -363,11 +384,11 @@ final class Rig {
         },
         new float[] {
             //  cx        cy        w        h       rest    pivotX pivotY
-              0.5359f,  0.2607f,  0.6347f,  0.4572f,    -6.0f,  0.47f,  0.66f,   // sig
-              0.5047f,  0.5807f,  0.6658f,  0.4960f,    -7.0f,  0.50f,  0.50f,   // torso
-              0.3158f,  0.5103f,  0.3582f,  0.2559f,   104.2f,  0.92f,  0.29f,   // arm_l
-              0.6196f,  0.6734f,  0.4650f,  0.3322f,  -100.7f,  0.27f,  0.08f,   // arm_r
-              0.5177f,  0.3335f,  0.4802f,  0.4344f,    -6.0f,  0.49f,  0.79f,   // head
+              0.5227f,  0.2656f,  0.5927f,  0.4270f,     6.0f,  0.47f,  0.66f,   // sig
+              0.5177f,  0.6308f,  0.6755f,  0.5032f,    17.5f,  0.50f,  0.50f,   // torso
+              0.4148f,  0.6353f,  0.4172f,  0.2980f,    76.2f,  0.73f,  0.08f,   // arm_l
+              0.6196f,  0.6603f,  0.3521f,  0.2515f,   -57.0f,  0.19f,  0.08f,   // arm_r
+              0.5057f,  0.3335f,  0.4484f,  0.4057f,     6.0f,  0.51f,  0.87f,   // head
         },
         1f, 2.6f, 5.0f, false, false);
 
@@ -378,7 +399,7 @@ final class Rig {
      * <p>Placed by the fitter rather than by hand: the head located in the flat sprite
      * by masked cross-correlation, which fixes the scale for every part, then the whole
      * body nudged until the assembly matches the sprite in colour, pixel by pixel.
-     * Silhouette overlap 0.894 against the sprite it replaces.
+     * Silhouette overlap, as drawn, 0.872 against the sprite it replaces.
      */
     static final Rig BURGER = new Rig(
         new int[] {
@@ -390,11 +411,11 @@ final class Rig {
         },
         new float[] {
             //  cx        cy        w        h       rest    pivotX pivotY
-              0.5870f,  0.6113f,  0.4199f,  0.3645f,    -3.5f,  0.26f,  0.71f,   // sig
-              0.4870f,  0.6889f,  0.5871f,  0.3790f,   -15.7f,  0.50f,  0.50f,   // torso
-              0.4710f,  0.4355f,  0.2480f,  0.2400f,    78.0f,  0.59f,  0.81f,   // arm_l
-              0.5290f,  0.6855f,  0.2915f,  0.2839f,   -74.5f,  0.38f,  0.08f,   // arm_r
-              0.5000f,  0.3288f,  0.5593f,  0.5317f,     6.0f,  0.49f,  0.84f,   // head
+              0.6000f,  0.6233f,  0.4199f,  0.3645f,    -5.2f,  0.26f,  0.61f,   // sig
+              0.5000f,  0.6639f,  0.5956f,  0.3845f,    21.0f,  0.50f,  0.50f,   // torso
+              0.4590f,  0.6605f,  0.2744f,  0.2655f,    83.2f,  0.69f,  0.08f,   // arm_l
+              0.5660f,  0.6855f,  0.2355f,  0.2293f,   -92.0f,  0.27f,  0.08f,   // arm_r
+              0.5250f,  0.3288f,  0.5471f,  0.5201f,    -6.0f,  0.48f,  0.82f,   // head
         },
         1f, 3.0f, 4.0f, false, true);
 }
