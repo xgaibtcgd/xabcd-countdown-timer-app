@@ -715,18 +715,20 @@ function screenComplete(ctx, L, buddy, t) {
   const scene = buildScene(L.play, buddy.index, M_CELEBRATE, buddy.light);
   drawSceneBackground(ctx, scene, buddy, t);
 
-  const title = L.cmpTitle;
-  const size = Math.min(rh(title) * 0.44, DATA.metrics.designWidth * 0.075);
-  wordmark(ctx, 'Mission', rcx(title), title[1] + rh(title) * 0.32, size, '#2879ED');
-  wordmark(ctx, 'Complete!', rcx(title), title[1] + rh(title) * 0.80, size * 1.08, '#EC4777');
-
   // Which celebration. In the app this comes from the morning's seed; here it comes
   // from window.CELEBRATION so the shoot script can render the whole rotation rather
   // than whichever one a lucky seed happened to pick.
   const CMODES = ['confetti', 'fireworks', 'disco', 'chase', 'starfall'];
   const cmode = (typeof window !== 'undefined' && window.CELEBRATION) || 'confetti';
   const party = !(typeof window !== 'undefined' && window.CELEBRATION_OFF);
+  // The lighting sits on the sky and UNDER everything that stands in it, the wordmark
+  // included. ScreenComplete.draw dims before it letters.
   if (party) { drawDusk(ctx, L, cmode, t); drawPartyLights(ctx, L, buddy, t, cmode); }
+
+  const title = L.cmpTitle;
+  const size = Math.min(rh(title) * 0.44, DATA.metrics.designWidth * 0.075);
+  wordmark(ctx, 'Mission', rcx(title), title[1] + rh(title) * 0.32, size, '#2879ED');
+  wordmark(ctx, 'Complete!', rcx(title), title[1] + rh(title) * 0.80, size * 1.08, '#EC4777');
 
   const stage = L.cmpStage;
   const goalSize = Math.min(rh(stage) * 0.42, DATA.metrics.designWidth * 0.30);
@@ -757,10 +759,18 @@ function screenComplete(ctx, L, buddy, t) {
               height * 0.075 * twinkle, alpha(DATA.tokens.gold, twinkle * 0.86));
   }
 
-  if (party && cmode === 'fireworks') drawFireworks(ctx, L.play, buddy, t);
-  if (party && cmode === 'starfall') drawStarfall(ctx, L.play, t);
+  // A climbing shell and its burst flash are drawn by the screen (ScreenComplete
+  // .drawSparks) and belong under the foreground with everything else on the stage.
+  if (party && cmode === 'fireworks') drawFireworks(ctx, L.play, buddy, t, false);
   drawSceneForeground(ctx, scene, t, false);
-  if (party && cmode !== 'fireworks') drawConfetti(ctx, L.play, buddy, t);
+
+  // Everything below lives in the particle pool, and the pool is drawn over the scene
+  // and UNDER the interface. ScreenComplete.draw.
+  if (party) {
+    if (cmode === 'fireworks') drawFireworks(ctx, L.play, buddy, t, true);
+    else if (cmode === 'starfall') drawStarfall(ctx, L.play, t);
+    if (cmode !== 'fireworks') drawConfetti(ctx, L.play, buddy, t);
+  }
 
   const box = L.cmpCard;
   card(ctx, box, rh(box) * 0.20, 'rgba(255,255,255,.98)');
@@ -927,14 +937,20 @@ function drawStarfall(ctx, area, t) {
 /**
  * A still of the fireworks: three shells on a loop, each shown wherever its own
  * phase has got to. Closed-form, the way drawConfetti already is.
+ *
+ * Drawn in two passes because the app draws it in two places. The climbing shell and
+ * the flash of its burst are the screen's own drawing and go under the foreground;
+ * the ring of sparks it throws is thirty-four pieces handed to the particle pool, and
+ * the pool is drawn last of all. `pieces` picks which pass this call is.
  */
-function drawFireworks(ctx, area, buddy, t) {
+function drawFireworks(ctx, area, buddy, t, pieces) {
   const w = rw(area), h = rh(area);
   const RISE = 1.15, LIFE = 0.62, CYCLE = RISE + LIFE + 1.6;
   for (let i = 0; i < 3; i++) {
     const phase = (t + i * 0.75) % CYCLE;
     const x = area[0] + w * (0.22 + 0.28 * i);
     if (phase < RISE) {
+      if (pieces) continue;
       const p = phase / RISE;
       const y = area[3] - h * 0.62 * (p * (2 - p));       // ease out, as gravity does
       const [r, g, b] = rgb(DATA.tokens.gold);
@@ -946,10 +962,13 @@ function drawFireworks(ctx, area, buddy, t) {
     }
     const age = phase - RISE;
     const y = area[3] - h * 0.62;
-    if (age < LIFE) {
-      const flash = age < 0.09 ? age / 0.09
-                  : Math.pow(1 - (age - 0.09) / (LIFE - 0.09), 2);
-      radialBlob(ctx, x, y, w * 0.26, w * 0.26, 0.42 * flash, '#FFFFFF');
+    if (!pieces) {
+      if (age < LIFE) {
+        const flash = age < 0.09 ? age / 0.09
+                    : Math.pow(1 - (age - 0.09) / (LIFE - 0.09), 2);
+        radialBlob(ctx, x, y, w * 0.26, w * 0.26, 0.42 * flash, '#FFFFFF');
+      }
+      continue;
     }
     // The ring of sparks the burst threw, falling under gravity.
     const cols = [buddy.primary, buddy.accent, DATA.tokens.gold, '#FF6B6B', '#5ED6F2', '#9B7BFF'];

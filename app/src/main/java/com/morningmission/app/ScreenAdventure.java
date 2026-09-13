@@ -183,6 +183,10 @@ final class ScreenAdventure extends Screen {
         // the thing worth looking at. Treats still to come pass behind it, as they did.
         drawGoal(c, layout, theme, engine);
         view.scene.drawForeground(c, theme, t, true);
+        // Over the scene and under the interface, as on Home and on Complete. The
+        // munch emotes belong beside the buddy and the opening volley belongs in the
+        // sky; neither belongs across the task card or the button under it.
+        view.particles.draw(c);
 
         drawTopBar(c, layout, theme);
         drawMute(c, layout, theme);
@@ -191,8 +195,6 @@ final class ScreenAdventure extends Screen {
         drawProgress(c, layout, theme, engine);
         drawTaskCard(c, layout, theme, engine);
         drawAction(c, layout, engine);
-
-        view.particles.draw(c);
 
         if (engine.isPaused()) drawPausedVeil(c, layout);
     }

@@ -116,9 +116,16 @@ final class ScreenComplete extends Screen {
         drawStage(c, layout, theme, t);
         if (party) drawSparks(c, layout, theme, t);
         view.scene.drawForeground(c, theme, t, false);
+        // Over the scene and under the interface, the rule ScreenHome states: the
+        // confetti belongs to the party, not to the card stacked on top of it. Drawn
+        // last it lands ON the card, and three of the five celebrations keep the pool
+        // topped up for as long as the card is up -- so "You finished with" and
+        // "Amazing! You're a Morning Hero!" spend the whole screen with paper on them.
+        // Nobody saw it because the preview drew the card last and the app drew it
+        // first, and only the preview was ever looked at.
+        view.particles.draw(c);
         drawCard(c, layout, theme, engine);
         drawButtons(c, layout, theme);
-        view.particles.draw(c);
     }
 
     // ------------------------------------------------------------------ the party
