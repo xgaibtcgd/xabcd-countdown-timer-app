@@ -224,6 +224,40 @@ final class Celebration {
         }
     }
 
+    // ------------------------------------------------------------------ the dressing
+
+    /** Balloons on the chase mode, drifting up behind the stage. */
+    static final int BALLOONS = 5;
+
+    /**
+     * How far the mirror ball has swung, in degrees.
+     *
+     * <p>It sways rather than spins. The sprite is a 2D photograph of a ball and turning
+     * one in the plane of the screen reads as a wheel, not as a mirror ball; what sells a
+     * hanging thing is a slow pendulum, and the four light cones underneath it are
+     * already doing the turning.
+     */
+    static float ballSway(float t) {
+        return 5.0f * (float) Math.sin(t * 1.1f);
+    }
+
+    /** Where balloon {@code i} is on its climb: 0 at the floor, 1 clear of the top. */
+    static float balloonRise(int i, float t) {
+        float speed = 0.070f + 0.016f * (i % 3);
+        float p = (t * speed + i * (1f / BALLOONS)) % 1f;
+        return p < 0f ? p + 1f : p;
+    }
+
+    /** Its sideways wander, as a fraction of the play width, centred on zero. */
+    static float balloonDrift(int i, float t) {
+        return 0.035f * (float) Math.sin(t * (0.7f + 0.13f * i) + i * 1.7f);
+    }
+
+    /** Where balloon {@code i} sits across the width, 0..1, before its drift. */
+    static float balloonLane(int i) {
+        return 0.10f + 0.80f * ((i * 2 + 1) % BALLOONS) / (float) (BALLOONS - 1);
+    }
+
     /** Particles one firework shell spends when it bursts. At most three are alive. */
     static final int SHELL_PIECES = 34;
     static final int SHELLS = 3;

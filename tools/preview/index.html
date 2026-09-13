@@ -572,7 +572,9 @@ const PRIZE_CAPTION = ['padlocked', 'the lid gives', 'half open', 'treasure lit'
 function renderGoals() {
   const host = document.getElementById('goals');
   host.textContent = '';
-  const names = ['chest_0', 'chest_1', 'chest_2', 'chest_3', 'chest_4', 'star'];
+  const names = ['chest_0', 'chest_1', 'chest_2', 'chest_3', 'chest_4', 'star',
+   'mirrorball', 'popper', 'balloon_red', 'balloon_yellow',
+   'balloon_blue', 'balloon_pink'];
   names.forEach((name, i) => {
     const { canvas, ctx, size } = makeCanvas(156);
     const c = size / 2;

@@ -651,9 +651,19 @@ final class MorningView extends View implements Choreographer.FrameCallback, Eng
     static final int PROP_CHEST_OPEN = 4;
     static final int PROP_STAR = PROP_CHEST_FRAMES;
 
+    /** Party dressing for the Complete screen, one set per celebration that wants it. */
+    static final int PROP_MIRRORBALL = PROP_STAR + 1;
+    static final int PROP_POPPER = PROP_MIRRORBALL + 1;
+    /** Four colours, indexed {@code PROP_BALLOON_0 + i}. Kept contiguous on purpose. */
+    static final int PROP_BALLOON_0 = PROP_POPPER + 1;
+    static final int PROP_BALLOON_COLOURS = 4;
+
     private static final int[] PROP_RES = {
         R.drawable.prize_chest_0, R.drawable.prize_chest_1, R.drawable.prize_chest_2,
         R.drawable.prize_chest_3, R.drawable.prize_chest_4, R.drawable.prize_star,
+        R.drawable.prop_mirrorball, R.drawable.prop_popper,
+        R.drawable.prop_balloon_red, R.drawable.prop_balloon_yellow,
+        R.drawable.prop_balloon_blue, R.drawable.prop_balloon_pink,
     };
 
     /**

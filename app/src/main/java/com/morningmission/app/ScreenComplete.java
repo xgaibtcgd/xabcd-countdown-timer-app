@@ -104,6 +104,8 @@ final class ScreenComplete extends Screen {
             advanceCelebration(layout, theme, dt);
             drawDusk(c, layout);
             drawLights(c, layout, theme, t);
+            // Behind the wordmark and the stage, so the buddy is never behind a balloon.
+            if (mode == Celebration.MODE_CHASE) drawBalloons(c, layout.play, t);
         }
 
         RectF title = layout.cmpTitle;
@@ -113,6 +115,7 @@ final class ScreenComplete extends Screen {
         Theme.wordmark(c, "Complete!", title.centerX(), title.top + title.height() * 0.80f,
                        size * 1.08f, 0xFFEC4777);
 
+        if (party && mode == Celebration.MODE_CONFETTI) drawPoppers(c, layout.cmpStage, t);
         drawStage(c, layout, theme, t);
         if (party) drawSparks(c, layout, theme, t);
         view.scene.drawForeground(c, theme, t, false);
@@ -321,7 +324,9 @@ final class ScreenComplete extends Screen {
             case Celebration.MODE_DISCO: {
                 // Four cones sweeping from a point above the stage. Same shape as
                 // Scene.drawGodRays: one form, drawn a few times under a rotation.
-                float cx = play.centerX(), cy = play.top + play.height() * 0.06f;
+                // Below the title band, not inside it: the ball hangs from this point
+                // and at 0.06 it came down across "Mission Complete!".
+                float cx = play.centerX(), cy = play.top + play.height() * 0.155f;
                 for (int i = 0; i < 4; i++) {
                     float deg = Celebration.coneAngle(i, 4, t);
                     int tint = discoTint(theme, i, t);
@@ -343,6 +348,7 @@ final class ScreenComplete extends Screen {
                     c.drawCircle(px, play.bottom - play.height() * 0.16f,
                                  play.width() * 0.15f, Theme.FILL);
                 }
+                drawMirrorBall(c, play, cx, cy, t);
                 break;
             }
             case Celebration.MODE_CHASE: {
@@ -469,6 +475,68 @@ final class ScreenComplete extends Screen {
         }
         Theme.FILL.setShader(null);
         Theme.FILL.setAlpha(255);
+    }
+
+    /**
+     * The ball the disco's four cones hang off, on a cord from the top of the sky.
+     *
+     * <p>Drawn after the beams rather than before, so they read as coming out from
+     * behind it. It sways instead of spinning: see {@link Celebration#ballSway}.
+     */
+    private void drawMirrorBall(Canvas c, RectF play, float cx, float cy, float t) {
+        float size = play.width() * 0.19f;
+        float sway = Celebration.ballSway(t);
+        // The cord, from the top of the sky down to the loop on the ball. Swung with it
+        // from the same point, so the two stay joined.
+        float foot = cy - size * 0.34f;
+        Theme.FILL.setShader(null);
+        Theme.FILL.setColorFilter(null);
+        Theme.FILL.setColor(Theme.alpha(0xFFCBA23A, 190));
+        c.save();
+        c.translate(cx, play.top);
+        c.rotate(sway);
+        c.drawRect(-play.width() * 0.004f, 0f, play.width() * 0.004f, foot - play.top,
+                   Theme.FILL);
+        c.restore();
+        // The ball hangs off the end of that cord, so it swings through an arc rather
+        // than rocking on the spot.
+        double th = Math.toRadians(sway);
+        float arm = cy - play.top;
+        view.drawProp(c, MorningView.PROP_MIRRORBALL,
+                      cx + (float) Math.sin(th) * arm,
+                      play.top + (float) Math.cos(th) * arm, size, sway, 255);
+    }
+
+    /** Balloons drifting up behind the stage, for the fairground mode. */
+    private void drawBalloons(Canvas c, RectF play, float t) {
+        float size = play.width() * 0.14f;
+        for (int i = 0; i < Celebration.BALLOONS; i++) {
+            float rise = Celebration.balloonRise(i, t);
+            float x = play.left + play.width()
+                    * (Celebration.balloonLane(i) + Celebration.balloonDrift(i, t));
+            float y = play.bottom + size * 0.6f - rise * (play.height() + size * 1.2f);
+            // Fading in off the floor and out through the top, so neither end pops.
+            float edge = Math.min(rise / 0.10f, (1f - rise) / 0.12f);
+            int alpha = (int) (235 * Math.max(0f, Math.min(1f, edge)));
+            if (alpha <= 2) continue;
+            view.drawProp(c, MorningView.PROP_BALLOON_0 + i % MorningView.PROP_BALLOON_COLOURS,
+                          x, y, size, Celebration.balloonDrift(i, t) * 90f, alpha);
+        }
+    }
+
+    /**
+     * The popper the confetti came out of, standing on the ground at the left.
+     *
+     * <p>One, not a matched pair. The stage has a treasure chest in its bottom-right
+     * corner and a card across its bottom edge, and a second popper put anywhere near
+     * either disappears behind it -- so the left one stands opposite the chest instead of
+     * against a copy of itself. Drawn before the stage, so the buddy walks in front of it.
+     */
+    private void drawPoppers(Canvas c, RectF stage, float t) {
+        float size = stage.width() * 0.22f;
+        float kick = 1f + 0.04f * (float) Math.sin(t * 3.1f);
+        view.drawProp(c, MorningView.PROP_POPPER, stage.left + size * 0.50f,
+                      stage.bottom - size * 0.28f, size * kick, -8f, 255);
     }
 
     private void drawStage(Canvas c, Layout layout, BuddyTheme theme, float t) {

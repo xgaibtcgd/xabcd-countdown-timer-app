@@ -437,7 +437,9 @@ home.onload = home.onerror = done;
 home.src = 'backdrops/home_storybook.jpg';
 BACKDROPS.home = home;
 
-['chest_0', 'chest_1', 'chest_2', 'chest_3', 'chest_4', 'star'].forEach(name => {
+['chest_0', 'chest_1', 'chest_2', 'chest_3', 'chest_4', 'star',
+   'mirrorball', 'popper', 'balloon_red', 'balloon_yellow',
+   'balloon_blue', 'balloon_pink'].forEach(name => {
   const p = new Image();
   p.src = 'props/' + name + '.png';
   PROPS[name] = p;

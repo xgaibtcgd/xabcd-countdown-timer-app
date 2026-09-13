@@ -46,7 +46,9 @@ window.READY = new Promise(resolve => {
   });
   const h = new Image(); h.onload = h.onerror = done;
   h.src = 'backdrops/home_storybook.jpg'; BACKDROPS.home = h;
-  ['chest_0', 'chest_1', 'chest_2', 'chest_3', 'chest_4', 'star'].forEach(name => {
+  ['chest_0', 'chest_1', 'chest_2', 'chest_3', 'chest_4', 'star',
+   'mirrorball', 'popper', 'balloon_red', 'balloon_yellow',
+   'balloon_blue', 'balloon_pink'].forEach(name => {
     const p = new Image(); p.onload = p.onerror = () => {};
     p.src = 'props/' + name + '.png'; PROPS[name] = p;
   });

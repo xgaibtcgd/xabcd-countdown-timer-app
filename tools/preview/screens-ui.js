@@ -723,12 +723,18 @@ function screenComplete(ctx, L, buddy, t) {
   const party = !(typeof window !== 'undefined' && window.CELEBRATION_OFF);
   // The lighting sits on the sky and UNDER everything that stands in it, the wordmark
   // included. ScreenComplete.draw dims before it letters.
-  if (party) { drawDusk(ctx, L, cmode, t); drawPartyLights(ctx, L, buddy, t, cmode); }
+  if (party) {
+    drawDusk(ctx, L, cmode, t);
+    drawPartyLights(ctx, L, buddy, t, cmode);
+    if (cmode === 'chase') drawBalloons(ctx, L.play, t);
+  }
 
   const title = L.cmpTitle;
   const size = Math.min(rh(title) * 0.44, DATA.metrics.designWidth * 0.075);
   wordmark(ctx, 'Mission', rcx(title), title[1] + rh(title) * 0.32, size, '#2879ED');
   wordmark(ctx, 'Complete!', rcx(title), title[1] + rh(title) * 0.80, size * 1.08, '#EC4777');
+
+  if (party && cmode === 'confetti') drawPoppers(ctx, L.cmpStage, t);
 
   const stage = L.cmpStage;
   const goalSize = Math.min(rh(stage) * 0.42, DATA.metrics.designWidth * 0.30);
@@ -841,6 +847,54 @@ function celebrationDusk(mode, t) {
   return target * p * p * (3 - 2 * p);
 }
 
+/** Celebration.ballSway / balloonRise / balloonLane / balloonDrift, ported. */
+const BALLOONS = 5;
+const BALLOON_COLOURS = ['balloon_red', 'balloon_yellow', 'balloon_blue', 'balloon_pink'];
+function ballSway(t) { return 5.0 * Math.sin(t * 1.1); }
+function balloonRise(i, t) {
+  const speed = 0.070 + 0.016 * (i % 3);
+  const p = (t * speed + i * (1 / BALLOONS)) % 1;
+  return p < 0 ? p + 1 : p;
+}
+function balloonDrift(i, t) { return 0.035 * Math.sin(t * (0.7 + 0.13 * i) + i * 1.7); }
+function balloonLane(i) { return 0.10 + 0.80 * ((i * 2 + 1) % BALLOONS) / (BALLOONS - 1); }
+
+/** ScreenComplete.drawMirrorBall: hung on a cord, swinging through an arc. */
+function drawMirrorBall(ctx, area, cx, cy, t) {
+  const w = rw(area), size = w * 0.19;
+  const sway = ballSway(t), foot = cy - size * 0.34;
+  ctx.save();
+  ctx.translate(cx, area[1]);
+  ctx.rotate(sway * Math.PI / 180);
+  ctx.fillStyle = 'rgba(203,162,58,.75)';
+  ctx.fillRect(-w * 0.004, 0, w * 0.008, foot - area[1]);
+  ctx.restore();
+  const th = sway * Math.PI / 180, arm = cy - area[1];
+  drawProp(ctx, 'mirrorball', cx + Math.sin(th) * arm, area[1] + Math.cos(th) * arm,
+           size, sway, 1);
+}
+
+/** ScreenComplete.drawBalloons. */
+function drawBalloons(ctx, area, t) {
+  const w = rw(area), h = rh(area), size = w * 0.14;
+  for (let i = 0; i < BALLOONS; i++) {
+    const rise = balloonRise(i, t);
+    const x = area[0] + w * (balloonLane(i) + balloonDrift(i, t));
+    const y = area[3] + size * 0.6 - rise * (h + size * 1.2);
+    const a = Math.max(0, Math.min(1, Math.min(rise / 0.10, (1 - rise) / 0.12))) * 0.92;
+    if (a <= 0.01) continue;
+    drawProp(ctx, BALLOON_COLOURS[i % BALLOON_COLOURS.length], x, y, size,
+             balloonDrift(i, t) * 90, a);
+  }
+}
+
+/** ScreenComplete.drawPoppers: one, on the ground at the left, opposite the chest. */
+function drawPoppers(ctx, stage, t) {
+  const size = rw(stage) * 0.22;
+  const kick = 1 + 0.04 * Math.sin(t * 3.1);
+  drawProp(ctx, 'popper', stage[0] + size * 0.50, stage[3] - size * 0.28, size * kick, -8, 1);
+}
+
 function drawDusk(ctx, L, mode, t) {
   const d = celebrationDusk(mode, t);
   if (d <= 0) return;
@@ -854,7 +908,7 @@ function drawPartyLights(ctx, L, buddy, t, mode) {
   const play = L.play, glow = celebrationGlow(mode, t);
   const w = rw(play), h = rh(play);
   if (mode === 'disco') {
-    const cx = rcx(play), cy = play[1] + h * 0.06;
+    const cx = rcx(play), cy = play[1] + h * 0.155;
     for (let i = 0; i < 4; i++) {
       const deg = i * 90 + 26 * (0.5 + 0.5 * Math.sin(t * 0.31 * 2 * Math.PI));
       let hue = (t * 0.19) % 1 + i * 0.25; hue -= Math.floor(hue);
@@ -873,6 +927,7 @@ function drawPartyLights(ctx, L, buddy, t, mode) {
       ctx.arc(px, play[3] - h * 0.16, w * 0.15, 0, Math.PI * 2);
       ctx.fill();
     }
+    drawMirrorBall(ctx, play, cx, cy, t);
   } else if (mode === 'chase') {
     // Inset from the stage, so the string frames the buddy rather than hugging the edge.
     const ins = w * 0.05;

@@ -730,6 +730,50 @@ public final class SelfTest {
             }
         }
 
+        // -- the dressing moves, stays where it belongs, and does not strobe
+        float swayLo = 90f, swayHi = -90f;
+        for (float t = 0f; t <= 40f; t += 0.002f) {
+            float sway = Celebration.ballSway(t);
+            if (sway < swayLo) swayLo = sway;
+            if (sway > swayHi) swayHi = sway;
+        }
+        check(swayHi - swayLo > 4f,
+              "the mirror ball swings " + (swayHi - swayLo) + " degrees, which is hanging still");
+        check(swayHi <= 12f && swayLo >= -12f,
+              "the mirror ball swings to " + swayHi + " degrees, which is a wrecking ball");
+
+        boolean[] seenLow = new boolean[Celebration.BALLOONS];
+        boolean[] seenHigh = new boolean[Celebration.BALLOONS];
+        for (int i = 0; i < Celebration.BALLOONS; i++) {
+            float lane = Celebration.balloonLane(i);
+            check(lane >= 0.05f && lane <= 0.95f,
+                  "balloon " + i + " rises at " + lane + " of the width, off the side of it");
+            for (int j = i + 1; j < Celebration.BALLOONS; j++) {
+                check(Math.abs(lane - Celebration.balloonLane(j)) > 0.05f,
+                      "balloons " + i + " and " + j + " share a lane and rise as one balloon");
+            }
+            float prev = Celebration.balloonRise(i, 0f);
+            int wraps = 0;
+            for (float t = 0.01f; t <= 90f; t += 0.01f) {
+                float r = Celebration.balloonRise(i, t);
+                check(r >= 0f && r < 1f,
+                      "balloon " + i + " is " + r + " of the way up, which is off the screen");
+                // Up, and only up: a balloon that eases back down is a balloon deflating.
+                if (r < prev) { wraps++; check(prev > 0.9f && r < 0.1f,
+                      "balloon " + i + " went back down from " + prev + " to " + r); }
+                if (r < 0.2f) seenLow[i] = true;
+                if (r > 0.8f) seenHigh[i] = true;
+                check(Math.abs(Celebration.balloonDrift(i, t)) <= 0.08f,
+                      "balloon " + i + " wandered " + Celebration.balloonDrift(i, t)
+                      + " of the width sideways, which is not a drift");
+                prev = r;
+            }
+            check(wraps >= 3, "balloon " + i + " crossed the screen " + wraps
+                  + " times in ninety seconds; the string thins out");
+            check(seenLow[i] && seenHigh[i],
+                  "balloon " + i + " never covers the full climb");
+        }
+
         // -- the gentle mode opens gently. Not a rate or an amplitude: a count. Every
         //    mode used to open with the loudest volley there is, starfall included.
         check(Celebration.volley(Celebration.MODE_STARFALL)
@@ -2237,9 +2281,19 @@ public final class SelfTest {
         // table now; this is what would catch a frame added without its drawable.
         check(MorningView.PROP_STAR == MorningView.PROP_CHEST_FRAMES,
               "the star should sit immediately past the chest frames");
-        check(MorningView.PROP_COUNT == MorningView.PROP_CHEST_FRAMES + 1,
-              "the prop table holds " + MorningView.PROP_COUNT + " entries for "
-              + MorningView.PROP_CHEST_FRAMES + " chest frames and a star");
+        // Every named prop needs a drawable behind it, and the party set has to stay
+        // contiguous because the balloons are indexed PROP_BALLOON_0 + i. Written as
+        // "the table is the chest plus a star", which held exactly as long as the star
+        // was the last thing in it and then failed the first time anything was added.
+        int lastNamed = MorningView.PROP_BALLOON_0 + MorningView.PROP_BALLOON_COLOURS - 1;
+        check(MorningView.PROP_COUNT == lastNamed + 1,
+              "the prop table holds " + MorningView.PROP_COUNT + " entries but the last"
+              + " named prop is index " + lastNamed + "; one of them has no drawable");
+        check(MorningView.PROP_MIRRORBALL == MorningView.PROP_STAR + 1
+                      && MorningView.PROP_POPPER == MorningView.PROP_MIRRORBALL + 1
+                      && MorningView.PROP_BALLOON_0 == MorningView.PROP_POPPER + 1,
+              "the party props are not contiguous, so an index in the table decodes"
+              + " the wrong picture or nothing at all");
     }
 
     /**
